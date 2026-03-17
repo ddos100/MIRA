@@ -1,4 +1,4 @@
-import { useState } from "react";
+import type { ReactNode } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, Pencil, ExternalLink } from "lucide-react";
 
@@ -13,14 +13,11 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
-// Lazy import of asset form modal (inline for simplicity)
-import AssetListPage from "./AssetListPage";
-
 // ─── Info Card ────────────────────────────────────────────────────────────────
 
 interface InfoRowProps {
   label: string;
-  value: React.ReactNode;
+  value: ReactNode;
 }
 
 function InfoRow({ label, value }: InfoRowProps) {

@@ -1,13 +1,45 @@
+import { NavLink, Routes, Route, Navigate } from "react-router-dom";
+import ProcessingActivitiesPage from "./ProcessingActivitiesPage";
+import DPIAListPage from "./DPIAListPage";
+import DSRListPage from "./DSRListPage";
+import { cn } from "@/utils/cn";
+
+const navItems = [
+  { to: "/privacy", label: "RoPA (Article 30)", end: true },
+  { to: "/privacy/dpias", label: "DPIAs" },
+  { to: "/privacy/dsr", label: "Data Subject Requests" },
+];
+
 export default function PrivacyPage() {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Privacy</h1>
-        <p className="text-muted-foreground">Manage your privacy here.</p>
-      </div>
-      <div className="bg-card border rounded-lg p-6 text-sm text-muted-foreground">
-        Privacy module — full implementation coming in Phase 2 &amp; 3.
-      </div>
+      {/* Top nav bar */}
+      <nav className="flex gap-1 border-b border-border">
+        {navItems.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.end}
+            className={({ isActive }) =>
+              cn(
+                "px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px",
+                isActive
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              )
+            }
+          >
+            {item.label}
+          </NavLink>
+        ))}
+      </nav>
+
+      <Routes>
+        <Route index element={<ProcessingActivitiesPage />} />
+        <Route path="dpias" element={<DPIAListPage />} />
+        <Route path="dsr" element={<DSRListPage />} />
+        <Route path="*" element={<Navigate to="/privacy" replace />} />
+      </Routes>
     </div>
   );
 }
