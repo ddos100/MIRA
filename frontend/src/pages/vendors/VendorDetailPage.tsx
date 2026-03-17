@@ -11,10 +11,12 @@ import {
   useVendorReviews,
   useCreateVendorReview,
   useUpdateVendorReview,
+  type Vendor,
   type VendorReview,
   type RiskTier,
   type ReviewStatus,
 } from "@/api/vendors";
+import { VendorFormModal } from "./VendorListPage";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
@@ -22,7 +24,6 @@ import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
-import { cn } from "@/utils/cn";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -151,18 +152,6 @@ export default function VendorDetailPage() {
   const { data: vendor, isLoading, isError } = useVendor(id ?? "");
   const { data: reviewsData, isLoading: reviewsLoading } = useVendorReviews(id ?? "");
   const reviews = reviewsData?.results ?? [];
-
-  // Lazy import of VendorFormModal to avoid circular dependencies
-  const [VendorFormModal, setVendorFormModal] = useState<React.ComponentType<{ open: boolean; onClose: () => void; vendor?: import("@/api/vendors").Vendor }> | null>(null);
-
-  function handleEditVendor() {
-    if (!VendorFormModal) {
-      import("./VendorListPage").then((mod) => {
-        // We re-use the inline component from this file instead
-      });
-    }
-    setEditVendorOpen(true);
-  }
 
   if (isLoading) {
     return <div className="flex justify-center py-16"><LoadingSpinner /></div>;

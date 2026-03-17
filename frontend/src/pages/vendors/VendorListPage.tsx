@@ -19,7 +19,6 @@ import {
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { Textarea } from "@/components/ui/Textarea";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -81,7 +80,7 @@ interface VendorFormModalProps {
   vendor?: Vendor;
 }
 
-function VendorFormModal({ open, onClose, vendor }: VendorFormModalProps) {
+export function VendorFormModal({ open, onClose, vendor }: VendorFormModalProps) {
   const createVendor = useCreateVendor();
   const updateVendor = useUpdateVendor(vendor?.id ?? "");
 

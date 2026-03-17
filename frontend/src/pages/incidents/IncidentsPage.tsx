@@ -1,13 +1,12 @@
+import { Routes, Route } from "react-router-dom";
+import IncidentListPage from "./IncidentListPage";
+import IncidentDetailPage from "./IncidentDetailPage";
+
 export default function IncidentsPage() {
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Incidents</h1>
-        <p className="text-muted-foreground">Manage your incidents here.</p>
-      </div>
-      <div className="bg-card border rounded-lg p-6 text-sm text-muted-foreground">
-        Incidents module — full implementation coming in Phase 2 &amp; 3.
-      </div>
-    </div>
+    <Routes>
+      <Route index element={<IncidentListPage />} />
+      <Route path=":id" element={<IncidentDetailPage />} />
+    </Routes>
   );
 }
