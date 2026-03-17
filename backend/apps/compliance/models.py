@@ -1,0 +1,144 @@
+"""Compliance Management models."""
+from django.conf import settings
+from django.db import models
+from django.utils.translation import gettext_lazy as _
+from apps.core.models import BaseModel
+
+
+class ComplianceFramework(BaseModel):
+    name = models.CharField(max_length=200, unique=True)
+    short_name = models.CharField(max_length=50, unique=True)
+    version = models.CharField(max_length=50, blank=True)
+    description = models.TextField(blank=True)
+    issuing_body = models.CharField(max_length=200, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = _("Compliance Framework")
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.short_name} {self.version}"
+
+
+class Requirement(BaseModel):
+    framework = models.ForeignKey(
+        ComplianceFramework, on_delete=models.CASCADE, related_name="requirements"
+    )
+    parent = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="children",
+    )
+    ref_code = models.CharField(max_length=50)
+    title = models.CharField(max_length=500)
+    description = models.TextField(blank=True)
+    guidance = models.TextField(blank=True)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        verbose_name = _("Requirement")
+        ordering = ["framework", "order", "ref_code"]
+        unique_together = [("framework", "ref_code")]
+
+    def __str__(self):
+        return f"{self.framework.short_name} {self.ref_code}: {self.title}"
+
+
+class ComplianceProgram(BaseModel):
+    class Status(models.TextChoices):
+        PLANNED = "planned", _("Planned")
+        IN_PROGRESS = "in_progress", _("In Progress")
+        COMPLETED = "completed", _("Completed")
+        SUSPENDED = "suspended", _("Suspended")
+
+    name = models.CharField(max_length=255)
+    framework = models.ForeignKey(
+        ComplianceFramework, on_delete=models.CASCADE, related_name="programs"
+    )
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="compliance_programs",
+    )
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.PLANNED
+    )
+    target_date = models.DateField(null=True, blank=True)
+    description = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = _("Compliance Program")
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.name
+
+
+class ComplianceAssessment(BaseModel):
+    class ComplianceStatus(models.TextChoices):
+        NOT_ASSESSED = "not_assessed", _("Not Assessed")
+        COMPLIANT = "compliant", _("Compliant")
+        PARTIALLY_COMPLIANT = "partially_compliant", _("Partially Compliant")
+        NON_COMPLIANT = "non_compliant", _("Non-Compliant")
+        NOT_APPLICABLE = "not_applicable", _("Not Applicable")
+
+    program = models.ForeignKey(
+        ComplianceProgram, on_delete=models.CASCADE, related_name="assessments"
+    )
+    requirement = models.ForeignKey(
+        Requirement, on_delete=models.CASCADE, related_name="assessments"
+    )
+    status = models.CharField(
+        max_length=25,
+        choices=ComplianceStatus.choices,
+        default=ComplianceStatus.NOT_ASSESSED,
+    )
+    notes = models.TextField(blank=True)
+    assessor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="compliance_assessments",
+    )
+    assessment_date = models.DateField(null=True, blank=True)
+    next_review_date = models.DateField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = _("Compliance Assessment")
+        unique_together = [("program", "requirement")]
+        ordering = ["requirement__order"]
+
+    def __str__(self):
+        return f"{self.program} \u2013 {self.requirement.ref_code}: {self.get_status_display()}"
+
+
+class Evidence(BaseModel):
+    assessment = models.ForeignKey(
+        ComplianceAssessment, on_delete=models.CASCADE, related_name="evidence"
+    )
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    file = models.FileField(upload_to="evidence/%Y/%m/", null=True, blank=True)
+    url = models.URLField(blank=True)
+    collected_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="collected_evidence",
+    )
+    collected_date = models.DateField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = _("Evidence")
+        verbose_name_plural = _("Evidence")
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.title
