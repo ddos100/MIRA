@@ -1,13 +1,16 @@
+import { Routes, Route } from "react-router-dom";
+import ContinuityPlanListPage from "./ContinuityPlanListPage";
+import ContinuityPlanDetailPage from "./ContinuityPlanDetailPage";
+import BIAPage from "./BIAPage";
+import ContinuityTestsPage from "./ContinuityTestsPage";
+
 export default function ContinuityPage() {
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Continuity</h1>
-        <p className="text-muted-foreground">Manage your continuity here.</p>
-      </div>
-      <div className="bg-card border rounded-lg p-6 text-sm text-muted-foreground">
-        Continuity module — full implementation coming in Phase 2 &amp; 3.
-      </div>
-    </div>
+    <Routes>
+      <Route index element={<ContinuityPlanListPage />} />
+      <Route path="bia" element={<BIAPage />} />
+      <Route path="tests" element={<ContinuityTestsPage />} />
+      <Route path=":id" element={<ContinuityPlanDetailPage />} />
+    </Routes>
   );
 }

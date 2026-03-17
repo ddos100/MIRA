@@ -11,7 +11,6 @@ import {
   useVendorReviews,
   useCreateVendorReview,
   useUpdateVendorReview,
-  type Vendor,
   type VendorReview,
   type RiskTier,
   type ReviewStatus,
@@ -361,6 +360,11 @@ export default function VendorDetailPage() {
         onClose={() => { setReviewModalOpen(false); setEditReview(undefined); }}
         vendorId={id ?? ""}
         review={editReview}
+      />
+      <VendorFormModal
+        open={editVendorOpen}
+        onClose={() => setEditVendorOpen(false)}
+        vendor={vendor}
       />
     </div>
   );
