@@ -6,6 +6,8 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 
+from apps.core.mixins import CsvExportMixin
+
 from .models import Incident, IncidentCategory, IncidentUpdate
 from .serializers import (
     IncidentCategorySerializer,
@@ -24,8 +26,15 @@ class IncidentCategoryViewSet(viewsets.ModelViewSet):
     ordering_fields = ["name", "created_at"]
 
 
-class IncidentViewSet(viewsets.ModelViewSet):
+class IncidentViewSet(CsvExportMixin, viewsets.ModelViewSet):
     """CRUD for Incidents with filtering, search, ordering, and lifecycle actions."""
+
+    csv_filename = "incidents"
+    csv_export_fields = [
+        "id", "title", "status", "severity", "category_name", "owner_name",
+        "detected_at", "contained_at", "resolved_at", "closed_at",
+        "is_data_breach", "gdpr_notification_required", "created_at",
+    ]
 
     queryset = Incident.objects.select_related(
         "category", "owner", "reporter"

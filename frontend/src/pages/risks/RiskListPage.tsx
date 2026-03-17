@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Download, Pencil, Plus, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { SearchInput } from "@/components/ui/SearchInput";
@@ -10,6 +10,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Select } from "@/components/ui/Select";
 import { useRisks, useDeleteRisk, useRiskCategories } from "@/api/risks";
+import { useExportCsv } from "@/api/useExportCsv";
 import type { Risk } from "@/types";
 import RiskFormModal from "./RiskFormModal";
 
@@ -56,6 +57,7 @@ export default function RiskListPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingRisk, setEditingRisk] = useState<Risk | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Risk | null>(null);
+  const { exportCsv, isExporting } = useExportCsv();
 
   const { data: categoriesData } = useRiskCategories();
   const categories = categoriesData ?? [];
@@ -225,10 +227,26 @@ export default function RiskListPage() {
         title="Risk Register"
         description="Track and manage organisational risks."
         actions={
-          <Button onClick={openCreate}>
-            <Plus className="h-4 w-4" />
-            New Risk
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() =>
+                exportCsv("/risks/export-csv/", "risks", {
+                  search: search || undefined,
+                  status: status || undefined,
+                  category: categoryId || undefined,
+                })
+              }
+              disabled={isExporting}
+            >
+              <Download className="h-4 w-4" />
+              {isExporting ? "Exporting…" : "Export CSV"}
+            </Button>
+            <Button onClick={openCreate}>
+              <Plus className="h-4 w-4" />
+              New Risk
+            </Button>
+          </div>
         }
       />
 

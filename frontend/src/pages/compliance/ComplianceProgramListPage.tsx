@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Calendar, User } from "lucide-react";
+import { Calendar, Download, Plus, User } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -12,6 +12,7 @@ import {
   useProgramGapSummary,
   type ComplianceProgram,
 } from "@/api/compliance";
+import { useExportCsv } from "@/api/useExportCsv";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -236,6 +237,7 @@ export default function ComplianceProgramListPage() {
   const [showModal, setShowModal] = useState(false);
   const { data, isLoading, isError } = usePrograms();
   const programs = data?.results ?? [];
+  const { exportCsv, isExporting } = useExportCsv();
 
   return (
     <div className="space-y-6">
@@ -247,10 +249,20 @@ export default function ComplianceProgramListPage() {
             Track and manage your compliance programs across frameworks.
           </p>
         </div>
-        <Button onClick={() => setShowModal(true)}>
-          <Plus className="h-4 w-4" />
-          New Program
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => exportCsv("/compliance/programs/export-csv/", "compliance-programs")}
+            disabled={isExporting}
+          >
+            <Download className="h-4 w-4" />
+            {isExporting ? "Exporting…" : "Export CSV"}
+          </Button>
+          <Button onClick={() => setShowModal(true)}>
+            <Plus className="h-4 w-4" />
+            New Program
+          </Button>
+        </div>
       </div>
 
       {/* Content */}

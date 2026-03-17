@@ -6,6 +6,8 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 
+from apps.core.mixins import CsvExportMixin
+
 from .models import (
     ComplianceAssessment,
     ComplianceFramework,
@@ -44,8 +46,14 @@ class RequirementViewSet(viewsets.ModelViewSet):
     ordering_fields = ["order", "ref_code", "created_at"]
 
 
-class ComplianceProgramViewSet(viewsets.ModelViewSet):
+class ComplianceProgramViewSet(CsvExportMixin, viewsets.ModelViewSet):
     """CRUD for Compliance Programs, with a gap summary extra action."""
+
+    csv_filename = "compliance-programs"
+    csv_export_fields = [
+        "id", "name", "status", "framework_name", "owner_name",
+        "requirements_count", "target_date", "created_at",
+    ]
 
     queryset = ComplianceProgram.objects.select_related("framework", "owner")
     serializer_class = ComplianceProgramSerializer

@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { User, Lock, Key, Shield } from "lucide-react";
+import { ClipboardList, Key, Lock, User } from "lucide-react";
 import { apiClient } from "@/api/client";
 import { useAuthStore } from "@/store/authStore";
 import { Button } from "@/components/ui/Button";
@@ -35,7 +35,7 @@ type PasswordFormValues = z.infer<typeof passwordSchema>;
 
 // ─── Tab types ────────────────────────────────────────────────────────────────
 
-type Tab = "profile" | "security" | "api-keys";
+type Tab = "profile" | "security" | "api-keys" | "audit-log";
 
 // ─── Profile Tab ──────────────────────────────────────────────────────────────
 
@@ -324,12 +324,170 @@ function APIKeysTab() {
   );
 }
 
+// ─── Audit Log Tab ─────────────────────────────────────────────────────────────
+
+interface AuditLogEntry {
+  id: string;
+  timestamp: string;
+  user: string | null;
+  user_name: string;
+  action: string;
+  object_repr: string;
+  changes: Record<string, unknown> | null;
+  ip_address: string | null;
+}
+
+const ACTION_LABELS: Record<string, string> = {
+  create: "Created",
+  update: "Updated",
+  delete: "Deleted",
+  login: "Logged In",
+  logout: "Logged Out",
+};
+
+const ACTION_COLORS: Record<string, string> = {
+  create: "bg-green-100 text-green-800",
+  update: "bg-blue-100 text-blue-800",
+  delete: "bg-red-100 text-red-800",
+  login: "bg-purple-100 text-purple-800",
+  logout: "bg-gray-100 text-gray-700",
+};
+
+function AuditLogTab() {
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 25;
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["audit-log", page, search],
+    queryFn: () =>
+      apiClient
+        .get("/core/audit-log/", {
+          params: { page, page_size: pageSize, search: search || undefined },
+        })
+        .then(r => r.data),
+  });
+
+  const entries: AuditLogEntry[] = data?.results ?? [];
+  const totalCount: number = data?.count ?? 0;
+  const totalPages = Math.ceil(totalCount / pageSize);
+
+  return (
+    <div className="space-y-4 max-w-4xl">
+      <div>
+        <h3 className="text-base font-semibold mb-1">Audit Log</h3>
+        <p className="text-sm text-muted-foreground">
+          System-wide record of all create, update, and delete actions.
+        </p>
+      </div>
+
+      {/* Search */}
+      <input
+        type="search"
+        placeholder="Search by user or object…"
+        value={search}
+        onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+        className="border rounded-md px-3 py-2 text-sm w-72 bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+      />
+
+      {/* Table */}
+      {isLoading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="h-10 bg-muted animate-pulse rounded" />
+          ))}
+        </div>
+      ) : isError ? (
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          Failed to load audit log.
+        </div>
+      ) : entries.length === 0 ? (
+        <div className="rounded-lg border bg-card p-12 text-center text-sm text-muted-foreground">
+          No audit log entries found.
+        </div>
+      ) : (
+        <div className="border rounded-lg overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-muted/30">
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Timestamp</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">User</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Action</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Object</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">IP Address</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {entries.map((entry) => (
+                <tr key={entry.id} className="hover:bg-muted/20">
+                  <td className="px-4 py-3 whitespace-nowrap text-muted-foreground text-xs">
+                    {new Date(entry.timestamp).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 font-medium">
+                    {entry.user_name || "System"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                        ACTION_COLORS[entry.action] ?? "bg-gray-100 text-gray-700"
+                      )}
+                    >
+                      {ACTION_LABELS[entry.action] ?? entry.action}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground max-w-xs truncate">
+                    {entry.object_repr}
+                  </td>
+                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                    {entry.ip_address ?? "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <span>
+            Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, totalCount)} of{" "}
+            {totalCount} entries
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="px-3 py-1 border rounded text-sm disabled:opacity-50 hover:bg-accent"
+            >
+              Previous
+            </button>
+            <span className="px-3">
+              Page {page} of {totalPages}
+            </span>
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="px-3 py-1 border rounded text-sm disabled:opacity-50 hover:bg-accent"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: "profile", label: "Profile", icon: User },
   { id: "security", label: "Security", icon: Lock },
   { id: "api-keys", label: "API Keys", icon: Key },
+  { id: "audit-log", label: "Audit Log", icon: ClipboardList },
 ];
 
 export default function SettingsPage() {
@@ -364,6 +522,7 @@ export default function SettingsPage() {
         {tab === "profile" && <ProfileTab />}
         {tab === "security" && <SecurityTab />}
         {tab === "api-keys" && <APIKeysTab />}
+        {tab === "audit-log" && <AuditLogTab />}
       </div>
     </div>
   );

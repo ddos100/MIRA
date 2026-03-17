@@ -12,6 +12,9 @@ class IncidentCategorySerializer(serializers.ModelSerializer):
 
 
 class IncidentSerializer(serializers.ModelSerializer):
+    owner_name = serializers.SerializerMethodField()
+    category_name = serializers.SerializerMethodField()
+
     class Meta:
         model = Incident
         fields = "__all__"
@@ -23,6 +26,14 @@ class IncidentSerializer(serializers.ModelSerializer):
             "resolved_at",
             "closed_at",
         ]
+
+    def get_owner_name(self, obj):
+        if obj.owner_id:
+            return obj.owner.get_full_name() or obj.owner.email
+        return None
+
+    def get_category_name(self, obj):
+        return obj.category.name if obj.category_id else None
 
 
 class IncidentUpdateSerializer(serializers.ModelSerializer):

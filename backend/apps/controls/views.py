@@ -3,6 +3,8 @@ from rest_framework import viewsets
 from rest_framework.filters import OrderingFilter, SearchFilter
 from django_filters.rest_framework import DjangoFilterBackend
 
+from apps.core.mixins import CsvExportMixin
+
 from .models import Control, ControlCategory, ControlIssue, ControlTest
 from .serializers import (
     ControlCategorySerializer,
@@ -22,8 +24,14 @@ class ControlCategoryViewSet(viewsets.ModelViewSet):
     ordering_fields = ["name", "created_at"]
 
 
-class ControlViewSet(viewsets.ModelViewSet):
+class ControlViewSet(CsvExportMixin, viewsets.ModelViewSet):
     """CRUD for Controls with filtering, search, and ordering."""
+
+    csv_filename = "controls"
+    csv_export_fields = [
+        "id", "title", "status", "control_type", "frequency",
+        "category_name", "owner_name", "last_tested", "next_review_date", "created_at",
+    ]
 
     queryset = Control.objects.select_related(
         "category", "owner", "business_unit"

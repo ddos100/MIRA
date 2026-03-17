@@ -175,6 +175,16 @@ REST_FRAMEWORK = {
         "rest_framework.renderers.JSONRenderer",
     ],
     "EXCEPTION_HANDLER": "apps.core.exceptions.custom_exception_handler",
+    # Rate limiting
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "60/minute",
+        "user": "600/minute",
+        "login": "10/minute",
+    },
 }
 
 # ─── JWT ─────────────────────────────────────────────────────────────────────
@@ -287,5 +297,17 @@ LOGGING = {
     },
 }
 
-# Import and merge Celery beat schedule
+# ─── Security headers ─────────────────────────────────────────────────────────
+
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_BROWSER_XSS_FILTER = True
+X_FRAME_OPTIONS = "DENY"
+# CSP via response headers (set in production nginx or middleware)
+# These are applied by SecurityMiddleware in production:
+# SECURE_HSTS_SECONDS = 31536000
+# SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+# SECURE_SSL_REDIRECT = True (enable behind TLS termination)
+
+# ─── Import and merge Celery beat schedule ───────────────────────────────────
+
 from apps.core.celery_config import CELERY_BEAT_SCHEDULE  # noqa

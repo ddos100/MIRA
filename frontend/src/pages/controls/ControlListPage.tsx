@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Shield } from "lucide-react";
+import { Download, Plus, Shield } from "lucide-react";
 import { useControls, useDeleteControl } from "@/api/controls";
 import { useControls as useControlsHook } from "@/api/controls";
+import { useExportCsv } from "@/api/useExportCsv";
 
 // Inline minimal UI until shared components are ready
 function Badge({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -32,6 +33,7 @@ export default function ControlListPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [page, setPage] = useState(1);
+  const { exportCsv, isExporting } = useExportCsv();
 
   const { data, isLoading } = useControls({
     search,
@@ -50,13 +52,29 @@ export default function ControlListPage() {
           <h1 className="text-2xl font-bold">Control Library</h1>
           <p className="text-muted-foreground">Manage preventive, detective, and corrective controls.</p>
         </div>
-        <button
-          onClick={() => navigate("/controls/new")}
-          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90"
-        >
-          <Plus className="h-4 w-4" />
-          New Control
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() =>
+              exportCsv("/controls/export-csv/", "controls", {
+                search: search || undefined,
+                status: statusFilter || undefined,
+                control_type: typeFilter || undefined,
+              })
+            }
+            disabled={isExporting}
+            className="flex items-center gap-2 border px-4 py-2 rounded-md text-sm font-medium hover:bg-accent disabled:opacity-50"
+          >
+            <Download className="h-4 w-4" />
+            {isExporting ? "Exporting…" : "Export CSV"}
+          </button>
+          <button
+            onClick={() => navigate("/controls/new")}
+            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" />
+            New Control
+          </button>
+        </div>
       </div>
 
       {/* Filters */}

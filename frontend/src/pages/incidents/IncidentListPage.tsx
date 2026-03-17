@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Eye, Pencil, Trash2, AlertTriangle } from "lucide-react";
+import { AlertTriangle, Download, Eye, Pencil, Plus, Trash2 } from "lucide-react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,6 +17,7 @@ import {
   type IncidentSeverity,
   type IncidentStatus,
 } from "@/api/incidents";
+import { useExportCsv } from "@/api/useExportCsv";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -197,6 +198,7 @@ export default function IncidentListPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editIncident, setEditIncident] = useState<Incident | undefined>();
   const [deleteTarget, setDeleteTarget] = useState<Incident | undefined>();
+  const { exportCsv, isExporting } = useExportCsv();
 
   const { data, isLoading, isError } = useIncidents(params);
   const { data: allData } = useIncidents({ page_size: 1000 });
@@ -232,10 +234,25 @@ export default function IncidentListPage() {
           <h1 className="text-2xl font-bold">Incident Register</h1>
           <p className="text-sm text-muted-foreground">Track and manage security and operational incidents.</p>
         </div>
-        <Button onClick={() => { setEditIncident(undefined); setModalOpen(true); }}>
-          <Plus className="h-4 w-4" />
-          New Incident
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() =>
+              exportCsv("/incidents/export-csv/", "incidents", {
+                status: params.status,
+                severity: params.severity,
+              })
+            }
+            disabled={isExporting}
+          >
+            <Download className="h-4 w-4" />
+            {isExporting ? "Exporting…" : "Export CSV"}
+          </Button>
+          <Button onClick={() => { setEditIncident(undefined); setModalOpen(true); }}>
+            <Plus className="h-4 w-4" />
+            New Incident
+          </Button>
+        </div>
       </div>
 
       {/* Stat Cards */}
