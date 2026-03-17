@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mira-redis
+  namespace: mira
+  labels:
+    app: mira-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mira-redis
+  template:
+    metadata:
+      labels:
+        app: mira-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+          args: ["--save", "60", "1", "--loglevel", "warning"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+      volumes:
+        - name: redis-data
+          persistentVolumeClaim:
+            claimName: mira-redis-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mira-redis
+  namespace: mira
+spec:
+  selector:
+    app: mira-redis
+  ports:
+    - port: 6379
+      targetPort: 6379

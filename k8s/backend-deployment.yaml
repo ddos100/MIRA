@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mira-backend
+  namespace: mira
+  labels:
+    app: mira-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: mira-backend
+  template:
+    metadata:
+      labels:
+        app: mira-backend
+    spec:
+      containers:
+        - name: backend
+          image: ghcr.io/your-org/mira-backend:latest
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: mira-config
+            - secretRef:
+                name: mira-secrets
+          readinessProbe:
+            httpGet:
+              path: /api/core/health/
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/core/health/
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          volumeMounts:
+            - name: media
+              mountPath: /app/mediafiles
+      volumes:
+        - name: media
+          persistentVolumeClaim:
+            claimName: mira-media-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mira-backend
+  namespace: mira
+spec:
+  selector:
+    app: mira-backend
+  ports:
+    - port: 8000
+      targetPort: 8000

@@ -1,3 +1,5 @@
+import secrets
+
 from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -76,7 +78,7 @@ class Assessment(BaseModel):
     status = models.CharField(
         max_length=15, choices=AssessmentStatus.choices, default=AssessmentStatus.DRAFT
     )
-    token = models.CharField(max_length=64, unique=True, blank=True)
+    token = models.CharField(max_length=64, unique=True, blank=True, db_index=True)
     due_date = models.DateField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     total_score = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
@@ -84,8 +86,17 @@ class Assessment(BaseModel):
     class Meta:
         ordering = ["-created_at"]
 
+    def save(self, *args, **kwargs):
+        if not self.token:
+            self.token = secrets.token_urlsafe(32)
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.title} – {self.respondent_email}"
+
+    def portal_url(self) -> str:
+        """Shareable external portal URL for this assessment."""
+        return f"/portal/assessment/{self.token}"
 
 
 class AssessmentResponse(BaseModel):

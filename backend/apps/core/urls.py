@@ -1,16 +1,21 @@
 from django.urls import path
+from rest_framework.routers import DefaultRouter
 
 from .views import (
     AuditLogListView,
     NotificationListView,
     TagDetailView,
     TagListCreateView,
+    WebhookViewSet,
     health_check,
     mark_all_notifications_read,
     mark_notification_read,
 )
 
-urlpatterns = [
+router = DefaultRouter()
+router.register(r"webhooks", WebhookViewSet, basename="webhook")
+
+urlpatterns = router.urls + [
     path("health/", health_check, name="health-check"),
     path("tags/", TagListCreateView.as_view(), name="tag-list"),
     path("tags/<uuid:pk>/", TagDetailView.as_view(), name="tag-detail"),

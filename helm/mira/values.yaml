@@ -1,0 +1,123 @@
+# Default values for mira Helm chart.
+# Override with: helm install mira ./helm/mira -f my-values.yaml
+
+replicaCount:
+  backend: 2
+  celeryWorker: 2
+  celeryBeat: 1
+  frontend: 2
+
+image:
+  backend:
+    repository: ghcr.io/your-org/mira-backend
+    tag: latest
+    pullPolicy: IfNotPresent
+  frontend:
+    repository: ghcr.io/your-org/mira-frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+
+# ─── Backend configuration ────────────────────────────────────────────────────
+
+backend:
+  djangoSettingsModule: config.settings.production
+  allowedHosts: "mira.example.com"
+  corsAllowedOrigins: "https://mira.example.com"
+  debug: false
+  # Secret key – MUST be overridden in production
+  secretKey: "change-me-in-production"
+
+# ─── Database ────────────────────────────────────────────────────────────────
+
+postgresql:
+  enabled: true
+  auth:
+    username: mira
+    password: mira
+    database: mira
+  primary:
+    persistence:
+      enabled: true
+      size: 20Gi
+
+# ─── Redis ────────────────────────────────────────────────────────────────────
+
+redis:
+  enabled: true
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: true
+      size: 2Gi
+
+# ─── Media storage ────────────────────────────────────────────────────────────
+
+persistence:
+  media:
+    enabled: true
+    accessMode: ReadWriteMany
+    size: 20Gi
+    storageClass: standard
+
+# ─── Ingress ──────────────────────────────────────────────────────────────────
+
+ingress:
+  enabled: true
+  className: nginx
+  host: mira.example.com
+  tls:
+    enabled: true
+    secretName: mira-tls
+    certManagerIssuer: letsencrypt-prod
+
+# ─── Email ────────────────────────────────────────────────────────────────────
+
+email:
+  host: smtp.example.com
+  port: 587
+  useTls: true
+  user: ""
+  password: ""
+  defaultFrom: "MIRA GRC <noreply@mira.example.com>"
+
+# ─── OIDC / SSO ───────────────────────────────────────────────────────────────
+
+oidc:
+  enabled: false
+  providerName: SSO
+  serverUrl: ""
+  clientId: ""
+  clientSecret: ""
+
+# ─── Resource limits ──────────────────────────────────────────────────────────
+
+resources:
+  backend:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  celeryWorker:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  celeryBeat:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  frontend:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi

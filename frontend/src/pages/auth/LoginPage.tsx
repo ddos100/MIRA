@@ -81,6 +81,29 @@ export default function LoginPage() {
         {mutation.isPending && <LoadingSpinner size="sm" />}
         Sign In
       </button>
+
+      {import.meta.env.VITE_SSO_ENABLED === "true" && (
+        <>
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">or</span>
+            </div>
+          </div>
+          <a
+            href="/api/accounts/oidc/login/"
+            className="w-full flex items-center justify-center gap-2 border rounded-md px-4 py-2 text-sm font-medium hover:bg-accent transition-colors"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 8v4l3 3" />
+            </svg>
+            Sign in with SSO
+          </a>
+        </>
+      )}
     </form>
   );
 }

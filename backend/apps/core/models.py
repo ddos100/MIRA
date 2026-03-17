@@ -228,3 +228,60 @@ class CustomFieldValue(BaseModel):
     class Meta:
         verbose_name = _("Custom Field Value")
         unique_together = [("custom_field", "object_id")]
+
+
+# ─── Webhooks ─────────────────────────────────────────────────────────────────
+
+class Webhook(BaseModel):
+    """Outbound webhook definition for SIEM / third-party integration."""
+
+    name = models.CharField(max_length=200)
+    url = models.URLField(max_length=500)
+    # List of event strings, e.g. ["risk.created", "incident.created"]
+    events = models.JSONField(default=list)
+    secret = models.CharField(
+        max_length=64,
+        blank=True,
+        help_text="Optional HMAC-SHA256 secret. Sent as X-MIRA-Signature header.",
+    )
+    is_active = models.BooleanField(default=True)
+    last_delivery_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = _("Webhook")
+        verbose_name_plural = _("Webhooks")
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.name} → {self.url}"
+
+
+class WebhookDelivery(models.Model):
+    """Record of a single outbound webhook delivery attempt."""
+
+    class DeliveryStatus(models.TextChoices):
+        SUCCESS = "success", _("Success")
+        FAILED = "failed", _("Failed")
+        PENDING = "pending", _("Pending")
+
+    id = models.BigAutoField(primary_key=True)
+    webhook = models.ForeignKey(
+        Webhook, on_delete=models.CASCADE, related_name="deliveries"
+    )
+    event = models.CharField(max_length=100)
+    payload = models.JSONField()
+    status = models.CharField(
+        max_length=10, choices=DeliveryStatus.choices, default=DeliveryStatus.PENDING
+    )
+    response_status = models.PositiveSmallIntegerField(null=True, blank=True)
+    response_body = models.TextField(blank=True)
+    error_message = models.TextField(blank=True)
+    attempted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("Webhook Delivery")
+        verbose_name_plural = _("Webhook Deliveries")
+        ordering = ["-attempted_at"]
+
+    def __str__(self):
+        return f"{self.webhook.name} [{self.event}] – {self.status}"

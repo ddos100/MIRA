@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ClipboardList, Key, Lock, User } from "lucide-react";
+import { ClipboardList, Key, Lock, Plus, Trash2, User, Webhook, Zap } from "lucide-react";
 import { apiClient } from "@/api/client";
 import { useAuthStore } from "@/store/authStore";
 import { Button } from "@/components/ui/Button";
@@ -35,7 +35,7 @@ type PasswordFormValues = z.infer<typeof passwordSchema>;
 
 // ─── Tab types ────────────────────────────────────────────────────────────────
 
-type Tab = "profile" | "security" | "api-keys" | "audit-log";
+type Tab = "profile" | "security" | "api-keys" | "audit-log" | "webhooks";
 
 // ─── Profile Tab ──────────────────────────────────────────────────────────────
 
@@ -324,6 +324,185 @@ function APIKeysTab() {
   );
 }
 
+// ─── Webhooks Tab ──────────────────────────────────────────────────────────────
+
+interface WebhookItem {
+  id: string;
+  name: string;
+  url: string;
+  events: string[];
+  is_active: boolean;
+  last_delivery_at: string | null;
+  created_at: string;
+}
+
+const webhookSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  url: z.string().url("Must be a valid URL"),
+  events: z.string().optional(),
+  secret: z.string().optional(),
+  is_active: z.boolean().default(true),
+});
+type WebhookFormValues = z.infer<typeof webhookSchema>;
+
+function WebhooksTab() {
+  const qc = useQueryClient();
+  const [showForm, setShowForm] = useState(false);
+
+  const { data: webhooks = [], isLoading } = useQuery<WebhookItem[]>({
+    queryKey: ["webhooks"],
+    queryFn: () =>
+      apiClient.get("/core/webhooks/").then((r) => r.data.results ?? r.data),
+  });
+
+  const { register, handleSubmit, reset, formState: { errors } } =
+    useForm<WebhookFormValues>({ resolver: zodResolver(webhookSchema) });
+
+  const create = useMutation({
+    mutationFn: (values: WebhookFormValues) => {
+      const payload = {
+        ...values,
+        events: values.events
+          ? values.events.split(",").map((e) => e.trim()).filter(Boolean)
+          : [],
+      };
+      return apiClient.post("/core/webhooks/", payload).then((r) => r.data);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["webhooks"] });
+      reset();
+      setShowForm(false);
+    },
+  });
+
+  const deleteWebhook = useMutation({
+    mutationFn: (id: string) => apiClient.delete(`/core/webhooks/${id}/`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["webhooks"] }),
+  });
+
+  const testWebhook = useMutation({
+    mutationFn: (id: string) => apiClient.post(`/core/webhooks/${id}/test/`),
+  });
+
+  return (
+    <div className="space-y-4 max-w-3xl">
+      <div className="flex items-start justify-between">
+        <div>
+          <h3 className="text-base font-semibold mb-1">Outbound Webhooks</h3>
+          <p className="text-sm text-muted-foreground">
+            Send real-time events to external systems (SIEM, ticketing, Slack).
+          </p>
+        </div>
+        <button
+          onClick={() => setShowForm((v) => !v)}
+          className="flex items-center gap-1.5 bg-primary text-primary-foreground px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-primary/90"
+        >
+          <Plus size={14} />
+          Add Webhook
+        </button>
+      </div>
+
+      {showForm && (
+        <form
+          onSubmit={handleSubmit((v) => create.mutate(v))}
+          className="border rounded-xl p-4 space-y-3 bg-muted/20"
+        >
+          <h4 className="font-medium text-sm">New Webhook</h4>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Name</label>
+              <input {...register("name")} className="w-full border rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring" placeholder="My SIEM" />
+              {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">URL</label>
+              <input {...register("url")} className="w-full border rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring" placeholder="https://hooks.example.com/…" />
+              {errors.url && <p className="text-xs text-destructive">{errors.url.message}</p>}
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Events (comma-separated, or * for all)</label>
+              <input {...register("events")} className="w-full border rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring" placeholder="risk.created, incident.created" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Secret (HMAC-SHA256)</label>
+              <input {...register("secret")} type="password" className="w-full border rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring" placeholder="Optional signing secret" />
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button type="submit" disabled={create.isPending} className="bg-primary text-primary-foreground px-4 py-1.5 rounded-md text-sm font-medium hover:bg-primary/90 disabled:opacity-50">
+              {create.isPending ? "Saving…" : "Save"}
+            </button>
+            <button type="button" onClick={() => setShowForm(false)} className="text-sm text-muted-foreground hover:text-foreground">Cancel</button>
+          </div>
+        </form>
+      )}
+
+      {isLoading ? (
+        <div className="space-y-2">
+          {[1, 2].map((i) => <div key={i} className="h-14 bg-muted animate-pulse rounded-lg" />)}
+        </div>
+      ) : webhooks.length === 0 ? (
+        <div className="border rounded-xl bg-card p-10 text-center text-sm text-muted-foreground">
+          <Webhook className="mx-auto mb-3 text-gray-300" size={36} />
+          No webhooks configured yet.
+        </div>
+      ) : (
+        <div className="border rounded-xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-muted/30">
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Name</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">URL</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Events</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Last Delivery</th>
+                <th className="px-4 py-3" />
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {webhooks.map((wh) => (
+                <tr key={wh.id} className="hover:bg-muted/20">
+                  <td className="px-4 py-3 font-medium">{wh.name}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground max-w-xs truncate">{wh.url}</td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground">
+                    {wh.events?.length ? wh.events.slice(0, 3).join(", ") + (wh.events.length > 3 ? "…" : "") : "*"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium", wh.is_active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600")}>
+                      {wh.is_active ? "Active" : "Inactive"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground">
+                    {wh.last_delivery_at ? new Date(wh.last_delivery_at).toLocaleString() : "Never"}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => testWebhook.mutate(wh.id)}
+                        disabled={testWebhook.isPending}
+                        title="Send test ping"
+                        className="text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                      >
+                        <Zap size={14} />
+                      </button>
+                      <button
+                        onClick={() => { if (confirm(`Delete webhook "${wh.name}"?`)) deleteWebhook.mutate(wh.id); }}
+                        className="text-destructive hover:text-destructive/80"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Audit Log Tab ─────────────────────────────────────────────────────────────
 
 interface AuditLogEntry {
@@ -487,6 +666,7 @@ const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: "profile", label: "Profile", icon: User },
   { id: "security", label: "Security", icon: Lock },
   { id: "api-keys", label: "API Keys", icon: Key },
+  { id: "webhooks", label: "Webhooks", icon: Webhook },
   { id: "audit-log", label: "Audit Log", icon: ClipboardList },
 ];
 
@@ -522,6 +702,7 @@ export default function SettingsPage() {
         {tab === "profile" && <ProfileTab />}
         {tab === "security" && <SecurityTab />}
         {tab === "api-keys" && <APIKeysTab />}
+        {tab === "webhooks" && <WebhooksTab />}
         {tab === "audit-log" && <AuditLogTab />}
       </div>
     </div>

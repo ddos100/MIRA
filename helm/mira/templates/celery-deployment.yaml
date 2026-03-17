@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mira.fullname" . }}-celery-worker
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mira.labels" . | nindent 4 }}
+    app.kubernetes.io/component: celery-worker
+spec:
+  replicas: {{ .Values.replicaCount.celeryWorker }}
+  selector:
+    matchLabels:
+      {{- include "mira.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: celery-worker
+  template:
+    metadata:
+      labels:
+        {{- include "mira.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: celery-worker
+    spec:
+      containers:
+        - name: celery-worker
+          image: "{{ .Values.image.backend.repository }}:{{ .Values.image.backend.tag }}"
+          imagePullPolicy: {{ .Values.image.backend.pullPolicy }}
+          command: ["celery", "-A", "config", "worker", "-l", "info", "--concurrency=4"]
+          envFrom:
+            {{- include "mira.envFrom" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources.celeryWorker | nindent 12 }}
+          volumeMounts:
+            - name: media
+              mountPath: /app/mediafiles
+      volumes:
+        - name: media
+          {{- if .Values.persistence.media.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "mira.fullname" . }}-media
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mira.fullname" . }}-celery-beat
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mira.labels" . | nindent 4 }}
+    app.kubernetes.io/component: celery-beat
+spec:
+  replicas: {{ .Values.replicaCount.celeryBeat }}
+  selector:
+    matchLabels:
+      {{- include "mira.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: celery-beat
+  template:
+    metadata:
+      labels:
+        {{- include "mira.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: celery-beat
+    spec:
+      containers:
+        - name: celery-beat
+          image: "{{ .Values.image.backend.repository }}:{{ .Values.image.backend.tag }}"
+          imagePullPolicy: {{ .Values.image.backend.pullPolicy }}
+          command:
+            - celery
+            - -A
+            - config
+            - beat
+            - -l
+            - info
+            - --scheduler
+            - django_celery_beat.schedulers:DatabaseScheduler
+          envFrom:
+            {{- include "mira.envFrom" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources.celeryBeat | nindent 12 }}

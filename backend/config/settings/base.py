@@ -47,6 +47,8 @@ THIRD_PARTY_APPS = [
     "django_otp.plugins.otp_static",
     "allauth",
     "allauth.account",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.openid_connect",
     "drf_spectacular",
     "django_celery_beat",
     "django_celery_results",
@@ -129,6 +131,8 @@ AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
     "allauth.account.auth_backends.AuthenticationBackend",
 ]
+
+SITE_ID = 1
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -261,6 +265,35 @@ ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_EMAIL_VERIFICATION = "optional"
 ACCOUNT_AUTHENTICATION_METHOD = "email"
 ACCOUNT_USERNAME_REQUIRED = False
+
+# ─── OIDC / SSO ───────────────────────────────────────────────────────────────
+# Set OIDC_ENABLED=true and supply the vars below in .env to enable SSO.
+
+_OIDC_ENABLED = env.bool("OIDC_ENABLED", default=False)
+
+if _OIDC_ENABLED:
+    SOCIALACCOUNT_PROVIDERS = {
+        "openid_connect": {
+            "APPS": [
+                {
+                    "provider_id": "oidc",
+                    "name": env("OIDC_PROVIDER_NAME", default="SSO"),
+                    "client_id": env("OIDC_CLIENT_ID", default=""),
+                    "secret": env("OIDC_CLIENT_SECRET", default=""),
+                    "settings": {
+                        "server_url": env("OIDC_SERVER_URL", default=""),
+                        # Scopes requested from the IdP
+                        "scope": ["openid", "profile", "email"],
+                        # Map IdP claims → Django user fields
+                        "token_auth_method": "client_secret_basic",
+                    },
+                }
+            ]
+        }
+    }
+    SOCIALACCOUNT_AUTO_SIGNUP = True
+    SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
+    SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
 
 # ─── File uploads ────────────────────────────────────────────────────────────
 

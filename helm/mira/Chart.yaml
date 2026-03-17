@@ -1,0 +1,23 @@
+apiVersion: v2
+name: mira
+description: MIRA GRC Platform – Helm chart
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - grc
+  - security
+  - risk-management
+  - compliance
+maintainers:
+  - name: MIRA Team
+    email: team@mira.local
+dependencies:
+  - name: postgresql
+    version: "13.x.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled
+  - name: redis
+    version: "18.x.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled

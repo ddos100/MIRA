@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Attachment, AuditLog, Comment, CustomField, CustomFieldValue, Notification, Tag
+from .models import Attachment, AuditLog, Comment, CustomField, CustomFieldValue, Notification, Tag, Webhook, WebhookDelivery
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -51,3 +51,28 @@ class CustomFieldValueSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomFieldValue
         fields = ["id", "custom_field", "object_id", "value"]
+
+
+class WebhookDeliverySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WebhookDelivery
+        fields = [
+            "id", "event", "status", "response_status",
+            "response_body", "error_message", "attempted_at",
+        ]
+        read_only_fields = fields
+
+
+class WebhookSerializer(serializers.ModelSerializer):
+    recent_deliveries = WebhookDeliverySerializer(
+        source="deliveries", many=True, read_only=True
+    )
+
+    class Meta:
+        model = Webhook
+        fields = [
+            "id", "name", "url", "events", "secret", "is_active",
+            "last_delivery_at", "created_at", "updated_at", "recent_deliveries",
+        ]
+        read_only_fields = ["id", "last_delivery_at", "created_at", "updated_at"]
+        extra_kwargs = {"secret": {"write_only": True}}

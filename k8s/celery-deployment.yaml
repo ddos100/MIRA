@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mira-celery-worker
+  namespace: mira
+  labels:
+    app: mira-celery-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: mira-celery-worker
+  template:
+    metadata:
+      labels:
+        app: mira-celery-worker
+    spec:
+      containers:
+        - name: celery-worker
+          image: ghcr.io/your-org/mira-backend:latest
+          command: ["celery", "-A", "config", "worker", "-l", "info", "--concurrency=4"]
+          envFrom:
+            - configMapRef:
+                name: mira-config
+            - secretRef:
+                name: mira-secrets
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          volumeMounts:
+            - name: media
+              mountPath: /app/mediafiles
+      volumes:
+        - name: media
+          persistentVolumeClaim:
+            claimName: mira-media-pvc
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mira-celery-beat
+  namespace: mira
+  labels:
+    app: mira-celery-beat
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mira-celery-beat
+  template:
+    metadata:
+      labels:
+        app: mira-celery-beat
+    spec:
+      containers:
+        - name: celery-beat
+          image: ghcr.io/your-org/mira-backend:latest
+          command: ["celery", "-A", "config", "beat", "-l", "info", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler"]
+          envFrom:
+            - configMapRef:
+                name: mira-config
+            - secretRef:
+                name: mira-secrets
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi

@@ -8,6 +8,7 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 // Lazy-loaded page components
 const LoginPage = lazy(() => import("@/pages/auth/LoginPage"));
+const AssessmentPortalPage = lazy(() => import("@/pages/portal/AssessmentPortalPage"));
 const DashboardPage = lazy(() => import("@/pages/dashboard/DashboardPage"));
 const RisksPage = lazy(() => import("@/pages/risks/RisksPage"));
 const CompliancePage = lazy(() => import("@/pages/compliance/CompliancePage"));
@@ -34,6 +35,12 @@ export default function App() {
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<LoginPage />} />
         </Route>
+
+        {/* External portal – no authentication */}
+        <Route
+          path="/portal/assessment/:token"
+          element={<AssessmentPortalPage />}
+        />
 
         {/* Protected app routes */}
         <Route

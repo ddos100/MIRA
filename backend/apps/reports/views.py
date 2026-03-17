@@ -1,4 +1,6 @@
-from django.db.models import Count, Q
+import importlib
+
+from django.db.models import Avg, Count, Q, Sum
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -12,6 +14,85 @@ from .serializers import (
     SavedReportSerializer,
     WidgetSerializer,
 )
+
+# Maps module key → (app_label, ModelClass path)
+_WIDGET_MODULE_MAP = {
+    "risks": ("apps.risks.models", "Risk"),
+    "controls": ("apps.controls.models", "Control"),
+    "incidents": ("apps.incidents.models", "Incident"),
+    "assets": ("apps.assets.models", "Asset"),
+    "policies": ("apps.policies.models", "Policy"),
+    "exceptions": ("apps.exceptions.models", "PolicyException"),
+    "third_parties": ("apps.third_parties.models", "ThirdParty"),
+    "projects": ("apps.projects.models", "Project"),
+    "awareness": ("apps.awareness.models", "AwarenessProgram"),
+    "compliance": ("apps.compliance.models", "ComplianceProgram"),
+}
+
+
+def _get_model(module_key: str):
+    if module_key not in _WIDGET_MODULE_MAP:
+        raise ValueError(f"Unknown module: {module_key}")
+    module_path, class_name = _WIDGET_MODULE_MAP[module_key]
+    mod = importlib.import_module(module_path)
+    return getattr(mod, class_name)
+
+
+def _resolve_widget_data(widget_type: str, config: dict, user) -> dict:
+    """
+    Resolve live data for a widget from its config dict.
+
+    Expected config keys:
+      - module: str (required for data widgets)
+      - metric: "count" | "sum" | "avg"
+      - field: str (field name for sum/avg)
+      - group_by: str (field name to group by)
+      - filters: dict (queryset filter kwargs)
+      - text: str (for TEXT widgets)
+    """
+    if widget_type == "text":
+        return {"text": config.get("text", "")}
+
+    module_key = config.get("module")
+    if not module_key:
+        return {"value": 0, "label": "No module configured"}
+
+    Model = _get_model(module_key)
+    filters = config.get("filters") or {}
+    qs = Model.objects.filter(**filters)
+
+    metric = config.get("metric", "count")
+    group_by = config.get("group_by")
+    field = config.get("field", "id")
+
+    if group_by:
+        # Aggregated data for charts
+        if metric == "count":
+            rows = qs.values(group_by).annotate(value=Count("id")).order_by(group_by)
+        elif metric == "sum":
+            rows = qs.values(group_by).annotate(value=Sum(field)).order_by(group_by)
+        elif metric == "avg":
+            rows = qs.values(group_by).annotate(value=Avg(field)).order_by(group_by)
+        else:
+            rows = qs.values(group_by).annotate(value=Count("id")).order_by(group_by)
+
+        return {
+            "labels": [str(r[group_by]) for r in rows],
+            "data": [r["value"] for r in rows],
+            "widget_type": widget_type,
+        }
+    else:
+        # Single metric (counter)
+        if metric == "count":
+            value = qs.count()
+        elif metric == "sum":
+            value = qs.aggregate(v=Sum(field))["v"] or 0
+        elif metric == "avg":
+            value = qs.aggregate(v=Avg(field))["v"] or 0
+        else:
+            value = qs.count()
+
+        return {"value": value, "widget_type": widget_type}
 
 
 class DashboardViewSet(viewsets.ModelViewSet):
@@ -77,6 +158,17 @@ class WidgetViewSet(viewsets.ModelViewSet):
         return Widget.objects.filter(
             Q(dashboard__owner=self.request.user) | Q(dashboard__is_shared=True)
         )
+
+    @action(detail=True, methods=["get"], url_path="data")
+    def data(self, request, pk=None):
+        """Resolve live data for this widget based on widget.config."""
+        widget = self.get_object()
+        config = widget.config or {}
+        try:
+            result = _resolve_widget_data(widget.widget_type, config, request.user)
+        except Exception as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(result)
 
 
 class SavedReportViewSet(viewsets.ModelViewSet):

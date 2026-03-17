@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mira.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mira.labels" . | nindent 4 }}
+data:
+  DJANGO_SETTINGS_MODULE: {{ .Values.backend.djangoSettingsModule | quote }}
+  ALLOWED_HOSTS: {{ .Values.backend.allowedHosts | quote }}
+  CORS_ALLOWED_ORIGINS: {{ .Values.backend.corsAllowedOrigins | quote }}
+  DEBUG: {{ .Values.backend.debug | toString | quote }}
+  {{- if .Values.postgresql.enabled }}
+  DATABASE_URL: "postgres://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ include "mira.fullname" . }}-postgresql:5432/{{ .Values.postgresql.auth.database }}"
+  {{- end }}
+  {{- if .Values.redis.enabled }}
+  CELERY_BROKER_URL: "redis://{{ include "mira.fullname" . }}-redis-master:6379/0"
+  REDIS_URL: "redis://{{ include "mira.fullname" . }}-redis-master:6379/1"
+  {{- end }}
+  EMAIL_HOST: {{ .Values.email.host | quote }}
+  EMAIL_PORT: {{ .Values.email.port | toString | quote }}
+  EMAIL_USE_TLS: {{ .Values.email.useTls | toString | quote }}
+  DEFAULT_FROM_EMAIL: {{ .Values.email.defaultFrom | quote }}
+  {{- if .Values.oidc.enabled }}
+  OIDC_ENABLED: "true"
+  OIDC_PROVIDER_NAME: {{ .Values.oidc.providerName | quote }}
+  OIDC_SERVER_URL: {{ .Values.oidc.serverUrl | quote }}
+  {{- end }}
