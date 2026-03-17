@@ -286,3 +286,6 @@ LOGGING = {
         },
     },
 }
+
+# Import and merge Celery beat schedule
+from apps.core.celery_config import CELERY_BEAT_SCHEDULE  # noqa

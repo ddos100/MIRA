@@ -1,0 +1,134 @@
+[
+  {
+    "model": "incidents.incidentcategory",
+    "pk": "33333333-0000-0000-0000-000000000001",
+    "fields": {
+      "name": "Security Breach",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "created_by": null,
+      "updated_by": null
+    }
+  },
+  {
+    "model": "incidents.incidentcategory",
+    "pk": "33333333-0000-0000-0000-000000000002",
+    "fields": {
+      "name": "Data Breach",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "created_by": null,
+      "updated_by": null
+    }
+  },
+  {
+    "model": "incidents.incidentcategory",
+    "pk": "33333333-0000-0000-0000-000000000003",
+    "fields": {
+      "name": "System Outage",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "created_by": null,
+      "updated_by": null
+    }
+  },
+  {
+    "model": "incidents.incidentcategory",
+    "pk": "33333333-0000-0000-0000-000000000004",
+    "fields": {
+      "name": "Physical Incident",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "created_by": null,
+      "updated_by": null
+    }
+  },
+  {
+    "model": "incidents.incidentcategory",
+    "pk": "33333333-0000-0000-0000-000000000005",
+    "fields": {
+      "name": "Social Engineering",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "created_by": null,
+      "updated_by": null
+    }
+  },
+  {
+    "model": "incidents.incidentcategory",
+    "pk": "33333333-0000-0000-0000-000000000006",
+    "fields": {
+      "name": "Malware/Ransomware",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "created_by": null,
+      "updated_by": null
+    }
+  },
+  {
+    "model": "incidents.incidentcategory",
+    "pk": "33333333-0000-0000-0000-000000000007",
+    "fields": {
+      "name": "Unauthorized Access",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "created_by": null,
+      "updated_by": null
+    }
+  },
+  {
+    "model": "incidents.incidentcategory",
+    "pk": "33333333-0000-0000-0000-000000000008",
+    "fields": {
+      "name": "Data Loss",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "created_by": null,
+      "updated_by": null
+    }
+  },
+  {
+    "model": "incidents.incidentcategory",
+    "pk": "33333333-0000-0000-0000-000000000009",
+    "fields": {
+      "name": "Privacy Incident",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "created_by": null,
+      "updated_by": null
+    }
+  },
+  {
+    "model": "incidents.incidentcategory",
+    "pk": "33333333-0000-0000-0000-000000000010",
+    "fields": {
+      "name": "Third-Party Incident",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "created_by": null,
+      "updated_by": null
+    }
+  },
+  {
+    "model": "incidents.incidentcategory",
+    "pk": "33333333-0000-0000-0000-000000000011",
+    "fields": {
+      "name": "Natural Disaster",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "created_by": null,
+      "updated_by": null
+    }
+  },
+  {
+    "model": "incidents.incidentcategory",
+    "pk": "33333333-0000-0000-0000-000000000012",
+    "fields": {
+      "name": "Human Error",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "created_by": null,
+      "updated_by": null
+    }
+  }
+]
