@@ -2,7 +2,9 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
+    AttachmentViewSet,
     AuditLogListView,
+    CommentViewSet,
     NotificationListView,
     TagDetailView,
     TagListCreateView,
@@ -14,6 +16,8 @@ from .views import (
 
 router = DefaultRouter()
 router.register(r"webhooks", WebhookViewSet, basename="webhook")
+router.register(r"comments", CommentViewSet, basename="comment")
+router.register(r"attachments", AttachmentViewSet, basename="attachment")
 
 urlpatterns = router.urls + [
     path("health/", health_check, name="health-check"),

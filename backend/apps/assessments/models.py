@@ -75,6 +75,13 @@ class Assessment(BaseModel):
         on_delete=models.SET_NULL,
         related_name="assessments",
     )
+    business_unit = models.ForeignKey(
+        "organizations.BusinessUnit",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="assessments",
+    )
     status = models.CharField(
         max_length=15, choices=AssessmentStatus.choices, default=AssessmentStatus.DRAFT
     )

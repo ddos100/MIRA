@@ -1,17 +1,96 @@
+from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
 from rest_framework import generics, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import AuditLog, Notification, Tag, Webhook, WebhookDelivery
+from .models import Attachment, AuditLog, Comment, Notification, Tag, Webhook, WebhookDelivery
 from .serializers import (
+    AttachmentSerializer,
     AuditLogSerializer,
+    CommentSerializer,
     NotificationSerializer,
     TagSerializer,
     WebhookDeliverySerializer,
     WebhookSerializer,
 )
+
+
+class CommentViewSet(viewsets.ModelViewSet):
+    """
+    CRUD for comments on any object.
+    Filter by ?content_type=<app_label>.<model_name>&object_id=<uuid>
+    """
+
+    serializer_class = CommentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        qs = Comment.objects.select_related("created_by", "content_type")
+        ct_param = self.request.query_params.get("content_type")
+        obj_id = self.request.query_params.get("object_id")
+        if ct_param and obj_id:
+            try:
+                app_label, model = ct_param.split(".")
+                ct = ContentType.objects.get(app_label=app_label, model=model)
+                qs = qs.filter(content_type=ct, object_id=obj_id)
+            except (ValueError, ContentType.DoesNotExist):
+                pass
+        return qs
+
+    def perform_create(self, serializer):
+        ct_param = self.request.data.get("content_type")
+        obj_id = self.request.data.get("object_id")
+        ct = None
+        if ct_param:
+            try:
+                app_label, model = ct_param.split(".")
+                ct = ContentType.objects.get(app_label=app_label, model=model)
+            except (ValueError, ContentType.DoesNotExist):
+                pass
+        serializer.save(created_by=self.request.user, content_type=ct, object_id=obj_id)
+
+
+class AttachmentViewSet(viewsets.ModelViewSet):
+    """
+    CRUD for file attachments on any object.
+    Filter by ?content_type=<app_label>.<model_name>&object_id=<uuid>
+    """
+
+    serializer_class = AttachmentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        qs = Attachment.objects.select_related("created_by", "content_type")
+        ct_param = self.request.query_params.get("content_type")
+        obj_id = self.request.query_params.get("object_id")
+        if ct_param and obj_id:
+            try:
+                app_label, model = ct_param.split(".")
+                ct = ContentType.objects.get(app_label=app_label, model=model)
+                qs = qs.filter(content_type=ct, object_id=obj_id)
+            except (ValueError, ContentType.DoesNotExist):
+                pass
+        return qs
+
+    def perform_create(self, serializer):
+        ct_param = self.request.data.get("content_type")
+        obj_id = self.request.data.get("object_id")
+        ct = None
+        if ct_param:
+            try:
+                app_label, model = ct_param.split(".")
+                ct = ContentType.objects.get(app_label=app_label, model=model)
+            except (ValueError, ContentType.DoesNotExist):
+                pass
+        upload = self.request.FILES.get("file")
+        extra = {}
+        if upload:
+            extra["filename"] = upload.name
+            extra["file_size"] = upload.size
+            extra["mime_type"] = upload.content_type or ""
+        serializer.save(created_by=self.request.user, content_type=ct, object_id=obj_id, **extra)
 
 
 class TagListCreateView(generics.ListCreateAPIView):

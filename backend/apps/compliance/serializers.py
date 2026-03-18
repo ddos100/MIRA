@@ -4,6 +4,7 @@ from rest_framework import serializers
 from .models import (
     ComplianceAssessment,
     ComplianceFramework,
+    ComplianceFrameworkTemplate,
     ComplianceProgram,
     Evidence,
     Requirement,
@@ -71,5 +72,12 @@ class ComplianceAssessmentSerializer(serializers.ModelSerializer):
 class EvidenceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Evidence
+        fields = "__all__"
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class ComplianceFrameworkTemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ComplianceFrameworkTemplate
         fields = "__all__"
         read_only_fields = ["id", "created_at", "updated_at"]

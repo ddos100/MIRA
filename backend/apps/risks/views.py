@@ -36,7 +36,7 @@ class RiskViewSet(CsvExportMixin, viewsets.ModelViewSet):
 
     queryset = Risk.objects.select_related(
         "category", "owner", "business_unit"
-    ).prefetch_related("assets", "third_parties")
+    ).prefetch_related("assets", "third_parties", "policies", "compliance_requirements", "projects")
     serializer_class = RiskSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ["status", "category", "owner", "business_unit"]

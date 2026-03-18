@@ -72,6 +72,8 @@ class Control(BaseModel):
         "compliance.Requirement", blank=True, related_name="controls"
     )
     risks = models.ManyToManyField("risks.Risk", blank=True, related_name="controls")
+    # policies accessible via reverse: control.policies (from Policy.controls M2M)
+    # projects accessible via reverse: control.projects (from Project.controls M2M)
     version = models.CharField(max_length=20, default="1.0")
     last_review_date = models.DateField(null=True, blank=True)
     next_review_date = models.DateField(null=True, blank=True)

@@ -4,6 +4,7 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
     ComplianceAssessmentViewSet,
+    ComplianceFrameworkTemplateViewSet,
     ComplianceFrameworkViewSet,
     ComplianceProgramViewSet,
     EvidenceViewSet,
@@ -12,6 +13,7 @@ from .views import (
 
 router = DefaultRouter()
 router.register(r"frameworks", ComplianceFrameworkViewSet, basename="complianceframework")
+router.register(r"framework-templates", ComplianceFrameworkTemplateViewSet, basename="frameworktemplate")
 router.register(r"requirements", RequirementViewSet, basename="requirement")
 router.register(r"programs", ComplianceProgramViewSet, basename="complianceprogram")
 router.register(r"assessments", ComplianceAssessmentViewSet, basename="complianceassessment")

@@ -86,6 +86,13 @@ class Risk(BaseModel):
         on_delete=models.SET_NULL,
         related_name="risks",
     )
+    policies = models.ManyToManyField(
+        "policies.Policy", blank=True, related_name="risks"
+    )
+    compliance_requirements = models.ManyToManyField(
+        "compliance.Requirement", blank=True, related_name="risks"
+    )
+    # projects accessible via reverse: risk.projects (from Project.risks M2M)
 
     # Dates
     identified_date = models.DateField(null=True, blank=True)

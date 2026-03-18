@@ -39,12 +39,24 @@ class UserManager(BaseUserManager):
 
 
 class Role(models.TextChoices):
+    # Administrative
     ADMIN = "admin", _("Administrator")
+    # Risk roles
     RISK_MANAGER = "risk_manager", _("Risk Manager")
+    RISK_REVIEWER = "risk_reviewer", _("Risk Reviewer")
+    # Asset roles
+    ASSET_REVIEWER = "asset_reviewer", _("Asset Reviewer")
+    # Compliance / audit roles
     COMPLIANCE_ANALYST = "compliance_analyst", _("Compliance Analyst")
     AUDITOR = "auditor", _("Auditor")
+    AUDIT_OWNER = "audit_owner", _("Audit Owner")
+    # Control / evidence roles
     CONTROL_OWNER = "control_owner", _("Control Owner")
+    EVIDENCE_OWNER = "evidence_owner", _("Evidence Owner")
+    # Policy roles
     POLICY_OWNER = "policy_owner", _("Policy Owner")
+    POLICY_APPROVER = "policy_approver", _("Policy Approver")
+    # Generic viewer
     VIEWER = "viewer", _("Viewer")
 
 
@@ -81,6 +93,16 @@ class User(AbstractUser):
     avatar = models.ImageField(upload_to="avatars/", null=True, blank=True)
     timezone = models.CharField(max_length=50, default="UTC")
     bio = models.TextField(blank=True)
+
+    # Business unit memberships (a user can belong to multiple units)
+    business_units = models.ManyToManyField(
+        "organizations.BusinessUnit",
+        blank=True,
+        related_name="members",
+        verbose_name=_("Business Units"),
+    )
+
+    # Group memberships handled via Django's built-in groups (from AbstractUser)
 
     is_mfa_enabled = models.BooleanField(default=False)
     mfa_enforced = models.BooleanField(default=False)
@@ -158,3 +180,48 @@ class UserInvitation(models.Model):
 
     def __str__(self):
         return f"Invitation for {self.email}"
+
+
+class UserGroup(models.Model):
+    """
+    Named group of users with an assigned default role.
+    Wraps Django's built-in Group and adds metadata
+    (description, default role, business unit scope).
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    group = models.OneToOneField(
+        Group,
+        on_delete=models.CASCADE,
+        related_name="user_group_profile",
+    )
+    description = models.TextField(blank=True)
+    default_role = models.CharField(
+        max_length=30,
+        choices=Role.choices,
+        default=Role.VIEWER,
+    )
+    business_units = models.ManyToManyField(
+        "organizations.BusinessUnit",
+        blank=True,
+        related_name="user_groups",
+        verbose_name=_("Business Units"),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("User Group")
+        verbose_name_plural = _("User Groups")
+        ordering = ["group__name"]
+
+    def __str__(self):
+        return self.group.name
+
+    @property
+    def name(self):
+        return self.group.name
+
+    @property
+    def members(self):
+        return self.group.user_set.all()
