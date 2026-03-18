@@ -47,6 +47,7 @@ const navItems: NavItem[] = [
     children: [
       { label: "Programs", href: "/compliance" },
       { label: "Frameworks", href: "/compliance/frameworks" },
+      { label: "Framework Templates", href: "/compliance/framework-templates" },
       { label: "Gap Analysis", href: "/compliance/gaps" },
     ],
   },
@@ -126,6 +127,14 @@ const navItems: NavItem[] = [
   { label: "Assets", href: "/assets", icon: Package },
   { label: "Third Parties", href: "/vendors", icon: Globe },
   { label: "Organizations", href: "/organizations", icon: Building2 },
+  {
+    label: "Users",
+    icon: Users,
+    children: [
+      { label: "All Users", href: "/users" },
+      { label: "User Groups", href: "/users/groups" },
+    ],
+  },
   { label: "Reports", href: "/reports", icon: BookOpen },
   { label: "Settings", href: "/settings", icon: Settings },
 ];

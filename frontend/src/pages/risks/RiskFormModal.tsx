@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -7,7 +7,13 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
+import { MultiSelect } from "@/components/ui/MultiSelect";
 import { useCreateRisk, useUpdateRisk, useRiskCategories } from "@/api/risks";
+import { useControls } from "@/api/controls";
+import { usePolicies } from "@/api/policies";
+import { useRequirements } from "@/api/compliance";
+import { useBusinessUnits } from "@/api/organizations";
+import { useUsers } from "@/api/auth";
 import type { Risk } from "@/types";
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
@@ -16,6 +22,8 @@ const schema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().min(1, "Description is required"),
   category: z.string().optional(),
+  owner: z.string().optional(),
+  business_unit: z.string().optional(),
   status: z.enum(["open", "in_treatment", "accepted", "closed", "transferred"]),
   treatment_type: z.enum(["mitigate", "avoid", "transfer", "accept"]).optional().or(z.literal("")),
   inherent_likelihood: z.coerce.number().min(1).max(5),
@@ -65,12 +73,55 @@ interface RiskFormModalProps {
 
 export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProps) {
   const isEditing = !!risk;
+
+  // M2M state (outside react-hook-form since MultiSelect uses controlled values)
+  const [selectedControls, setSelectedControls] = useState<string[]>([]);
+  const [selectedPolicies, setSelectedPolicies] = useState<string[]>([]);
+  const [selectedCompliance, setSelectedCompliance] = useState<string[]>([]);
+
+  // Reference data
   const { data: categories } = useRiskCategories();
+  const { data: businessUnitsData } = useBusinessUnits({ page_size: 200 });
+  const { data: usersData } = useUsers({ page_size: 200 });
+  const { data: controlsData } = useControls({ page_size: 200 });
+  const { data: policiesData } = usePolicies({ page_size: 200 });
+  const { data: requirementsData } = useRequirements({ page_size: 500 });
+
+  const businessUnits = businessUnitsData?.results ?? [];
+  const users = usersData?.results ?? [];
+  const controls = controlsData?.results ?? [];
+  const policies = policiesData?.results ?? [];
+  const requirements = requirementsData?.results ?? [];
 
   const categoryOptions = [
-    { value: "", label: "Select category…" },
+    { value: "", label: "No category" },
     ...(categories ?? []).map((c) => ({ value: c.id, label: c.name })),
   ];
+  const ownerOptions = [
+    { value: "", label: "No owner" },
+    ...users.map((u: { id: string; display_name?: string; email: string }) => ({
+      value: u.id,
+      label: u.display_name || u.email,
+    })),
+  ];
+  const buOptions = [
+    { value: "", label: "No business unit" },
+    ...businessUnits.map((bu: { id: string; name: string }) => ({ value: bu.id, label: bu.name })),
+  ];
+  const controlOptions = controls.map((c: { id: string; title: string }) => ({
+    value: c.id,
+    label: c.title,
+  }));
+  const policyOptions = policies.map((p: { id: string; title: string }) => ({
+    value: p.id,
+    label: p.title,
+  }));
+  const requirementOptions = requirements.map(
+    (r: { id: string; ref_code: string; title: string }) => ({
+      value: r.id,
+      label: `${r.ref_code} — ${r.title}`,
+    })
+  );
 
   const createRisk = useCreateRisk();
   const updateRisk = useUpdateRisk(risk?.id ?? "");
@@ -87,6 +138,8 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
       title: "",
       description: "",
       category: "",
+      owner: "",
+      business_unit: "",
       status: "open",
       treatment_type: "",
       inherent_likelihood: 1,
@@ -99,13 +152,14 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
     },
   });
 
-  // Populate form when editing
   useEffect(() => {
     if (risk) {
       reset({
         title: risk.title ?? "",
         description: risk.description ?? "",
         category: risk.category ?? "",
+        owner: risk.owner ?? "",
+        business_unit: risk.business_unit ?? "",
         status: risk.status,
         treatment_type: risk.treatment_type ?? "",
         inherent_likelihood: risk.inherent_likelihood ?? 1,
@@ -116,11 +170,16 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
         review_date: risk.review_date ?? "",
         notes: risk.notes ?? "",
       });
+      setSelectedControls(risk.controls ?? []);
+      setSelectedPolicies(risk.policies ?? []);
+      setSelectedCompliance(risk.compliance_requirements ?? []);
     } else {
       reset({
         title: "",
         description: "",
         category: "",
+        owner: "",
+        business_unit: "",
         status: "open",
         treatment_type: "",
         inherent_likelihood: 1,
@@ -131,6 +190,9 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
         review_date: "",
         notes: "",
       });
+      setSelectedControls([]);
+      setSelectedPolicies([]);
+      setSelectedCompliance([]);
     }
   }, [risk, reset]);
 
@@ -146,9 +208,14 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
     const payload: Partial<Risk> = {
       ...values,
       category: values.category || null,
+      owner: values.owner || null,
+      business_unit: values.business_unit || null,
       treatment_type: (values.treatment_type as Risk["treatment_type"]) || null,
       identified_date: values.identified_date || null,
       review_date: values.review_date || null,
+      controls: selectedControls,
+      policies: selectedPolicies,
+      compliance_requirements: selectedCompliance,
     };
 
     if (isEditing) {
@@ -197,6 +264,22 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
             options={STATUS_OPTIONS}
             error={errors.status?.message}
             {...register("status")}
+          />
+        </div>
+
+        {/* Owner + Business Unit */}
+        <div className="grid grid-cols-2 gap-4">
+          <Select
+            label="Owner"
+            options={ownerOptions}
+            error={errors.owner?.message}
+            {...register("owner")}
+          />
+          <Select
+            label="Business Unit"
+            options={buOptions}
+            error={errors.business_unit?.message}
+            {...register("business_unit")}
           />
         </div>
 
@@ -252,6 +335,35 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
             Residual Score:{" "}
             <span className="font-semibold text-foreground">{residualScore}</span>
           </p>
+        </fieldset>
+
+        {/* M2M mappings */}
+        <fieldset className="rounded-md border border-border p-4 space-y-4">
+          <legend className="text-sm font-medium text-foreground px-1">Mappings</legend>
+
+          <MultiSelect
+            label="Controls"
+            options={controlOptions}
+            value={selectedControls}
+            onChange={setSelectedControls}
+            placeholder="Link controls…"
+          />
+
+          <MultiSelect
+            label="Policies"
+            options={policyOptions}
+            value={selectedPolicies}
+            onChange={setSelectedPolicies}
+            placeholder="Link policies…"
+          />
+
+          <MultiSelect
+            label="Compliance Requirements"
+            options={requirementOptions}
+            value={selectedCompliance}
+            onChange={setSelectedCompliance}
+            placeholder="Link compliance requirements…"
+          />
         </fieldset>
 
         {/* Dates */}

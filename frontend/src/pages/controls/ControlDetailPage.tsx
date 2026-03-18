@@ -1,6 +1,8 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, AlertCircle, Pencil } from "lucide-react";
 import { useControl, useControlTests, useControlIssues } from "@/api/controls";
+import { CommentsPanel } from "@/components/common/CommentsPanel";
+import { AttachmentsPanel } from "@/components/common/AttachmentsPanel";
 
 const resultColors: Record<string, string> = {
   pass: "text-green-600",
@@ -54,6 +56,12 @@ export default function ControlDetailPage() {
             </span>
           </div>
         </div>
+        <button
+          onClick={() => navigate(`/controls/${id}/edit`)}
+          className="flex items-center gap-1.5 border px-3 py-1.5 rounded-md text-sm font-medium hover:bg-accent"
+        >
+          <Pencil className="h-3.5 w-3.5" /> Edit
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -147,6 +155,16 @@ export default function ControlDetailPage() {
               );
             })()}
           </div>
+        </div>
+      </div>
+
+      {/* Comments & Attachments */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="bg-card border rounded-lg p-5">
+          <CommentsPanel contentType="controls.control" objectId={id!} />
+        </div>
+        <div className="bg-card border rounded-lg p-5">
+          <AttachmentsPanel contentType="controls.control" objectId={id!} />
         </div>
       </div>
     </div>

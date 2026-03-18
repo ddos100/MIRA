@@ -11,15 +11,63 @@ export interface PaginatedResponse<T> {
 
 // ─── Auth / User ──────────────────────────────────────────────────────────────
 
+export type UserRole =
+  | "admin"
+  | "risk_manager"
+  | "risk_reviewer"
+  | "asset_reviewer"
+  | "compliance_analyst"
+  | "auditor"
+  | "audit_owner"
+  | "control_owner"
+  | "evidence_owner"
+  | "policy_owner"
+  | "policy_approver"
+  | "viewer";
+
 export interface User {
   id: string;
   email: string;
   first_name: string;
   last_name: string;
   display_name: string;
-  role: string;
+  role: UserRole | string;
   department?: string;
+  job_title?: string;
+  phone?: string;
   avatar?: string;
+  timezone?: string;
+  bio?: string;
+  is_mfa_enabled?: boolean;
+  is_active?: boolean;
+  last_login?: string;
+  created_at?: string;
+  updated_at?: string;
+  business_units?: string[];
+  groups?: number[];
+}
+
+export interface UserGroup {
+  id: string;
+  name: string;
+  description: string;
+  default_role: string;
+  business_units: string[];
+  member_count: number;
+  member_ids: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+// ─── Organization Types ───────────────────────────────────────────────────────
+
+export interface BusinessUnit {
+  id: string;
+  name: string;
+  code?: string;
+  description?: string;
+  parent?: string | null;
+  is_active: boolean;
 }
 
 // ─── Risk Types ───────────────────────────────────────────────────────────────
@@ -50,7 +98,7 @@ export interface Risk {
   owner?: string | null;
   owner_name?: string;
   owner_detail?: { id: string; full_name: string; email: string };
-  business_unit?: string;
+  business_unit?: string | null;
   status: RiskStatus;
   treatment_type?: RiskTreatmentType | null;
   inherent_likelihood: number;
@@ -64,6 +112,12 @@ export interface Risk {
   identified_date?: string | null;
   review_date?: string | null;
   notes?: string;
+  // New mappings
+  policies?: string[];
+  compliance_requirements?: string[];
+  // Reverse relations accessible via existing M2M
+  controls?: string[];   // via Control.risks
+  projects?: string[];   // via Project.risks
   created_at: string;
   updated_at: string;
 }
@@ -201,5 +255,65 @@ export interface Policy {
   effective_date?: string;
   review_date?: string;
   acknowledgement_required: boolean;
+  created_at: string;
+}
+
+// ─── Control Types ─────────────────────────────────────────────────────────────
+
+export interface Control {
+  id: string;
+  title: string;
+  description: string;
+  control_type: "preventive" | "detective" | "corrective" | "directive";
+  frequency: "continuous" | "daily" | "weekly" | "monthly" | "quarterly" | "annually";
+  status: "active" | "inactive" | "under_review";
+  owner?: string | null;
+  owner_name?: string;
+  category?: string | null;
+  category_name?: string;
+  business_unit?: string | null;
+  compliance_requirements?: string[];
+  risks?: string[];
+  version?: string;
+  last_review_date?: string | null;
+  next_review_date?: string | null;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// ─── Project Types ─────────────────────────────────────────────────────────────
+
+export interface Project {
+  id: string;
+  name: string;
+  description: string;
+  status: string;
+  owner?: string;
+  start_date?: string;
+  end_date?: string;
+  created_at: string;
+}
+
+// ─── Comment / Attachment Types ────────────────────────────────────────────────
+
+export interface Comment {
+  id: string;
+  body: string;
+  is_internal: boolean;
+  created_by: string | null;
+  created_by_name?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Attachment {
+  id: string;
+  file: string;
+  filename: string;
+  file_size: number;
+  mime_type: string;
+  description: string;
+  created_by: string | null;
   created_at: string;
 }

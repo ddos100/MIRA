@@ -11,6 +11,9 @@ import {
   useTemplateQuestions, useCreateQuestion, useDeleteQuestion,
   useAssessments, useCreateAssessment, useDeleteAssessment,
 } from "@/api/assessments";
+import { useBusinessUnits } from "@/api/organizations";
+import { useUsers } from "@/api/auth";
+import { useVendors } from "@/api/vendors";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -75,6 +78,9 @@ const assessmentSchema = z.object({
   title: z.string().min(1, "Title is required"),
   respondent_name: z.string().optional(),
   respondent_email: z.string().optional(),
+  respondent_user: z.string().optional(),
+  third_party: z.string().optional(),
+  business_unit: z.string().optional(),
   status: z.enum(["draft", "sent", "in_progress", "completed", "expired"]),
   due_date: z.string().optional(),
 });
@@ -192,14 +198,42 @@ function AssessmentFormModal({
   open, onClose, templates,
 }: { open: boolean; onClose: () => void; templates: Template[] }) {
   const create = useCreateAssessment();
+
+  const { data: businessUnitsData } = useBusinessUnits({ page_size: 200 });
+  const { data: usersData } = useUsers({ page_size: 200 });
+  const { data: vendorsData } = useVendors({ page_size: 200 });
+
+  const buOptions = [
+    { value: "", label: "No business unit" },
+    ...(businessUnitsData?.results ?? []).map((bu: { id: string; name: string }) => ({ value: bu.id, label: bu.name })),
+  ];
+  const userOptions = [
+    { value: "", label: "No respondent user" },
+    ...(usersData?.results ?? []).map((u: { id: string; display_name?: string; email: string }) => ({ value: u.id, label: u.display_name || u.email })),
+  ];
+  const vendorOptions = [
+    { value: "", label: "No third party" },
+    ...(vendorsData?.results ?? []).map((v: { id: string; name: string }) => ({ value: v.id, label: v.name })),
+  ];
+
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } =
     useForm<AssessmentFormValues>({
       resolver: zodResolver(assessmentSchema),
-      defaultValues: { template: "", title: "", respondent_name: "", respondent_email: "", status: "draft", due_date: "" },
+      defaultValues: {
+        template: "", title: "", respondent_name: "", respondent_email: "",
+        respondent_user: "", third_party: "", business_unit: "",
+        status: "draft", due_date: "",
+      },
     });
 
   async function onSubmit(values: AssessmentFormValues) {
-    await create.mutateAsync({ ...values, due_date: values.due_date || null });
+    await create.mutateAsync({
+      ...values,
+      due_date: values.due_date || null,
+      respondent_user: values.respondent_user || null,
+      third_party: values.third_party || null,
+      business_unit: values.business_unit || null,
+    });
     reset(); onClose();
   }
 
@@ -227,6 +261,11 @@ function AssessmentFormModal({
           <Input label="Respondent Name" {...register("respondent_name")} />
           <Input label="Respondent Email" type="email" {...register("respondent_email")} />
         </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Select label="Respondent User" options={userOptions} {...register("respondent_user")} />
+          <Select label="Third Party" options={vendorOptions} {...register("third_party")} />
+        </div>
+        <Select label="Business Unit" options={buOptions} {...register("business_unit")} />
         <div className="grid grid-cols-2 gap-4">
           <Select label="Status" options={[
             { value: "draft", label: "Draft" },
