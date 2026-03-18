@@ -7,8 +7,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 
-COPY backend/requirements/base.txt requirements.txt
-RUN pip install --upgrade pip && pip install -r requirements.txt
+COPY backend/requirements/ requirements/
+ARG REQUIREMENTS_FILE=requirements/base.txt
+RUN pip install --upgrade pip && pip install -r ${REQUIREMENTS_FILE}
 
 COPY backend/ .
 
