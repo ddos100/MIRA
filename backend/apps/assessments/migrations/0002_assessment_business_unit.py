@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("assessments", "0001_initial"),
-        ("organizations", "0001_initial"),
+        ("organizations", "0002_create_businessunit_businessprocess"),
     ]
 
     operations = [

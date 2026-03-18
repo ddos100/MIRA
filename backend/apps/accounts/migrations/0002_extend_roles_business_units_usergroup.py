@@ -12,7 +12,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("accounts", "0001_initial"),
-        ("organizations", "0001_initial"),
+        ("organizations", "0002_create_businessunit_businessprocess"),
         ("auth", "0001_initial"),
     ]
 
