@@ -1,4 +1,5 @@
 """Celery tasks for Internal Controls notifications."""
+
 import logging
 from datetime import timedelta
 
@@ -11,8 +12,9 @@ logger = logging.getLogger(__name__)
 @shared_task
 def send_control_audit_reminders():
     """Notify control owners when the next review/audit date is within 7 days or overdue."""
-    from apps.core.models import Notification
     from django.contrib.contenttypes.models import ContentType
+
+    from apps.core.models import Notification
 
     from .models import Control
 

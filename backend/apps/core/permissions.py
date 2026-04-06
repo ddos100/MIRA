@@ -1,14 +1,13 @@
 """
 MIRA RBAC permission helpers.
 """
-from rest_framework.permissions import BasePermission, IsAuthenticated
+
+from rest_framework.permissions import BasePermission
 
 
 def _has_role(request, *roles):
     return bool(
-        request.user
-        and request.user.is_authenticated
-        and request.user.has_role(*roles)
+        request.user and request.user.is_authenticated and request.user.has_role(*roles)
     )
 
 

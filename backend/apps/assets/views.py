@@ -1,6 +1,7 @@
 """
 ViewSets for the assets app.
 """
+
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets
 from rest_framework.filters import OrderingFilter, SearchFilter
@@ -34,14 +35,23 @@ class AssetViewSet(CsvExportMixin, CsvImportMixin, viewsets.ModelViewSet):
 
     csv_filename = "assets"
     csv_export_fields = [
-        "id", "name", "criticality", "status", "asset_type",
-        "owner", "business_unit", "description", "created_at",
+        "id",
+        "name",
+        "criticality",
+        "status",
+        "asset_type",
+        "owner",
+        "business_unit",
+        "description",
+        "created_at",
     ]
     csv_import_fields = ["name", "criticality", "status", "asset_type", "description"]
 
-    queryset = Asset.objects.select_related(
-        "category", "owner", "business_unit"
-    ).prefetch_related("tags").all()
+    queryset = (
+        Asset.objects.select_related("category", "owner", "business_unit")
+        .prefetch_related("tags")
+        .all()
+    )
     serializer_class = AssetSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]

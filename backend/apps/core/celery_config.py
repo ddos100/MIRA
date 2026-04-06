@@ -2,6 +2,7 @@
 Periodic task schedule for MIRA.
 Register this in Django settings or via django-celery-beat admin.
 """
+
 from celery.schedules import crontab
 
 CELERY_BEAT_SCHEDULE = {

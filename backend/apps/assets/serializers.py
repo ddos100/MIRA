@@ -1,6 +1,7 @@
 """
 Serializers for the assets app.
 """
+
 from rest_framework import serializers
 
 from .models import Asset, AssetCategory, DataAsset, DataFlow
@@ -19,7 +20,13 @@ class AssetCategorySerializer(serializers.ModelSerializer):
             "created_by",
             "updated_by",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "created_by", "updated_by"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "created_by",
+            "updated_by",
+        ]
 
 
 class AssetSerializer(serializers.ModelSerializer):
@@ -51,7 +58,13 @@ class AssetSerializer(serializers.ModelSerializer):
             "created_by",
             "updated_by",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "created_by", "updated_by"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "created_by",
+            "updated_by",
+        ]
 
 
 class DataAssetSerializer(serializers.ModelSerializer):
@@ -72,7 +85,13 @@ class DataAssetSerializer(serializers.ModelSerializer):
             "created_by",
             "updated_by",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "created_by", "updated_by"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "created_by",
+            "updated_by",
+        ]
 
 
 class DataFlowSerializer(serializers.ModelSerializer):
@@ -101,4 +120,10 @@ class DataFlowSerializer(serializers.ModelSerializer):
             "created_by",
             "updated_by",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "created_by", "updated_by"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "created_by",
+            "updated_by",
+        ]

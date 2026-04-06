@@ -30,7 +30,9 @@ class Project(BaseModel):
     budget = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     # GRC links
     risks = models.ManyToManyField("risks.Risk", blank=True, related_name="projects")
-    controls = models.ManyToManyField("controls.Control", blank=True, related_name="projects")
+    controls = models.ManyToManyField(
+        "controls.Control", blank=True, related_name="projects"
+    )
     compliance_programs = models.ManyToManyField(
         "compliance.ComplianceProgram", blank=True, related_name="projects"
     )

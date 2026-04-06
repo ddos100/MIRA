@@ -1,10 +1,10 @@
-from rest_framework import viewsets, permissions
+from rest_framework import permissions, viewsets
 
-from .models import AwarenessProgram, AwarenessContent, AwarenessAssignment
+from .models import AwarenessAssignment, AwarenessContent, AwarenessProgram
 from .serializers import (
-    AwarenessProgramSerializer,
-    AwarenessContentSerializer,
     AwarenessAssignmentSerializer,
+    AwarenessContentSerializer,
+    AwarenessProgramSerializer,
 )
 
 

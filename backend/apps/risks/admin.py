@@ -1,4 +1,5 @@
 """Django admin configuration for the Risk Management app."""
+
 from django.contrib import admin
 
 from .models import Risk, RiskCategory, RiskReview, RiskTreatmentPlan

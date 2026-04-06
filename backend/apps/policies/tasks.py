@@ -1,4 +1,5 @@
 """Celery tasks for Policy Management notifications."""
+
 import logging
 from datetime import timedelta
 
@@ -11,8 +12,9 @@ logger = logging.getLogger(__name__)
 @shared_task
 def send_policy_review_reminders():
     """Notify policy owners when a policy review is due within 14 days or overdue."""
-    from apps.core.models import Notification
     from django.contrib.contenttypes.models import ContentType
+
+    from apps.core.models import Notification
 
     from .models import Policy
 

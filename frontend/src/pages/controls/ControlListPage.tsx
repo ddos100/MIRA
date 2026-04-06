@@ -2,8 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Download, Plus, Shield, Upload } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useControls, useDeleteControl, controlKeys } from "@/api/controls";
-import { useControls as useControlsHook } from "@/api/controls";
+import { useControls, controlKeys } from "@/api/controls";
 import { useExportCsv } from "@/api/useExportCsv";
 import { ImportModal } from "@/components/common/ImportModal";
 

@@ -1,4 +1,5 @@
 """Django admin configuration for the Compliance Management app."""
+
 from django.contrib import admin
 
 from .models import (
@@ -12,7 +13,14 @@ from .models import (
 
 @admin.register(ComplianceFramework)
 class ComplianceFrameworkAdmin(admin.ModelAdmin):
-    list_display = ["short_name", "name", "version", "issuing_body", "is_active", "created_at"]
+    list_display = [
+        "short_name",
+        "name",
+        "version",
+        "issuing_body",
+        "is_active",
+        "created_at",
+    ]
     list_filter = ["is_active"]
     search_fields = ["name", "short_name", "issuing_body"]
 

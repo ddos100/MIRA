@@ -1,4 +1,5 @@
 """Serializers for the Incident Management app."""
+
 from rest_framework import serializers
 
 from .models import Incident, IncidentCategory, IncidentUpdate

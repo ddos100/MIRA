@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate, Routes, Route } from "react-router-dom";
 import { Plus, FileText, CheckCircle, Upload } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { usePolicies, useDeletePolicy, useAcknowledgePolicy, policyKeys } from "@/api/policies";
+import { usePolicies, useAcknowledgePolicy, policyKeys } from "@/api/policies";
 import { ImportModal } from "@/components/common/ImportModal";
 
 const statusColors: Record<string, string> = {

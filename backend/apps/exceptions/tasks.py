@@ -1,4 +1,5 @@
 """Celery tasks for Exception Management notifications."""
+
 import logging
 from datetime import timedelta
 
@@ -14,8 +15,9 @@ def send_exception_expiry_reminders():
     Notify exception requesters and approvers when an approved exception
     is expiring within 14 days or has already expired.
     """
-    from apps.core.models import Notification
     from django.contrib.contenttypes.models import ContentType
+
+    from apps.core.models import Notification
 
     from .models import GRCException
 

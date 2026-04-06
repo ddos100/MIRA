@@ -1,4 +1,5 @@
 """URL configuration for the Incident Management app."""
+
 from rest_framework.routers import DefaultRouter
 
 from .views import IncidentCategoryViewSet, IncidentUpdateViewSet, IncidentViewSet

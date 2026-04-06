@@ -1,4 +1,5 @@
 """Thread-local middleware to make the current request/user available in signals."""
+
 import threading
 
 _thread_locals = threading.local()

@@ -1,6 +1,7 @@
 """
 Dynamic Status Engine: evaluates StatusRule objects and updates matching records.
 """
+
 import logging
 import operator as op
 from datetime import date, datetime
@@ -82,7 +83,9 @@ def evaluate_rule(rule) -> int:
         return 0
 
     if not hasattr(model_class, "status"):
-        logger.warning("Model %s has no 'status' field; skipping rule %s", model_class, rule)
+        logger.warning(
+            "Model %s has no 'status' field; skipping rule %s", model_class, rule
+        )
         return 0
 
     queryset = model_class.objects.all()
@@ -110,9 +113,9 @@ def evaluate_all_rules() -> dict:
     from .models import StatusRule
 
     results = {}
-    for rule in StatusRule.objects.filter(rule_status=StatusRule.RuleStatus.ACTIVE).select_related(
-        "content_type"
-    ):
+    for rule in StatusRule.objects.filter(
+        rule_status=StatusRule.RuleStatus.ACTIVE
+    ).select_related("content_type"):
         try:
             count = evaluate_rule(rule)
             results[str(rule.id)] = count

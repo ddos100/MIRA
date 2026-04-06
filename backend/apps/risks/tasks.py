@@ -1,4 +1,5 @@
 """Celery tasks for Risk Management."""
+
 import logging
 from datetime import timedelta
 
@@ -11,9 +12,11 @@ logger = logging.getLogger(__name__)
 @shared_task
 def send_risk_review_reminders():
     """Send reminders for risks whose review date is within 7 days or overdue."""
-    from .models import Risk
-    from apps.core.models import Notification
     from django.contrib.contenttypes.models import ContentType
+
+    from apps.core.models import Notification
+
+    from .models import Risk
 
     today = timezone.now().date()
     upcoming = today + timedelta(days=7)
@@ -62,9 +65,11 @@ def send_risk_review_reminders():
 @shared_task
 def send_treatment_plan_reminders():
     """Notify owners of treatment plans due within 7 days."""
-    from .models import RiskTreatmentPlan
-    from apps.core.models import Notification
     from django.contrib.contenttypes.models import ContentType
+
+    from apps.core.models import Notification
+
+    from .models import RiskTreatmentPlan
 
     today = timezone.now().date()
     upcoming = today + timedelta(days=7)

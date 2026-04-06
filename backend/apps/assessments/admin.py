@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AssessmentTemplate, Question, Assessment, AssessmentResponse
+from .models import Assessment, AssessmentResponse, AssessmentTemplate, Question
 
 
 @admin.register(AssessmentTemplate)

@@ -5,7 +5,18 @@ from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Attachment, AuditLog, Comment, CustomField, CustomFieldValue, Notification, StatusRule, Tag, Webhook, WebhookDelivery
+from .models import (
+    Attachment,
+    AuditLog,
+    Comment,
+    CustomField,
+    CustomFieldValue,
+    Notification,
+    StatusRule,
+    Tag,
+    Webhook,
+    WebhookDelivery,
+)
 from .serializers import (
     AttachmentSerializer,
     AuditLogSerializer,
@@ -182,7 +193,9 @@ class AttachmentViewSet(viewsets.ModelViewSet):
             extra["filename"] = upload.name
             extra["file_size"] = upload.size
             extra["mime_type"] = upload.content_type or ""
-        serializer.save(created_by=self.request.user, content_type=ct, object_id=obj_id, **extra)
+        serializer.save(
+            created_by=self.request.user, content_type=ct, object_id=obj_id, **extra
+        )
 
 
 class TagListCreateView(generics.ListCreateAPIView):
@@ -259,6 +272,7 @@ class StatusRuleViewSet(viewsets.ModelViewSet):
     def run(self, request, pk=None):
         """Manually trigger evaluation of a single rule."""
         from .status_engine import evaluate_rule
+
         rule = self.get_object()
         count = evaluate_rule(rule)
         return Response({"status": "ok", "affected": count})
@@ -267,6 +281,7 @@ class StatusRuleViewSet(viewsets.ModelViewSet):
     def run_all(self, request):
         """Manually trigger evaluation of all active rules."""
         from .status_engine import evaluate_all_rules
+
         results = evaluate_all_rules()
         return Response({"status": "ok", "results": results})
 
@@ -290,7 +305,9 @@ class WebhookViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get"], url_path="deliveries")
     def deliveries(self, request, pk=None):
         webhook = self.get_object()
-        qs = WebhookDelivery.objects.filter(webhook=webhook).order_by("-attempted_at")[:50]
+        qs = WebhookDelivery.objects.filter(webhook=webhook).order_by("-attempted_at")[
+            :50
+        ]
         serializer = WebhookDeliverySerializer(qs, many=True)
         return Response(serializer.data)
 
@@ -298,6 +315,9 @@ class WebhookViewSet(viewsets.ModelViewSet):
     def test(self, request, pk=None):
         """Send a test ping event to the webhook URL."""
         from .webhook_tasks import deliver_webhook
+
         webhook = self.get_object()
-        deliver_webhook.delay(str(webhook.id), "test.ping", {"message": "MIRA webhook test"})
+        deliver_webhook.delay(
+            str(webhook.id), "test.ping", {"message": "MIRA webhook test"}
+        )
         return Response({"status": "queued"})

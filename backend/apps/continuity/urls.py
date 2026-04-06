@@ -1,6 +1,10 @@
 from rest_framework.routers import DefaultRouter
 
-from .views import BusinessImpactAnalysisViewSet, ContinuityPlanViewSet, ContinuityTestViewSet
+from .views import (
+    BusinessImpactAnalysisViewSet,
+    ContinuityPlanViewSet,
+    ContinuityTestViewSet,
+)
 
 router = DefaultRouter()
 router.register(r"bias", BusinessImpactAnalysisViewSet, basename="bia")

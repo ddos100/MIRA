@@ -1,6 +1,7 @@
 """
 Core abstract models shared across the entire MIRA platform.
 """
+
 import uuid
 
 from django.conf import settings
@@ -232,6 +233,7 @@ class CustomFieldValue(BaseModel):
 
 # ─── Dynamic Status Engine ────────────────────────────────────────────────────
 
+
 class StatusRule(BaseModel):
     """
     Declarative rule that auto-transitions an object's status field
@@ -285,6 +287,7 @@ class StatusRule(BaseModel):
 
 
 # ─── Webhooks ─────────────────────────────────────────────────────────────────
+
 
 class Webhook(BaseModel):
     """Outbound webhook definition for SIEM / third-party integration."""

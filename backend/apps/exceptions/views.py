@@ -1,10 +1,11 @@
 """Views for the Exception Management app."""
+
 from django.utils import timezone
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
-from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.core.mixins import CsvExportMixin, CsvImportMixin
 
@@ -17,8 +18,15 @@ class GRCExceptionViewSet(CsvExportMixin, CsvImportMixin, viewsets.ModelViewSet)
 
     csv_filename = "exceptions"
     csv_export_fields = [
-        "id", "title", "status", "exception_type", "requester",
-        "approver", "expiry_date", "is_expired", "created_at",
+        "id",
+        "title",
+        "status",
+        "exception_type",
+        "requester",
+        "approver",
+        "expiry_date",
+        "is_expired",
+        "created_at",
     ]
     csv_import_fields = ["title", "exception_type", "justification", "expiry_date"]
 
@@ -27,7 +35,13 @@ class GRCExceptionViewSet(CsvExportMixin, CsvImportMixin, viewsets.ModelViewSet)
     )
     serializer_class = GRCExceptionSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ["status", "exception_type", "requester", "approver", "is_expired"]
+    filterset_fields = [
+        "status",
+        "exception_type",
+        "requester",
+        "approver",
+        "is_expired",
+    ]
     search_fields = ["title", "description", "justification"]
     ordering_fields = ["status", "exception_type", "expiry_date", "created_at"]
 
@@ -43,7 +57,9 @@ class GRCExceptionViewSet(CsvExportMixin, CsvImportMixin, viewsets.ModelViewSet)
         exception.status = GRCException.ExceptionStatus.APPROVED
         exception.approver = request.user
         exception.approved_at = timezone.now()
-        exception.save(update_fields=["status", "approver", "approved_at", "updated_at"])
+        exception.save(
+            update_fields=["status", "approver", "approved_at", "updated_at"]
+        )
         serializer = self.get_serializer(exception)
         return Response(serializer.data)
 
@@ -60,6 +76,8 @@ class GRCExceptionViewSet(CsvExportMixin, CsvImportMixin, viewsets.ModelViewSet)
         exception.status = GRCException.ExceptionStatus.REJECTED
         exception.approver = request.user
         exception.rejection_reason = rejection_reason
-        exception.save(update_fields=["status", "approver", "rejection_reason", "updated_at"])
+        exception.save(
+            update_fields=["status", "approver", "rejection_reason", "updated_at"]
+        )
         serializer = self.get_serializer(exception)
         return Response(serializer.data)

@@ -8,7 +8,6 @@ import {
   type UserDetail,
 } from "@/api/auth";
 import { useBusinessUnits } from "@/api/organizations";
-import { useUserGroups } from "@/api/auth";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";

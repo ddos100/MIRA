@@ -16,7 +16,13 @@ class ThirdPartyAdmin(admin.ModelAdmin):
         "data_shared",
         "processing_personal_data",
     ]
-    list_filter = ["vendor_type", "risk_tier", "is_active", "data_shared", "processing_personal_data"]
+    list_filter = [
+        "vendor_type",
+        "risk_tier",
+        "is_active",
+        "data_shared",
+        "processing_personal_data",
+    ]
     search_fields = ["name", "contact_name", "contact_email", "description"]
     ordering = ["name"]
     date_hierarchy = "contract_end"

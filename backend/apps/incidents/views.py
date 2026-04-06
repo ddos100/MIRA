@@ -1,10 +1,11 @@
 """Views for the Incident Management app."""
+
 from django.utils import timezone
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
-from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.core.mixins import CsvExportMixin, CsvImportMixin
 
@@ -29,13 +30,29 @@ class IncidentCategoryViewSet(viewsets.ModelViewSet):
 class IncidentViewSet(CsvExportMixin, CsvImportMixin, viewsets.ModelViewSet):
     """CRUD for Incidents with filtering, search, ordering, lifecycle actions, and CSV."""
 
-    csv_import_fields = ["title", "severity", "description", "root_cause", "is_data_breach"]
+    csv_import_fields = [
+        "title",
+        "severity",
+        "description",
+        "root_cause",
+        "is_data_breach",
+    ]
 
     csv_filename = "incidents"
     csv_export_fields = [
-        "id", "title", "status", "severity", "category_name", "owner_name",
-        "detected_at", "contained_at", "resolved_at", "closed_at",
-        "is_data_breach", "gdpr_notification_required", "created_at",
+        "id",
+        "title",
+        "status",
+        "severity",
+        "category_name",
+        "owner_name",
+        "detected_at",
+        "contained_at",
+        "resolved_at",
+        "closed_at",
+        "is_data_breach",
+        "gdpr_notification_required",
+        "created_at",
     ]
 
     queryset = Incident.objects.select_related(
@@ -44,8 +61,13 @@ class IncidentViewSet(CsvExportMixin, CsvImportMixin, viewsets.ModelViewSet):
     serializer_class = IncidentSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = [
-        "status", "severity", "category", "owner", "reporter",
-        "is_data_breach", "gdpr_notification_required",
+        "status",
+        "severity",
+        "category",
+        "owner",
+        "reporter",
+        "is_data_breach",
+        "gdpr_notification_required",
     ]
     search_fields = ["title", "description", "root_cause", "lessons_learned"]
     ordering_fields = ["severity", "status", "detected_at", "created_at"]

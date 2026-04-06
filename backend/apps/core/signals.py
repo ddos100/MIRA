@@ -4,6 +4,7 @@ Auto-capture audit logs and dispatch webhook events for every MIRA model.
 Registers post_save / post_delete signal handlers for all concrete models
 that inherit from BaseModel.  Runs in CoreConfig.ready().
 """
+
 import logging
 
 from django.contrib.contenttypes.models import ContentType
@@ -22,6 +23,7 @@ def register_model(model_cls, event_prefix: str | None = None):
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
+
 
 def _get_field_changes(instance, old_instance) -> dict:
     """Return {field: [old, new]} for changed fields."""
@@ -53,7 +55,9 @@ def _write_audit(action: str, instance, changes: dict):
             object_repr=str(instance)[:500],
             changes=changes,
             ip_address=get_client_ip(request),
-            user_agent=(request.META.get("HTTP_USER_AGENT", "")[:500] if request else ""),
+            user_agent=(
+                request.META.get("HTTP_USER_AGENT", "")[:500] if request else ""
+            ),
         )
     except Exception:
         logger.exception("AuditLog write failed for %s %s", action, instance)

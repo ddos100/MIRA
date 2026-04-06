@@ -8,6 +8,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from apps.organizations.models import BusinessUnit
+
 from .models import APIKey, UserGroup, UserInvitation
 
 User = get_user_model()
@@ -95,7 +96,9 @@ class UserCreateSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         if attrs["password"] != attrs.pop("password_confirm"):
-            raise serializers.ValidationError({"password_confirm": "Passwords do not match."})
+            raise serializers.ValidationError(
+                {"password_confirm": "Passwords do not match."}
+            )
         return attrs
 
     def create(self, validated_data):
@@ -119,7 +122,9 @@ class ChangePasswordSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         if attrs["new_password"] != attrs["new_password_confirm"]:
-            raise serializers.ValidationError({"new_password_confirm": "Passwords do not match."})
+            raise serializers.ValidationError(
+                {"new_password_confirm": "Passwords do not match."}
+            )
         return attrs
 
 
@@ -143,7 +148,15 @@ class MIRATokenObtainPairSerializer(TokenObtainPairSerializer):
 class APIKeySerializer(serializers.ModelSerializer):
     class Meta:
         model = APIKey
-        fields = ["id", "name", "key", "is_active", "last_used_at", "expires_at", "created_at"]
+        fields = [
+            "id",
+            "name",
+            "key",
+            "is_active",
+            "last_used_at",
+            "expires_at",
+            "created_at",
+        ]
         read_only_fields = ["id", "key", "last_used_at", "created_at"]
 
     def create(self, validated_data):
@@ -155,8 +168,22 @@ class APIKeySerializer(serializers.ModelSerializer):
 class UserInvitationSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserInvitation
-        fields = ["id", "email", "role", "invited_by", "is_accepted", "expires_at", "created_at"]
-        read_only_fields = ["id", "invited_by", "is_accepted", "expires_at", "created_at"]
+        fields = [
+            "id",
+            "email",
+            "role",
+            "invited_by",
+            "is_accepted",
+            "expires_at",
+            "created_at",
+        ]
+        read_only_fields = [
+            "id",
+            "invited_by",
+            "is_accepted",
+            "expires_at",
+            "created_at",
+        ]
 
     def create(self, validated_data):
         from datetime import timedelta
@@ -187,7 +214,13 @@ class UserGroupSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "member_count", "member_ids"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "member_count",
+            "member_ids",
+        ]
 
     def get_member_count(self, obj):
         return obj.group.user_set.count()
@@ -221,4 +254,5 @@ class UserGroupSerializer(serializers.ModelSerializer):
 
 class UserGroupMemberSerializer(serializers.Serializer):
     """Used to add/remove users from a group."""
+
     user_ids = serializers.ListField(child=serializers.UUIDField())

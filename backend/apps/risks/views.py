@@ -1,10 +1,11 @@
 """Views for the Risk Management app."""
+
 from django.db.models import Count
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets
 from rest_framework.decorators import api_view
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
-from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.core.mixins import CsvExportMixin, CsvImportMixin
 
@@ -27,18 +28,36 @@ class RiskCategoryViewSet(viewsets.ModelViewSet):
 class RiskViewSet(CsvExportMixin, CsvImportMixin, viewsets.ModelViewSet):
     """CRUD for Risks with filtering, search, ordering, and CSV import."""
 
-    csv_import_fields = ["title", "status", "treatment_type", "description", "identified_date"]
+    csv_import_fields = [
+        "title",
+        "status",
+        "treatment_type",
+        "description",
+        "identified_date",
+    ]
 
     csv_filename = "risks"
     csv_export_fields = [
-        "id", "title", "status", "category_name", "owner_name",
-        "inherent_score", "inherent_rating", "residual_score", "residual_rating",
-        "treatment_type", "identified_date", "review_date", "created_at",
+        "id",
+        "title",
+        "status",
+        "category_name",
+        "owner_name",
+        "inherent_score",
+        "inherent_rating",
+        "residual_score",
+        "residual_rating",
+        "treatment_type",
+        "identified_date",
+        "review_date",
+        "created_at",
     ]
 
     queryset = Risk.objects.select_related(
         "category", "owner", "business_unit"
-    ).prefetch_related("assets", "third_parties", "policies", "compliance_requirements", "projects")
+    ).prefetch_related(
+        "assets", "third_parties", "policies", "compliance_requirements", "projects"
+    )
     serializer_class = RiskSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ["status", "category", "owner", "business_unit"]

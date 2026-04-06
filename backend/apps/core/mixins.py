@@ -1,11 +1,12 @@
 """Reusable DRF viewset mixins for the MIRA platform."""
+
 import csv
 import io
 
+from django.http import StreamingHttpResponse
+from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework import status
-from django.http import StreamingHttpResponse
 
 
 class CsvExportMixin:
@@ -107,7 +108,10 @@ class CsvImportMixin:
 
         for line_num, row in enumerate(reader, start=2):  # 1-based, row 1 = header
             # Strip whitespace from keys and values
-            row = {k.strip(): (v.strip() if isinstance(v, str) else v) for k, v in row.items()}
+            row = {
+                k.strip(): (v.strip() if isinstance(v, str) else v)
+                for k, v in row.items()
+            }
 
             # Filter to only allowed fields if whitelist is set
             if allowed_fields:
@@ -124,7 +128,9 @@ class CsvImportMixin:
                 except Exception as exc:
                     errors.append({"row": line_num, "error": str(exc), "data": row})
             else:
-                errors.append({"row": line_num, "errors": serializer.errors, "data": row})
+                errors.append(
+                    {"row": line_num, "errors": serializer.errors, "data": row}
+                )
 
         return Response(
             {

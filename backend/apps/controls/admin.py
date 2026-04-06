@@ -1,4 +1,5 @@
 """Django admin configuration for the Internal Controls app."""
+
 from django.contrib import admin
 
 from .models import Control, ControlCategory, ControlIssue, ControlTest
@@ -13,18 +14,42 @@ class ControlCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Control)
 class ControlAdmin(admin.ModelAdmin):
-    list_display = ["title", "control_type", "frequency", "status", "owner", "category", "version"]
+    list_display = [
+        "title",
+        "control_type",
+        "frequency",
+        "status",
+        "owner",
+        "category",
+        "version",
+    ]
     list_filter = ["status", "control_type", "frequency", "category"]
     search_fields = ["title", "description", "notes"]
     autocomplete_fields = ["owner", "category", "business_unit"]
     filter_horizontal = ["compliance_requirements", "risks"]
     readonly_fields = ["id", "created_at", "updated_at"]
     fieldsets = [
-        (None, {"fields": ["id", "title", "description", "control_type", "frequency", "status", "version"]}),
+        (
+            None,
+            {
+                "fields": [
+                    "id",
+                    "title",
+                    "description",
+                    "control_type",
+                    "frequency",
+                    "status",
+                    "version",
+                ]
+            },
+        ),
         ("Ownership", {"fields": ["owner", "category", "business_unit"]}),
         ("Review", {"fields": ["last_review_date", "next_review_date", "notes"]}),
         ("Relationships", {"fields": ["compliance_requirements", "risks"]}),
-        ("Timestamps", {"fields": ["created_at", "updated_at"], "classes": ["collapse"]}),
+        (
+            "Timestamps",
+            {"fields": ["created_at", "updated_at"], "classes": ["collapse"]},
+        ),
     ]
 
 

@@ -1,4 +1,5 @@
 """Django admin configuration for the Policy Management app."""
+
 from django.contrib import admin
 
 from .models import Policy, PolicyAcknowledgement, PolicyCategory, PolicyReview
@@ -14,8 +15,14 @@ class PolicyCategoryAdmin(admin.ModelAdmin):
 @admin.register(Policy)
 class PolicyAdmin(admin.ModelAdmin):
     list_display = [
-        "title", "version", "status", "owner", "category",
-        "effective_date", "review_date", "acknowledgement_required",
+        "title",
+        "version",
+        "status",
+        "owner",
+        "category",
+        "effective_date",
+        "review_date",
+        "acknowledgement_required",
     ]
     list_filter = ["status", "category", "acknowledgement_required"]
     search_fields = ["title", "summary", "content"]
@@ -26,9 +33,15 @@ class PolicyAdmin(admin.ModelAdmin):
         (None, {"fields": ["id", "title", "summary", "content", "status", "version"]}),
         ("Ownership & Category", {"fields": ["owner", "category"]}),
         ("Dates", {"fields": ["effective_date", "review_date", "expiry_date"]}),
-        ("Acknowledgement", {"fields": ["acknowledgement_required", "acknowledgement_deadline"]}),
+        (
+            "Acknowledgement",
+            {"fields": ["acknowledgement_required", "acknowledgement_deadline"]},
+        ),
         ("Relationships", {"fields": ["compliance_requirements", "controls"]}),
-        ("Timestamps", {"fields": ["created_at", "updated_at"], "classes": ["collapse"]}),
+        (
+            "Timestamps",
+            {"fields": ["created_at", "updated_at"], "classes": ["collapse"]},
+        ),
     ]
 
 

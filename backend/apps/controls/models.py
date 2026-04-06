@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+
 from apps.core.models import BaseModel
 
 
@@ -94,9 +95,7 @@ class ControlTest(BaseModel):
         PARTIAL = "partial", _("Partial")
         NOT_TESTED = "not_tested", _("Not Tested")
 
-    control = models.ForeignKey(
-        Control, on_delete=models.CASCADE, related_name="tests"
-    )
+    control = models.ForeignKey(Control, on_delete=models.CASCADE, related_name="tests")
     tester = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,

@@ -1,4 +1,5 @@
 """Celery tasks for Incident Management."""
+
 import logging
 from datetime import timedelta
 
@@ -11,9 +12,11 @@ logger = logging.getLogger(__name__)
 @shared_task
 def check_gdpr_breach_notifications():
     """Alert on data breaches that haven't been notified within 72 hours (GDPR Art. 33)."""
-    from .models import Incident
-    from apps.core.models import Notification
     from django.contrib.contenttypes.models import ContentType
+
+    from apps.core.models import Notification
+
+    from .models import Incident
 
     deadline = timezone.now() - timedelta(hours=72)
     breaches = Incident.objects.filter(
@@ -69,7 +72,12 @@ def update_overdue_incident_slas():
             created_at__lte=deadline,
         ).count()
         if count:
-            logger.warning("%d %s incidents are past their SLA (%dh)", count, severity.upper(), hours)
+            logger.warning(
+                "%d %s incidents are past their SLA (%dh)",
+                count,
+                severity.upper(),
+                hours,
+            )
             updated += count
 
     return updated

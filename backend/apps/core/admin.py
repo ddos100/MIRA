@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AuditLog, Attachment, Comment, CustomField, CustomFieldValue, Notification, Tag
+from .models import Attachment, AuditLog, Comment, CustomField, Notification, Tag
 
 
 @admin.register(Tag)
@@ -25,7 +25,17 @@ class AuditLogAdmin(admin.ModelAdmin):
     list_display = ["timestamp", "user", "action", "object_repr"]
     list_filter = ["action"]
     search_fields = ["object_repr", "user__email"]
-    readonly_fields = ["timestamp", "user", "action", "content_type", "object_id", "object_repr", "changes", "ip_address", "user_agent"]
+    readonly_fields = [
+        "timestamp",
+        "user",
+        "action",
+        "content_type",
+        "object_id",
+        "object_repr",
+        "changes",
+        "ip_address",
+        "user_agent",
+    ]
 
     def has_add_permission(self, request):
         return False

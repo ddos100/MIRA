@@ -1,6 +1,7 @@
 """
 Reports & Dashboards models for MIRA GRC.
 """
+
 from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -84,8 +85,8 @@ class SavedReport(BaseModel):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     module = models.CharField(max_length=30, choices=ReportModule.choices)
-    filters = models.JSONField(default=dict)   # DRF filter kwargs
-    fields = models.JSONField(default=list)    # selected columns
+    filters = models.JSONField(default=dict)  # DRF filter kwargs
+    fields = models.JSONField(default=list)  # selected columns
     ordering = models.CharField(max_length=100, blank=True)
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,

@@ -9,13 +9,6 @@ import { cn } from "@/utils/cn";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface StatItem {
-  label: string;
-  icon: React.ElementType;
-  color: string;
-  endpoints: { key: string; label: string; params?: Record<string, string> }[];
-}
-
 interface CountResult {
   label: string;
   value: number;

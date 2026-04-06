@@ -1,7 +1,8 @@
 """Views for the Policy Management app."""
+
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets
 from rest_framework.filters import OrderingFilter, SearchFilter
-from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.core.mixins import CsvExportMixin, CsvImportMixin
 
@@ -29,8 +30,14 @@ class PolicyViewSet(CsvExportMixin, CsvImportMixin, viewsets.ModelViewSet):
 
     csv_filename = "policies"
     csv_export_fields = [
-        "id", "title", "status", "version", "effective_date",
-        "review_date", "acknowledgement_required", "created_at",
+        "id",
+        "title",
+        "status",
+        "version",
+        "effective_date",
+        "review_date",
+        "acknowledgement_required",
+        "created_at",
     ]
     csv_import_fields = ["title", "status", "version", "summary", "content"]
 

@@ -1,7 +1,9 @@
 """Compliance Management models."""
+
 from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+
 from apps.core.models import BaseModel
 
 
@@ -33,7 +35,9 @@ class ComplianceFrameworkTemplate(BaseModel):
     issuing_body = models.CharField(max_length=200, blank=True)
     description = models.TextField(blank=True)
     # JSON structure: list of {ref_code, title, description, guidance, order, children:[...]}
-    structure = models.JSONField(default=list, help_text="Hierarchical requirement structure")
+    structure = models.JSONField(
+        default=list, help_text="Hierarchical requirement structure"
+    )
     is_active = models.BooleanField(default=True)
 
     class Meta:

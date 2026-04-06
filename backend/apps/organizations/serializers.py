@@ -1,6 +1,7 @@
 """
 Serializers for the organizations app.
 """
+
 from rest_framework import serializers
 
 from .models import BusinessProcess, BusinessUnit, OrgSettings
@@ -40,16 +41,21 @@ class BusinessUnitSerializer(serializers.ModelSerializer):
             "created_by",
             "updated_by",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "created_by", "updated_by", "level"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "created_by",
+            "updated_by",
+            "level",
+        ]
 
 
 class BusinessProcessSerializer(serializers.ModelSerializer):
     business_unit_name = serializers.CharField(
         source="business_unit.name", read_only=True
     )
-    owner_name = serializers.CharField(
-        source="owner.get_full_name", read_only=True
-    )
+    owner_name = serializers.CharField(source="owner.get_full_name", read_only=True)
 
     class Meta:
         model = BusinessProcess
@@ -68,7 +74,13 @@ class BusinessProcessSerializer(serializers.ModelSerializer):
             "created_by",
             "updated_by",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "created_by", "updated_by"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "created_by",
+            "updated_by",
+        ]
 
 
 class OrgSettingsSerializer(serializers.ModelSerializer):

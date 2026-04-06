@@ -1,6 +1,7 @@
 """
 Custom User model and role/permission infrastructure for MIRA.
 """
+
 import uuid
 
 from django.contrib.auth.models import AbstractUser, BaseUserManager, Group

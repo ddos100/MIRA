@@ -1,6 +1,7 @@
 """
 Admin registration for the assets app.
 """
+
 from django.contrib import admin
 
 from .models import Asset, AssetCategory, DataAsset, DataFlow
@@ -14,7 +15,15 @@ class AssetCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Asset)
 class AssetAdmin(admin.ModelAdmin):
-    list_display = ["name", "category", "owner", "business_unit", "criticality", "status", "created_at"]
+    list_display = [
+        "name",
+        "category",
+        "owner",
+        "business_unit",
+        "criticality",
+        "status",
+        "created_at",
+    ]
     list_filter = ["status", "criticality", "category"]
     search_fields = ["name", "description"]
     raw_id_fields = ["category", "owner", "business_unit"]
@@ -31,7 +40,13 @@ class DataAssetAdmin(admin.ModelAdmin):
 
 @admin.register(DataFlow)
 class DataFlowAdmin(admin.ModelAdmin):
-    list_display = ["name", "source_asset", "destination_asset", "is_cross_border", "created_at"]
+    list_display = [
+        "name",
+        "source_asset",
+        "destination_asset",
+        "is_cross_border",
+        "created_at",
+    ]
     list_filter = ["is_cross_border"]
     search_fields = ["name", "data_types", "transfer_mechanism"]
     raw_id_fields = ["source_asset", "destination_asset"]

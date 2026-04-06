@@ -1,11 +1,12 @@
 """Views for the Compliance Management app."""
+
 from django.db import transaction
 from django.db.models import Count
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
-from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.core.mixins import CsvExportMixin
 
@@ -54,8 +55,14 @@ class ComplianceProgramViewSet(CsvExportMixin, viewsets.ModelViewSet):
 
     csv_filename = "compliance-programs"
     csv_export_fields = [
-        "id", "name", "status", "framework_name", "owner_name",
-        "requirements_count", "target_date", "created_at",
+        "id",
+        "name",
+        "status",
+        "framework_name",
+        "owner_name",
+        "requirements_count",
+        "target_date",
+        "created_at",
     ]
 
     queryset = ComplianceProgram.objects.select_related("framework", "owner")
@@ -139,7 +146,9 @@ class ComplianceFrameworkTemplateViewSet(viewsets.ModelViewSet):
             short_name=template.short_name, version=override_version
         ).exists():
             return Response(
-                {"detail": "A framework with this short_name and version already exists."},
+                {
+                    "detail": "A framework with this short_name and version already exists."
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

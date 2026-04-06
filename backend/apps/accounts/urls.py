@@ -1,4 +1,4 @@
-from django.urls import include, path
+from django.urls import path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
 
@@ -6,8 +6,8 @@ from .views import (
     APIKeyDetailView,
     APIKeyListCreateView,
     InvitationListCreateView,
-    MIRATokenObtainPairView,
     MeView,
+    MIRATokenObtainPairView,
     RegisterView,
     UserDetailView,
     UserGroupViewSet,
