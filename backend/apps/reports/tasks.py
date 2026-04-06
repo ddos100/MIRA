@@ -29,7 +29,9 @@ def generate_report_export(self, export_id: str):
 
         logger.info(
             "Generating %s export for report '%s' (module=%s)",
-            fmt, report.name, report.module,
+            fmt,
+            report.name,
+            report.module,
         )
 
         fields, rows = get_module_data(
@@ -46,7 +48,9 @@ def generate_report_export(self, export_id: str):
         elif fmt == "excel":
             content = generate_excel_bytes(report.name, fields, rows)
             filename = f"{report.name}.xlsx"
-            content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            content_type = (
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
         else:  # csv (default)
             content = generate_csv_bytes(fields, rows)
             filename = f"{report.name}.csv"
@@ -78,8 +82,8 @@ def generate_report_export(self, export_id: str):
 
 def _email_export(export, content: bytes, filename: str, content_type: str):
     """Email a completed export to the schedule's recipients."""
-    from django.core.mail import EmailMessage
     from django.conf import settings
+    from django.core.mail import EmailMessage
 
     for schedule in export.report.schedules.filter(is_active=True):
         recipients = schedule.recipients or []
@@ -105,7 +109,9 @@ def run_scheduled_reports():
     from .models import ReportExport, ReportSchedule
 
     now = timezone.now()
-    due = ReportSchedule.objects.filter(is_active=True, next_run_at__lte=now).select_related("report")
+    due = ReportSchedule.objects.filter(
+        is_active=True, next_run_at__lte=now
+    ).select_related("report")
     for schedule in due:
         export = ReportExport.objects.create(
             report=schedule.report,
@@ -120,6 +126,12 @@ def run_scheduled_reports():
             "quarterly": timedelta(days=90),
         }
         schedule.last_run_at = now
-        schedule.next_run_at = now + delta_map.get(schedule.frequency, timedelta(days=30))
+        schedule.next_run_at = now + delta_map.get(
+            schedule.frequency, timedelta(days=30)
+        )
         schedule.save(update_fields=["last_run_at", "next_run_at"])
-        logger.info("Scheduled report '%s' queued (export id=%s)", schedule.report.name, export.id)
+        logger.info(
+            "Scheduled report '%s' queued (export id=%s)",
+            schedule.report.name,
+            export.id,
+        )

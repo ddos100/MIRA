@@ -5,6 +5,7 @@ Supports PDF (WeasyPrint), Excel (openpyxl), and CSV output.
 Each module is mapped to a queryset factory and serializer that
 turns rows into plain dicts the renderers can consume.
 """
+
 import csv
 import importlib
 import io
@@ -35,7 +36,10 @@ _MODULE_CONFIG: dict[str, dict] = {
     },
     "compliance": {
         "model_path": ("apps.compliance.models", "ComplianceProgram"),
-        "serializer_path": ("apps.compliance.serializers", "ComplianceProgramSerializer"),
+        "serializer_path": (
+            "apps.compliance.serializers",
+            "ComplianceProgramSerializer",
+        ),
         "select_related": ["framework", "owner"],
     },
     "policies": {
@@ -207,6 +211,7 @@ def generate_pdf_bytes(title: str, fields: list[str], rows: list[dict]) -> bytes
 # Excel generation (openpyxl)
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def generate_excel_bytes(title: str, fields: list[str], rows: list[dict]) -> bytes:
     """Generate a styled Excel workbook using openpyxl."""
     from openpyxl import Workbook  # type: ignore
@@ -233,9 +238,7 @@ def generate_excel_bytes(title: str, fields: list[str], rows: list[dict]) -> byt
 
     # Auto-size columns (approximate)
     for col in ws.columns:
-        max_len = max(
-            (len(str(cell.value)) if cell.value else 0) for cell in col
-        )
+        max_len = max((len(str(cell.value)) if cell.value else 0) for cell in col)
         ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 50)
 
     buf = io.BytesIO()
@@ -247,6 +250,7 @@ def generate_excel_bytes(title: str, fields: list[str], rows: list[dict]) -> byt
 # ──────────────────────────────────────────────────────────────────────────────
 # CSV generation
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def generate_csv_bytes(fields: list[str], rows: list[dict]) -> bytes:
     """Generate a UTF-8 CSV file."""

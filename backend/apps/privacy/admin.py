@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import ProcessingActivity, DPIA, DataSubjectRequest
+from .models import DPIA, DataSubjectRequest, ProcessingActivity
 
 
 @admin.register(ProcessingActivity)
@@ -13,7 +13,12 @@ class ProcessingActivityAdmin(admin.ModelAdmin):
         "cross_border_transfer",
         "owner",
     ]
-    list_filter = ["legal_basis", "is_active", "special_category_data", "cross_border_transfer"]
+    list_filter = [
+        "legal_basis",
+        "is_active",
+        "special_category_data",
+        "cross_border_transfer",
+    ]
     search_fields = ["name", "description", "purpose", "controller", "processor"]
     ordering = ["name"]
     filter_horizontal = ["third_party_recipients"]

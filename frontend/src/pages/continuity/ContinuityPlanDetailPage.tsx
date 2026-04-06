@@ -131,7 +131,7 @@ function AddTestModal({ open, onClose, planId }: AddTestModalProps) {
   const createTest = useCreateContinuityTest();
   const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm<TestFormValues>({
     resolver: zodResolver(testSchema),
-    defaultValues: { test_type: "", scheduled_date: "", completed_date: "", result: "", notes: "" },
+    defaultValues: { test_type: "", test_date: "", status: "planned", objectives: "", result_summary: "" },
   });
 
   async function onSubmit(values: TestFormValues) {

@@ -26,6 +26,7 @@ const VendorsPage = lazy(() => import("@/pages/vendors/VendorsPage"));
 const OrganizationsPage = lazy(() => import("@/pages/organizations/OrganizationsPage"));
 const ReportsPage = lazy(() => import("@/pages/reports/ReportsPage"));
 const SettingsPage = lazy(() => import("@/pages/settings/SettingsPage"));
+const UsersPage = lazy(() => import("@/pages/users/UsersPage"));
 
 export default function App() {
   return (
@@ -70,6 +71,9 @@ export default function App() {
           <Route path="/assets/*" element={<AssetsPage />} />
           <Route path="/vendors/*" element={<VendorsPage />} />
           <Route path="/organizations/*" element={<OrganizationsPage />} />
+
+          {/* Users */}
+          <Route path="/users/*" element={<UsersPage />} />
 
           {/* Reports */}
           <Route path="/reports/*" element={<ReportsPage />} />

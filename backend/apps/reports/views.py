@@ -138,13 +138,17 @@ class DashboardViewSet(viewsets.ModelViewSet):
                 config=widget.config,
                 created_by=request.user,
             )
-        return Response(DashboardSerializer(new_dash).data, status=status.HTTP_201_CREATED)
+        return Response(
+            DashboardSerializer(new_dash).data, status=status.HTTP_201_CREATED
+        )
 
     @action(detail=True, methods=["post"])
     def set_default(self, request, pk=None):
         """Set this dashboard as the user's default."""
         dashboard = self.get_object()
-        Dashboard.objects.filter(owner=request.user, is_default=True).update(is_default=False)
+        Dashboard.objects.filter(owner=request.user, is_default=True).update(
+            is_default=False
+        )
         dashboard.is_default = True
         dashboard.save(update_fields=["is_default"])
         return Response({"status": "ok"})
@@ -200,8 +204,11 @@ class SavedReportViewSet(viewsets.ModelViewSet):
         )
         # Trigger celery task
         from .tasks import generate_report_export
+
         generate_report_export.delay(str(export.id))
-        return Response(ReportExportSerializer(export).data, status=status.HTTP_202_ACCEPTED)
+        return Response(
+            ReportExportSerializer(export).data, status=status.HTTP_202_ACCEPTED
+        )
 
 
 class ReportScheduleViewSet(viewsets.ModelViewSet):

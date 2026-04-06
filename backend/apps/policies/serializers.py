@@ -1,4 +1,5 @@
 """Serializers for the Policy Management app."""
+
 from rest_framework import serializers
 
 from .models import Policy, PolicyAcknowledgement, PolicyCategory, PolicyReview

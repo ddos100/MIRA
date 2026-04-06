@@ -32,7 +32,7 @@ function SkeletonRow({ colCount }: { colCount: number }) {
   );
 }
 
-export function DataTable<T extends Record<string, unknown>>({
+export function DataTable<T extends object>({
   data,
   columns,
   isLoading = false,
@@ -56,8 +56,8 @@ export function DataTable<T extends Record<string, unknown>>({
 
   const sortedData = [...data].sort((a, b) => {
     if (!sortKey || !sortDir) return 0;
-    const aVal = a[sortKey];
-    const bVal = b[sortKey];
+    const aVal = (a as Record<string, unknown>)[sortKey];
+    const bVal = (b as Record<string, unknown>)[sortKey];
     const aStr = aVal == null ? "" : String(aVal);
     const bStr = bVal == null ? "" : String(bVal);
     const cmp = aStr.localeCompare(bStr, undefined, { numeric: true });
@@ -131,7 +131,7 @@ export function DataTable<T extends Record<string, unknown>>({
                   >
                     {col.render
                       ? col.render(row)
-                      : (row[col.key] as React.ReactNode)}
+                      : ((row as Record<string, unknown>)[col.key] as React.ReactNode)}
                   </td>
                 ))}
               </tr>

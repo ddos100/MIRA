@@ -1,10 +1,10 @@
-from rest_framework import viewsets, permissions
+from rest_framework import permissions, viewsets
 
-from .models import ProcessingActivity, DPIA, DataSubjectRequest
+from .models import DPIA, DataSubjectRequest, ProcessingActivity
 from .serializers import (
-    ProcessingActivitySerializer,
-    DPIASerializer,
     DataSubjectRequestSerializer,
+    DPIASerializer,
+    ProcessingActivitySerializer,
 )
 
 
@@ -12,7 +12,12 @@ class ProcessingActivityViewSet(viewsets.ModelViewSet):
     queryset = ProcessingActivity.objects.all()
     serializer_class = ProcessingActivitySerializer
     permission_classes = [permissions.IsAuthenticated]
-    filterset_fields = ["legal_basis", "is_active", "special_category_data", "cross_border_transfer"]
+    filterset_fields = [
+        "legal_basis",
+        "is_active",
+        "special_category_data",
+        "cross_border_transfer",
+    ]
     search_fields = ["name", "description", "purpose", "controller", "processor"]
     ordering_fields = ["name", "legal_basis", "created_at"]
 

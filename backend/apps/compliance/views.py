@@ -1,16 +1,19 @@
 """Views for the Compliance Management app."""
+
+from django.db import transaction
 from django.db.models import Count
-from rest_framework import viewsets
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
-from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.core.mixins import CsvExportMixin
 
 from .models import (
     ComplianceAssessment,
     ComplianceFramework,
+    ComplianceFrameworkTemplate,
     ComplianceProgram,
     Evidence,
     Requirement,
@@ -18,6 +21,7 @@ from .models import (
 from .serializers import (
     ComplianceAssessmentSerializer,
     ComplianceFrameworkSerializer,
+    ComplianceFrameworkTemplateSerializer,
     ComplianceProgramSerializer,
     EvidenceSerializer,
     RequirementSerializer,
@@ -51,8 +55,14 @@ class ComplianceProgramViewSet(CsvExportMixin, viewsets.ModelViewSet):
 
     csv_filename = "compliance-programs"
     csv_export_fields = [
-        "id", "name", "status", "framework_name", "owner_name",
-        "requirements_count", "target_date", "created_at",
+        "id",
+        "name",
+        "status",
+        "framework_name",
+        "owner_name",
+        "requirements_count",
+        "target_date",
+        "created_at",
     ]
 
     queryset = ComplianceProgram.objects.select_related("framework", "owner")
@@ -106,3 +116,69 @@ class EvidenceViewSet(viewsets.ModelViewSet):
     filterset_fields = ["assessment", "collected_by"]
     search_fields = ["title", "description"]
     ordering_fields = ["collected_date", "created_at"]
+
+
+class ComplianceFrameworkTemplateViewSet(viewsets.ModelViewSet):
+    """
+    CRUD for built-in / custom compliance framework templates.
+    Use POST /compliance/framework-templates/{id}/instantiate/ to create a
+    full ComplianceFramework + Requirement tree from the template.
+    """
+
+    queryset = ComplianceFrameworkTemplate.objects.all()
+    serializer_class = ComplianceFrameworkTemplateSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ["template_type", "is_active"]
+    search_fields = ["name", "short_name", "description"]
+    ordering_fields = ["name", "created_at"]
+
+    @action(detail=True, methods=["post"], url_path="instantiate")
+    def instantiate(self, request, pk=None):
+        """
+        Create a ComplianceFramework + its full Requirement tree from this template.
+        Optional body: {"name": "...", "version": "..."}  to override defaults.
+        """
+        template = self.get_object()
+        override_name = request.data.get("name", template.name)
+        override_version = request.data.get("version", template.version)
+
+        if ComplianceFramework.objects.filter(
+            short_name=template.short_name, version=override_version
+        ).exists():
+            return Response(
+                {
+                    "detail": "A framework with this short_name and version already exists."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            framework = ComplianceFramework.objects.create(
+                name=override_name,
+                short_name=template.short_name,
+                version=override_version,
+                description=template.description,
+                issuing_body=template.issuing_body,
+                is_active=True,
+            )
+            self._create_requirements(framework, template.structure, parent=None)
+
+        return Response(
+            ComplianceFrameworkSerializer(framework).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    def _create_requirements(self, framework, nodes, parent):
+        for node in nodes:
+            children = node.pop("children", [])
+            req = Requirement.objects.create(
+                framework=framework,
+                parent=parent,
+                ref_code=node.get("ref_code", ""),
+                title=node.get("title", ""),
+                description=node.get("description", ""),
+                guidance=node.get("guidance", ""),
+                order=node.get("order", 0),
+            )
+            if children:
+                self._create_requirements(framework, children, parent=req)

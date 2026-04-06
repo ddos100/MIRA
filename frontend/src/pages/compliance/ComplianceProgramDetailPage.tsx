@@ -6,7 +6,6 @@ import {
   Pie,
   Cell,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from "recharts";
 import { useForm } from "react-hook-form";

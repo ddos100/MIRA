@@ -26,12 +26,26 @@ class SavedReportAdmin(admin.ModelAdmin):
 
 @admin.register(ReportSchedule)
 class ReportScheduleAdmin(admin.ModelAdmin):
-    list_display = ["report", "frequency", "export_format", "is_active", "last_run_at", "next_run_at"]
+    list_display = [
+        "report",
+        "frequency",
+        "export_format",
+        "is_active",
+        "last_run_at",
+        "next_run_at",
+    ]
     list_filter = ["frequency", "export_format", "is_active"]
 
 
 @admin.register(ReportExport)
 class ReportExportAdmin(admin.ModelAdmin):
-    list_display = ["report", "export_format", "status", "requested_by", "created_at", "completed_at"]
+    list_display = [
+        "report",
+        "export_format",
+        "status",
+        "requested_by",
+        "created_at",
+        "completed_at",
+    ]
     list_filter = ["status", "export_format"]
     readonly_fields = ["completed_at", "created_at"]

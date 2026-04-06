@@ -1,6 +1,7 @@
 """
 Organization structure models: Business Units and Business Processes.
 """
+
 from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -85,3 +86,45 @@ class BusinessProcess(BaseModel):
 
     def __str__(self):
         return f"{self.name} ({self.business_unit})"
+
+
+class OrgSettings(models.Model):
+    """
+    Singleton model storing organization-wide settings.
+    There should only ever be one row (pk=1).
+    """
+
+    org_name = models.CharField(max_length=255, default="MIRA GRC")
+    description = models.TextField(blank=True)
+    timezone = models.CharField(max_length=100, default="UTC")
+    primary_contact_email = models.EmailField(blank=True)
+    logo = models.ImageField(upload_to="org/logos/", null=True, blank=True)
+    max_risk_score = models.PositiveSmallIntegerField(
+        default=25,
+        help_text="Maximum possible risk score (likelihood × impact). Used for heatmap scaling.",
+    )
+    risk_review_days = models.PositiveSmallIntegerField(
+        default=90,
+        help_text="Default number of days before a risk review is due.",
+    )
+    policy_review_days = models.PositiveSmallIntegerField(
+        default=365,
+        help_text="Default number of days before a policy review is due.",
+    )
+    enable_2fa_required = models.BooleanField(
+        default=False,
+        help_text="Require all users to enrol in two-factor authentication.",
+    )
+
+    class Meta:
+        verbose_name = _("Organisation Settings")
+        verbose_name_plural = _("Organisation Settings")
+
+    def __str__(self):
+        return self.org_name
+
+    @classmethod
+    def get(cls) -> "OrgSettings":
+        """Return the singleton OrgSettings row, creating it if absent."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj

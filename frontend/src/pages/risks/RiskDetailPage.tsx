@@ -13,6 +13,8 @@ import { Select } from "@/components/ui/Select";
 import { useRisk, useTreatmentPlans, useCreateTreatmentPlan } from "@/api/risks";
 import type { Risk, RiskTreatmentPlan } from "@/types";
 import RiskFormModal from "./RiskFormModal";
+import { CommentsPanel } from "@/components/common/CommentsPanel";
+import { AttachmentsPanel } from "@/components/common/AttachmentsPanel";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -359,6 +361,20 @@ export default function RiskDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Comments & Attachments */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card>
+          <CardContent className="pt-5">
+            <CommentsPanel contentType="risks.risk" objectId={id ?? ""} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-5">
+            <AttachmentsPanel contentType="risks.risk" objectId={id ?? ""} />
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Modals */}
       {editOpen && (

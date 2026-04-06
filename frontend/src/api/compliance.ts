@@ -95,6 +95,10 @@ export const complianceKeys = {
   frameworkDetail: (id: string) =>
     [...complianceKeys.frameworks(), "detail", id] as const,
 
+  frameworkTemplates: () => [...complianceKeys.all, "framework-templates"] as const,
+  frameworkTemplateList: (params?: Record<string, unknown>) =>
+    [...complianceKeys.frameworkTemplates(), "list", params] as const,
+
   programs: () => [...complianceKeys.all, "programs"] as const,
   programLists: () => [...complianceKeys.programs(), "list"] as const,
   programList: (params?: Record<string, unknown>) =>
@@ -244,6 +248,98 @@ export function useAssessments(params?: Record<string, unknown>) {
       );
       return data;
     },
+  });
+}
+
+// ─── Framework Template Hooks ─────────────────────────────────────────────────
+
+export interface FrameworkTemplate {
+  id: string;
+  name: string;
+  template_type: string;
+  short_name: string;
+  version: string;
+  issuing_body: string;
+  description: string;
+  structure: Record<string, unknown>[];
+  is_active: boolean;
+  created_at: string;
+}
+
+export function useFrameworkTemplates(params?: Record<string, unknown>) {
+  return useQuery({
+    queryKey: complianceKeys.frameworkTemplateList(params),
+    queryFn: async () => {
+      const { data } = await apiClient.get<PaginatedResponse<FrameworkTemplate>>(
+        "/compliance/framework-templates/",
+        { params: { page_size: 100, ...params } }
+      );
+      return data;
+    },
+  });
+}
+
+export function useCreateFrameworkTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: Partial<FrameworkTemplate>) => {
+      const { data } = await apiClient.post<FrameworkTemplate>(
+        "/compliance/framework-templates/",
+        payload
+      );
+      return data;
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: complianceKeys.frameworkTemplates() }),
+  });
+}
+
+export function useUpdateFrameworkTemplate(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: Partial<FrameworkTemplate>) => {
+      const { data } = await apiClient.patch<FrameworkTemplate>(
+        `/compliance/framework-templates/${id}/`,
+        payload
+      );
+      return data;
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: complianceKeys.frameworkTemplates() }),
+  });
+}
+
+export function useDeleteFrameworkTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/compliance/framework-templates/${id}/`);
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: complianceKeys.frameworkTemplates() }),
+  });
+}
+
+export function useInstantiateFramework() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      templateId,
+      name,
+      version,
+    }: {
+      templateId: string;
+      name?: string;
+      version?: string;
+    }) => {
+      const { data } = await apiClient.post<ComplianceFramework>(
+        `/compliance/framework-templates/${templateId}/instantiate/`,
+        { name, version }
+      );
+      return data;
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: complianceKeys.frameworkLists() }),
   });
 }
 

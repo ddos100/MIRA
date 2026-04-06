@@ -1,4 +1,4 @@
-from rest_framework import viewsets, permissions
+from rest_framework import permissions, viewsets
 
 from .models import BusinessImpactAnalysis, ContinuityPlan, ContinuityTest
 from .serializers import (
@@ -23,7 +23,14 @@ class ContinuityPlanViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     filterset_fields = ["status"]
     search_fields = ["title", "scope", "objectives", "triggers"]
-    ordering_fields = ["title", "status", "version", "approved_at", "review_date", "created_at"]
+    ordering_fields = [
+        "title",
+        "status",
+        "version",
+        "approved_at",
+        "review_date",
+        "created_at",
+    ]
 
 
 class ContinuityTestViewSet(viewsets.ModelViewSet):

@@ -1,4 +1,5 @@
 """Serializers for the Risk Management app."""
+
 from rest_framework import serializers
 
 from .models import Risk, RiskCategory, RiskReview, RiskTreatmentPlan

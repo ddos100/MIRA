@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+
 from apps.core.models import BaseModel
 
 
@@ -91,9 +92,7 @@ class PolicyReview(BaseModel):
         MAJOR_CHANGES = "major_changes", _("Major Changes Required")
         RETIRE = "retire", _("Retire Policy")
 
-    policy = models.ForeignKey(
-        Policy, on_delete=models.CASCADE, related_name="reviews"
-    )
+    policy = models.ForeignKey(Policy, on_delete=models.CASCADE, related_name="reviews")
     reviewer = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,

@@ -1,6 +1,7 @@
 """
 Admin registration for the organizations app.
 """
+
 from django.contrib import admin
 from mptt.admin import MPTTModelAdmin
 
@@ -17,7 +18,14 @@ class BusinessUnitAdmin(MPTTModelAdmin):
 
 @admin.register(BusinessProcess)
 class BusinessProcessAdmin(admin.ModelAdmin):
-    list_display = ["name", "business_unit", "owner", "criticality", "is_active", "created_at"]
+    list_display = [
+        "name",
+        "business_unit",
+        "owner",
+        "criticality",
+        "is_active",
+        "created_at",
+    ]
     list_filter = ["criticality", "is_active", "business_unit"]
     search_fields = ["name", "description"]
     raw_id_fields = ["business_unit", "owner"]

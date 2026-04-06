@@ -1,8 +1,52 @@
 """Compliance Management models."""
+
 from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+
 from apps.core.models import BaseModel
+
+
+class ComplianceFrameworkTemplate(BaseModel):
+    """
+    Predefined framework templates (ISO 27001, NIST CSF, SOC 2, HIPAA, etc.).
+    Admins can instantiate a full ComplianceFramework + Requirement tree from
+    one of these templates via the API action /compliance/framework-templates/{id}/instantiate/.
+    """
+
+    class TemplateType(models.TextChoices):
+        ISO_27001 = "iso_27001", _("ISO/IEC 27001:2022")
+        NIST_CSF = "nist_csf", _("NIST Cybersecurity Framework")
+        NIST_800_53 = "nist_800_53", _("NIST SP 800-53")
+        SOC2 = "soc2", _("SOC 2 (Trust Services Criteria)")
+        HIPAA = "hipaa", _("HIPAA Security Rule")
+        GDPR = "gdpr", _("GDPR")
+        PCI_DSS = "pci_dss", _("PCI DSS v4.0")
+        ISO_31000 = "iso_31000", _("ISO 31000 Risk Management")
+        ISO_22301 = "iso_22301", _("ISO 22301 Business Continuity")
+        CUSTOM = "custom", _("Custom Template")
+
+    name = models.CharField(max_length=200)
+    template_type = models.CharField(
+        max_length=30, choices=TemplateType.choices, unique=True
+    )
+    short_name = models.CharField(max_length=50)
+    version = models.CharField(max_length=50, blank=True)
+    issuing_body = models.CharField(max_length=200, blank=True)
+    description = models.TextField(blank=True)
+    # JSON structure: list of {ref_code, title, description, guidance, order, children:[...]}
+    structure = models.JSONField(
+        default=list, help_text="Hierarchical requirement structure"
+    )
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = _("Compliance Framework Template")
+        verbose_name_plural = _("Compliance Framework Templates")
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.name} ({self.version})"
 
 
 class ComplianceFramework(BaseModel):

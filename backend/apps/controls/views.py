@@ -1,9 +1,10 @@
 """Views for the Internal Controls app."""
+
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets
 from rest_framework.filters import OrderingFilter, SearchFilter
-from django_filters.rest_framework import DjangoFilterBackend
 
-from apps.core.mixins import CsvExportMixin
+from apps.core.mixins import CsvExportMixin, CsvImportMixin
 
 from .models import Control, ControlCategory, ControlIssue, ControlTest
 from .serializers import (
@@ -24,13 +25,23 @@ class ControlCategoryViewSet(viewsets.ModelViewSet):
     ordering_fields = ["name", "created_at"]
 
 
-class ControlViewSet(CsvExportMixin, viewsets.ModelViewSet):
-    """CRUD for Controls with filtering, search, and ordering."""
+class ControlViewSet(CsvExportMixin, CsvImportMixin, viewsets.ModelViewSet):
+    """CRUD for Controls with filtering, search, CSV export and import."""
+
+    csv_import_fields = ["title", "control_type", "frequency", "description", "notes"]
 
     csv_filename = "controls"
     csv_export_fields = [
-        "id", "title", "status", "control_type", "frequency",
-        "category_name", "owner_name", "last_tested", "next_review_date", "created_at",
+        "id",
+        "title",
+        "status",
+        "control_type",
+        "frequency",
+        "category_name",
+        "owner_name",
+        "last_tested",
+        "next_review_date",
+        "created_at",
     ]
 
     queryset = Control.objects.select_related(
@@ -38,7 +49,14 @@ class ControlViewSet(CsvExportMixin, viewsets.ModelViewSet):
     ).prefetch_related("compliance_requirements", "risks")
     serializer_class = ControlSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ["status", "control_type", "frequency", "category", "owner", "business_unit"]
+    filterset_fields = [
+        "status",
+        "control_type",
+        "frequency",
+        "category",
+        "owner",
+        "business_unit",
+    ]
     search_fields = ["title", "description", "notes"]
     ordering_fields = ["title", "status", "created_at", "next_review_date"]
 

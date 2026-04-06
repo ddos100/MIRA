@@ -1,4 +1,5 @@
 """Celery tasks for Compliance Management."""
+
 import logging
 from datetime import timedelta
 
@@ -11,9 +12,11 @@ logger = logging.getLogger(__name__)
 @shared_task
 def send_compliance_review_reminders():
     """Remind assessors of compliance assessments due for review."""
-    from .models import ComplianceAssessment
-    from apps.core.models import Notification
     from django.contrib.contenttypes.models import ContentType
+
+    from apps.core.models import Notification
+
+    from .models import ComplianceAssessment
 
     today = timezone.now().date()
     upcoming = today + timedelta(days=14)

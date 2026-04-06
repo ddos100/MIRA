@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ClipboardList, Key, Lock, Plus, Trash2, User, Webhook, Zap } from "lucide-react";
+import { Building2, ClipboardList, Key, Lock, Plus, Trash2, User, Webhook, Zap } from "lucide-react";
 import { apiClient } from "@/api/client";
 import { useAuthStore } from "@/store/authStore";
 import { Button } from "@/components/ui/Button";
@@ -35,7 +35,7 @@ type PasswordFormValues = z.infer<typeof passwordSchema>;
 
 // ─── Tab types ────────────────────────────────────────────────────────────────
 
-type Tab = "profile" | "security" | "api-keys" | "audit-log" | "webhooks";
+type Tab = "profile" | "security" | "api-keys" | "audit-log" | "webhooks" | "organization";
 
 // ─── Profile Tab ──────────────────────────────────────────────────────────────
 
@@ -660,6 +660,171 @@ function AuditLogTab() {
   );
 }
 
+// ─── Organization Tab ─────────────────────────────────────────────────────────
+
+const orgSettingsSchema = z.object({
+  org_name: z.string().min(1, "Organisation name is required"),
+  description: z.string().optional(),
+  timezone: z.string().optional(),
+  primary_contact_email: z.string().email("Must be a valid email").or(z.literal("")).optional(),
+  max_risk_score: z.number().min(1).max(1000),
+  risk_review_days: z.number().min(1).max(3650),
+  policy_review_days: z.number().min(1).max(3650),
+  enable_2fa_required: z.boolean(),
+});
+type OrgFormValues = z.infer<typeof orgSettingsSchema>;
+
+function OrganizationTab() {
+  const qc = useQueryClient();
+
+  const { data: orgSettings, isLoading } = useQuery({
+    queryKey: ["org-settings"],
+    queryFn: () => apiClient.get("/organizations/settings/").then((r) => r.data),
+  });
+
+  const update = useMutation({
+    mutationFn: (data: Partial<OrgFormValues>) =>
+      apiClient.patch("/organizations/settings/", data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["org-settings"] }),
+  });
+
+  const { register, handleSubmit, formState: { errors, isSubmitting, isDirty } } =
+    useForm<OrgFormValues>({
+      resolver: zodResolver(orgSettingsSchema),
+      values: orgSettings
+        ? {
+            org_name: orgSettings.org_name ?? "MIRA GRC",
+            description: orgSettings.description ?? "",
+            timezone: orgSettings.timezone ?? "UTC",
+            primary_contact_email: orgSettings.primary_contact_email ?? "",
+            max_risk_score: orgSettings.max_risk_score ?? 25,
+            risk_review_days: orgSettings.risk_review_days ?? 90,
+            policy_review_days: orgSettings.policy_review_days ?? 365,
+            enable_2fa_required: orgSettings.enable_2fa_required ?? false,
+          }
+        : undefined,
+    });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="h-10 bg-muted animate-pulse rounded" />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit((data) => update.mutate(data))} className="space-y-6 max-w-2xl">
+      {update.isSuccess && (
+        <div className="rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-700">
+          Organisation settings saved.
+        </div>
+      )}
+      {update.isError && (
+        <div className="rounded-md bg-destructive/10 border border-destructive/30 p-3 text-sm text-destructive">
+          Failed to save settings. Please try again.
+        </div>
+      )}
+
+      {/* General */}
+      <div className="space-y-4">
+        <h3 className="text-base font-semibold">General</h3>
+        <Input label="Organisation Name *" error={errors.org_name?.message} {...register("org_name")} />
+
+        <div>
+          <label className="text-sm font-medium text-foreground block mb-1">Description</label>
+          <textarea
+            {...register("description")}
+            rows={3}
+            placeholder="Short description of your organisation..."
+            className="w-full border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <Input label="Timezone" placeholder="e.g. Europe/London" {...register("timezone")} />
+          <Input
+            label="Primary Contact Email"
+            type="email"
+            placeholder="security@example.com"
+            error={errors.primary_contact_email?.message}
+            {...register("primary_contact_email")}
+          />
+        </div>
+      </div>
+
+      {/* Risk & Review Defaults */}
+      <div className="space-y-4">
+        <h3 className="text-base font-semibold">Risk & Review Defaults</h3>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className="text-sm font-medium text-foreground block mb-1">Max Risk Score</label>
+            <input
+              type="number"
+              min={1}
+              max={1000}
+              {...register("max_risk_score", { valueAsNumber: true })}
+              className="w-full border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            {errors.max_risk_score && (
+              <p className="text-xs text-destructive mt-1">{errors.max_risk_score.message}</p>
+            )}
+          </div>
+          <div>
+            <label className="text-sm font-medium text-foreground block mb-1">Risk Review (days)</label>
+            <input
+              type="number"
+              min={1}
+              max={3650}
+              {...register("risk_review_days", { valueAsNumber: true })}
+              className="w-full border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            {errors.risk_review_days && (
+              <p className="text-xs text-destructive mt-1">{errors.risk_review_days.message}</p>
+            )}
+          </div>
+          <div>
+            <label className="text-sm font-medium text-foreground block mb-1">Policy Review (days)</label>
+            <input
+              type="number"
+              min={1}
+              max={3650}
+              {...register("policy_review_days", { valueAsNumber: true })}
+              className="w-full border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            {errors.policy_review_days && (
+              <p className="text-xs text-destructive mt-1">{errors.policy_review_days.message}</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Security */}
+      <div className="space-y-4">
+        <h3 className="text-base font-semibold">Security</h3>
+        <label className="flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            {...register("enable_2fa_required")}
+            className="rounded border-gray-300"
+          />
+          <span className="text-sm">
+            Require two-factor authentication for all users
+          </span>
+        </label>
+      </div>
+
+      <div className="pt-2">
+        <Button type="submit" isLoading={isSubmitting || update.isPending} disabled={!isDirty}>
+          Save Settings
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
@@ -668,6 +833,7 @@ const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: "api-keys", label: "API Keys", icon: Key },
   { id: "webhooks", label: "Webhooks", icon: Webhook },
   { id: "audit-log", label: "Audit Log", icon: ClipboardList },
+  { id: "organization", label: "Organisation", icon: Building2 },
 ];
 
 export default function SettingsPage() {
@@ -704,6 +870,7 @@ export default function SettingsPage() {
         {tab === "api-keys" && <APIKeysTab />}
         {tab === "webhooks" && <WebhooksTab />}
         {tab === "audit-log" && <AuditLogTab />}
+        {tab === "organization" && <OrganizationTab />}
       </div>
     </div>
   );

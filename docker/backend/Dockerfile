@@ -6,24 +6,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# System deps for psycopg2, WeasyPrint, Pillow
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    libpq-dev \
-    libcairo2 \
-    libpango-1.0-0 \
-    libpangocairo-1.0-0 \
-    libgdk-pixbuf2.0-0 \
-    libffi-dev \
-    libmagic1 \
-    && rm -rf /var/lib/apt/lists/*
 
-COPY backend/requirements/base.txt requirements.txt
-RUN pip install --upgrade pip && pip install -r requirements.txt
+COPY backend/requirements/ requirements/
+ARG REQUIREMENTS_FILE=requirements/base.txt
+RUN pip install --upgrade pip && pip install -r ${REQUIREMENTS_FILE}
 
 COPY backend/ .
-
-RUN python manage.py collectstatic --noinput --settings=config.settings.production
 
 EXPOSE 8000
 

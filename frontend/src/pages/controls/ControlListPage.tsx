@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Download, Plus, Shield } from "lucide-react";
-import { useControls, useDeleteControl } from "@/api/controls";
-import { useControls as useControlsHook } from "@/api/controls";
+import { Download, Plus, Shield, Upload } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useControls, controlKeys } from "@/api/controls";
 import { useExportCsv } from "@/api/useExportCsv";
+import { ImportModal } from "@/components/common/ImportModal";
 
 // Inline minimal UI until shared components are ready
 function Badge({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -29,10 +30,12 @@ const statusColors: Record<string, string> = {
 
 export default function ControlListPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [page, setPage] = useState(1);
+  const [importOpen, setImportOpen] = useState(false);
   const { exportCsv, isExporting } = useExportCsv();
 
   const { data, isLoading } = useControls({
@@ -66,6 +69,13 @@ export default function ControlListPage() {
           >
             <Download className="h-4 w-4" />
             {isExporting ? "Exporting…" : "Export CSV"}
+          </button>
+          <button
+            onClick={() => setImportOpen(true)}
+            className="flex items-center gap-2 border px-4 py-2 rounded-md text-sm font-medium hover:bg-accent"
+          >
+            <Upload className="h-4 w-4" />
+            Import CSV
           </button>
           <button
             onClick={() => navigate("/controls/new")}
@@ -190,6 +200,14 @@ export default function ControlListPage() {
           </button>
         </div>
       )}
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        endpoint="/controls/controls/import-csv/"
+        entityName="Controls"
+        templateColumns={["title", "control_type", "frequency", "description", "notes"]}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: controlKeys.lists() })}
+      />
     </div>
   );
 }

@@ -1,7 +1,9 @@
 """Risk Management models."""
+
 from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+
 from apps.core.models import BaseModel
 
 
@@ -64,7 +66,7 @@ class Risk(BaseModel):
 
     # Inherent scoring
     inherent_likelihood = models.PositiveSmallIntegerField(default=3)  # 1-5
-    inherent_impact = models.PositiveSmallIntegerField(default=3)      # 1-5
+    inherent_impact = models.PositiveSmallIntegerField(default=3)  # 1-5
     inherent_score = models.PositiveSmallIntegerField(default=9, editable=False)
 
     # Residual scoring (after controls)
@@ -73,9 +75,7 @@ class Risk(BaseModel):
     residual_score = models.PositiveSmallIntegerField(default=9, editable=False)
 
     # Relationships
-    assets = models.ManyToManyField(
-        "assets.Asset", blank=True, related_name="risks"
-    )
+    assets = models.ManyToManyField("assets.Asset", blank=True, related_name="risks")
     third_parties = models.ManyToManyField(
         "third_parties.ThirdParty", blank=True, related_name="risks"
     )
@@ -86,6 +86,13 @@ class Risk(BaseModel):
         on_delete=models.SET_NULL,
         related_name="risks",
     )
+    policies = models.ManyToManyField(
+        "policies.Policy", blank=True, related_name="risks"
+    )
+    compliance_requirements = models.ManyToManyField(
+        "compliance.Requirement", blank=True, related_name="risks"
+    )
+    # projects accessible via reverse: risk.projects (from Project.risks M2M)
 
     # Dates
     identified_date = models.DateField(null=True, blank=True)
@@ -165,9 +172,7 @@ class RiskTreatmentPlan(BaseModel):
 
 
 class RiskReview(BaseModel):
-    risk = models.ForeignKey(
-        Risk, on_delete=models.CASCADE, related_name="reviews"
-    )
+    risk = models.ForeignKey(Risk, on_delete=models.CASCADE, related_name="reviews")
     reviewer = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,

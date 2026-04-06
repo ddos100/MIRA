@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AwarenessProgram, AwarenessContent, AwarenessAssignment
+from .models import AwarenessAssignment, AwarenessContent, AwarenessProgram
 
 
 @admin.register(AwarenessProgram)

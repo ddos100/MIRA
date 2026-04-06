@@ -75,13 +75,22 @@ class Assessment(BaseModel):
         on_delete=models.SET_NULL,
         related_name="assessments",
     )
+    business_unit = models.ForeignKey(
+        "organizations.BusinessUnit",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="assessments",
+    )
     status = models.CharField(
         max_length=15, choices=AssessmentStatus.choices, default=AssessmentStatus.DRAFT
     )
     token = models.CharField(max_length=64, unique=True, blank=True, db_index=True)
     due_date = models.DateField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
-    total_score = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    total_score = models.DecimalField(
+        max_digits=6, decimal_places=2, null=True, blank=True
+    )
 
     class Meta:
         ordering = ["-created_at"]

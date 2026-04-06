@@ -1,7 +1,10 @@
 """Views for the Policy Management app."""
+
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets
 from rest_framework.filters import OrderingFilter, SearchFilter
-from django_filters.rest_framework import DjangoFilterBackend
+
+from apps.core.mixins import CsvExportMixin, CsvImportMixin
 
 from .models import Policy, PolicyAcknowledgement, PolicyCategory, PolicyReview
 from .serializers import (
@@ -22,8 +25,21 @@ class PolicyCategoryViewSet(viewsets.ModelViewSet):
     ordering_fields = ["name", "created_at"]
 
 
-class PolicyViewSet(viewsets.ModelViewSet):
-    """CRUD for Policies with filtering, search, and ordering."""
+class PolicyViewSet(CsvExportMixin, CsvImportMixin, viewsets.ModelViewSet):
+    """CRUD for Policies with filtering, search, CSV export and import."""
+
+    csv_filename = "policies"
+    csv_export_fields = [
+        "id",
+        "title",
+        "status",
+        "version",
+        "effective_date",
+        "review_date",
+        "acknowledgement_required",
+        "created_at",
+    ]
+    csv_import_fields = ["title", "status", "version", "summary", "content"]
 
     queryset = Policy.objects.select_related("category", "owner").prefetch_related(
         "compliance_requirements", "controls"

@@ -1,4 +1,5 @@
 """Celery tasks for outbound webhook delivery."""
+
 import hashlib
 import hmac
 import json
@@ -64,12 +65,15 @@ def deliver_webhook(self, webhook_id: str, event: str, payload: dict):
         delivery.save(update_fields=["status", "response_status", "response_body"])
 
         from django.utils import timezone
+
         webhook.last_delivery_at = timezone.now()
         webhook.save(update_fields=["last_delivery_at"])
 
         logger.info(
             "Webhook %s [%s] delivered → HTTP %s",
-            webhook.name, event, resp.status_code,
+            webhook.name,
+            event,
+            resp.status_code,
         )
 
         if not resp.ok:
@@ -80,7 +84,7 @@ def deliver_webhook(self, webhook_id: str, event: str, payload: dict):
         delivery.error_message = str(exc)
         delivery.save(update_fields=["status", "error_message"])
         logger.warning("Webhook delivery failed: %s", exc)
-        raise self.retry(exc=exc, countdown=2 ** self.request.retries * 30)
+        raise self.retry(exc=exc, countdown=2**self.request.retries * 30)
 
 
 def dispatch_webhook_event(event: str, payload: dict):

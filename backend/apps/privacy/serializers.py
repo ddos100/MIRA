@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import ProcessingActivity, DPIA, DataSubjectRequest
+from .models import DPIA, DataSubjectRequest, ProcessingActivity
 
 
 class ProcessingActivitySerializer(serializers.ModelSerializer):

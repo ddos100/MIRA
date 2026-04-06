@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+
 from apps.core.models import BaseModel
 
 
@@ -72,6 +73,8 @@ class Control(BaseModel):
         "compliance.Requirement", blank=True, related_name="controls"
     )
     risks = models.ManyToManyField("risks.Risk", blank=True, related_name="controls")
+    # policies accessible via reverse: control.policies (from Policy.controls M2M)
+    # projects accessible via reverse: control.projects (from Project.controls M2M)
     version = models.CharField(max_length=20, default="1.0")
     last_review_date = models.DateField(null=True, blank=True)
     next_review_date = models.DateField(null=True, blank=True)
@@ -92,9 +95,7 @@ class ControlTest(BaseModel):
         PARTIAL = "partial", _("Partial")
         NOT_TESTED = "not_tested", _("Not Tested")
 
-    control = models.ForeignKey(
-        Control, on_delete=models.CASCADE, related_name="tests"
-    )
+    control = models.ForeignKey(Control, on_delete=models.CASCADE, related_name="tests")
     tester = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,

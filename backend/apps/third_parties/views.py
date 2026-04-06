@@ -1,10 +1,33 @@
-from rest_framework import viewsets, permissions
+from rest_framework import permissions, viewsets
+
+from apps.core.mixins import CsvExportMixin, CsvImportMixin
 
 from .models import ThirdParty, ThirdPartyReview
-from .serializers import ThirdPartySerializer, ThirdPartyReviewSerializer
+from .serializers import ThirdPartyReviewSerializer, ThirdPartySerializer
 
 
-class ThirdPartyViewSet(viewsets.ModelViewSet):
+class ThirdPartyViewSet(CsvExportMixin, CsvImportMixin, viewsets.ModelViewSet):
+    csv_filename = "third-parties"
+    csv_export_fields = [
+        "id",
+        "name",
+        "vendor_type",
+        "risk_tier",
+        "is_active",
+        "contact_name",
+        "contact_email",
+        "contract_start",
+        "contract_end",
+        "created_at",
+    ]
+    csv_import_fields = [
+        "name",
+        "vendor_type",
+        "risk_tier",
+        "contact_name",
+        "contact_email",
+    ]
+
     queryset = ThirdParty.objects.all()
     serializer_class = ThirdPartySerializer
     permission_classes = [permissions.IsAuthenticated]

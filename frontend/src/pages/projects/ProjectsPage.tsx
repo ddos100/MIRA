@@ -11,7 +11,6 @@ import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
-import { DataTable, type Column } from "@/components/ui/DataTable";
 import { cn } from "@/utils/cn";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -69,13 +68,6 @@ const projectStatusVariant: Record<string, string> = {
   on_hold: "medium",
   completed: "low",
   cancelled: "destructive",
-};
-
-const taskStatusVariant: Record<string, string> = {
-  todo: "not_assessed",
-  in_progress: "in_progress",
-  done: "low",
-  blocked: "critical",
 };
 
 const priorityVariant: Record<string, string> = {
@@ -385,59 +377,6 @@ export default function ProjectsPage() {
     { label: "Active", value: active, color: "text-green-600" },
     { label: "Planned", value: planned, color: "text-blue-600" },
     { label: "Completed", value: completed, color: "text-muted-foreground" },
-  ];
-
-  const columns: Column<Project>[] = [
-    {
-      key: "title",
-      header: "Title",
-      sortable: true,
-      render: (row) => (
-        <button
-          className="flex items-center gap-1 text-left font-medium text-foreground hover:underline"
-          onClick={() => setExpandedId(expandedId === row.id ? null : row.id)}
-        >
-          <ChevronRight
-            className={cn("h-4 w-4 text-muted-foreground transition-transform", expandedId === row.id && "rotate-90")}
-          />
-          {row.title}
-        </button>
-      ),
-    },
-    {
-      key: "status",
-      header: "Status",
-      sortable: true,
-      render: (row) => (
-        <Badge variant={projectStatusVariant[row.status] ?? "default"}>
-          {row.status.replace("_", " ")}
-        </Badge>
-      ),
-    },
-    {
-      key: "owner_name",
-      header: "Owner",
-      render: (row) => <span className="text-sm text-muted-foreground">{row.owner_name ?? "—"}</span>,
-    },
-    {
-      key: "start_date",
-      header: "Start",
-      render: (row) => <span className="text-sm text-muted-foreground">{row.start_date ?? "—"}</span>,
-    },
-    {
-      key: "end_date",
-      header: "End",
-      render: (row) => <span className="text-sm text-muted-foreground">{row.end_date ?? "—"}</span>,
-    },
-    {
-      key: "budget",
-      header: "Budget",
-      render: (row) => (
-        <span className="text-sm text-muted-foreground">
-          {row.budget != null ? `$${Number(row.budget).toLocaleString()}` : "—"}
-        </span>
-      ),
-    },
   ];
 
   return (

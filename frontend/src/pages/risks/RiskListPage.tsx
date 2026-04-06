@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Download, Pencil, Plus, Trash2 } from "lucide-react";
+import { Download, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { SearchInput } from "@/components/ui/SearchInput";
@@ -9,8 +10,9 @@ import { Badge } from "@/components/ui/Badge";
 import { Pagination } from "@/components/ui/Pagination";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Select } from "@/components/ui/Select";
-import { useRisks, useDeleteRisk, useRiskCategories } from "@/api/risks";
+import { useRisks, useDeleteRisk, useRiskCategories, riskKeys } from "@/api/risks";
 import { useExportCsv } from "@/api/useExportCsv";
+import { ImportModal } from "@/components/common/ImportModal";
 import type { Risk } from "@/types";
 import RiskFormModal from "./RiskFormModal";
 
@@ -50,11 +52,13 @@ function ScoreBadge({ score, rating }: { score: number; rating: string }) {
 
 export default function RiskListPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editingRisk, setEditingRisk] = useState<Risk | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Risk | null>(null);
   const { exportCsv, isExporting } = useExportCsv();
@@ -242,6 +246,10 @@ export default function RiskListPage() {
               <Download className="h-4 w-4" />
               {isExporting ? "Exporting…" : "Export CSV"}
             </Button>
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              <Upload className="h-4 w-4" />
+              Import CSV
+            </Button>
             <Button onClick={openCreate}>
               <Plus className="h-4 w-4" />
               New Risk
@@ -298,6 +306,15 @@ export default function RiskListPage() {
           risk={editingRisk}
         />
       )}
+
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        endpoint="/risks/import-csv/"
+        entityName="Risks"
+        templateColumns={["title", "status", "treatment_type", "description", "identified_date"]}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: riskKeys.lists() })}
+      />
 
       <ConfirmDialog
         open={!!deleteTarget}

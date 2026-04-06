@@ -1,6 +1,7 @@
 """
 URL configuration for the assets app.
 """
+
 from rest_framework.routers import DefaultRouter
 
 from .views import AssetCategoryViewSet, AssetViewSet, DataAssetViewSet, DataFlowViewSet

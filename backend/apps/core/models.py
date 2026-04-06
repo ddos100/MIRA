@@ -1,6 +1,7 @@
 """
 Core abstract models shared across the entire MIRA platform.
 """
+
 import uuid
 
 from django.conf import settings
@@ -230,7 +231,63 @@ class CustomFieldValue(BaseModel):
         unique_together = [("custom_field", "object_id")]
 
 
+# ─── Dynamic Status Engine ────────────────────────────────────────────────────
+
+
+class StatusRule(BaseModel):
+    """
+    Declarative rule that auto-transitions an object's status field
+    when all conditions are satisfied.
+
+    conditions format (JSON array of condition objects):
+        [
+          {"field": "residual_score", "operator": "gte", "value": 15},
+          {"field": "treatment_type", "operator": "eq",  "value": "accept"}
+        ]
+
+    Supported operators: eq, neq, gt, gte, lt, lte, in, not_in, is_null, is_not_null
+    """
+
+    class RuleStatus(models.TextChoices):
+        ACTIVE = "active", _("Active")
+        INACTIVE = "inactive", _("Inactive")
+
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    content_type = models.ForeignKey(
+        ContentType,
+        on_delete=models.CASCADE,
+        related_name="status_rules",
+        help_text="The model this rule applies to.",
+    )
+    conditions = models.JSONField(
+        default=list,
+        help_text="List of condition objects [{field, operator, value}].",
+    )
+    target_status = models.CharField(
+        max_length=50,
+        help_text="Value to set on the object's 'status' field when all conditions match.",
+    )
+    rule_status = models.CharField(
+        max_length=10,
+        choices=RuleStatus.choices,
+        default=RuleStatus.ACTIVE,
+        db_index=True,
+    )
+    last_run_at = models.DateTimeField(null=True, blank=True)
+    last_affected_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        verbose_name = _("Status Rule")
+        verbose_name_plural = _("Status Rules")
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.name} → {self.target_status}"
+
+
 # ─── Webhooks ─────────────────────────────────────────────────────────────────
+
 
 class Webhook(BaseModel):
     """Outbound webhook definition for SIEM / third-party integration."""

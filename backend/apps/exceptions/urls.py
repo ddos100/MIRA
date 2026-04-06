@@ -1,4 +1,5 @@
 """URL configuration for the Exception Management app."""
+
 from rest_framework.routers import DefaultRouter
 
 from .views import GRCExceptionViewSet

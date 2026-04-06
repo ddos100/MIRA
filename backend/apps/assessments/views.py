@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from django.utils import timezone
-from rest_framework import permissions, serializers, status, viewsets
+from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -14,8 +14,8 @@ from .serializers import (
     QuestionSerializer,
 )
 
-
 # ─── Authenticated CRUD viewsets ──────────────────────────────────────────────
+
 
 class AssessmentTemplateViewSet(viewsets.ModelViewSet):
     queryset = AssessmentTemplate.objects.all()
@@ -57,6 +57,7 @@ class AssessmentResponseViewSet(viewsets.ModelViewSet):
 
 # ─── External assessment portal (no auth required) ────────────────────────────
 
+
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def portal_assessment_detail(request, token: str):
@@ -67,7 +68,9 @@ def portal_assessment_detail(request, token: str):
     try:
         assessment = Assessment.objects.select_related("template").get(token=token)
     except Assessment.DoesNotExist:
-        return Response({"detail": "Assessment not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"detail": "Assessment not found."}, status=status.HTTP_404_NOT_FOUND
+        )
 
     if assessment.status == Assessment.AssessmentStatus.EXPIRED:
         return Response(
@@ -83,40 +86,42 @@ def portal_assessment_detail(request, token: str):
                 "title": assessment.title,
                 "status": assessment.status,
                 "completed_at": assessment.completed_at,
-                "total_score": str(assessment.total_score) if assessment.total_score else None,
+                "total_score": (
+                    str(assessment.total_score) if assessment.total_score else None
+                ),
                 "questions": [],
             },
         )
 
-    questions = (
-        assessment.template.questions.all().order_by("order")
-    )
+    questions = assessment.template.questions.all().order_by("order")
 
     # Mark as in-progress when first opened
     if assessment.status == Assessment.AssessmentStatus.SENT:
         assessment.status = Assessment.AssessmentStatus.IN_PROGRESS
         assessment.save(update_fields=["status"])
 
-    return Response({
-        "id": str(assessment.id),
-        "title": assessment.title,
-        "description": assessment.template.description,
-        "respondent_name": assessment.respondent_name,
-        "respondent_email": assessment.respondent_email,
-        "due_date": assessment.due_date,
-        "status": assessment.status,
-        "questions": [
-            {
-                "id": str(q.id),
-                "text": q.text,
-                "question_type": q.question_type,
-                "options": q.options,
-                "is_required": q.is_required,
-                "order": q.order,
-            }
-            for q in questions
-        ],
-    })
+    return Response(
+        {
+            "id": str(assessment.id),
+            "title": assessment.title,
+            "description": assessment.template.description,
+            "respondent_name": assessment.respondent_name,
+            "respondent_email": assessment.respondent_email,
+            "due_date": assessment.due_date,
+            "status": assessment.status,
+            "questions": [
+                {
+                    "id": str(q.id),
+                    "text": q.text,
+                    "question_type": q.question_type,
+                    "options": q.options,
+                    "is_required": q.is_required,
+                    "order": q.order,
+                }
+                for q in questions
+            ],
+        }
+    )
 
 
 @api_view(["POST"])
@@ -136,7 +141,9 @@ def portal_assessment_submit(request, token: str):
     try:
         assessment = Assessment.objects.select_related("template").get(token=token)
     except Assessment.DoesNotExist:
-        return Response({"detail": "Assessment not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"detail": "Assessment not found."}, status=status.HTTP_404_NOT_FOUND
+        )
 
     if assessment.status in (
         Assessment.AssessmentStatus.COMPLETED,
@@ -171,7 +178,11 @@ def portal_assessment_submit(request, token: str):
         # Simple auto-scoring for YES_NO and SCALE questions
         score = None
         if question.question_type == Question.QuestionType.YES_NO:
-            score = Decimal("1") if answer_text.lower() in ("yes", "true", "1") else Decimal("0")
+            score = (
+                Decimal("1")
+                if answer_text.lower() in ("yes", "true", "1")
+                else Decimal("0")
+            )
         elif question.question_type == Question.QuestionType.SCALE:
             try:
                 score = Decimal(str(answer_data or answer_text or 0)) / Decimal("5")
@@ -195,7 +206,9 @@ def portal_assessment_submit(request, token: str):
 
     # Calculate final score as a percentage
     if total_weight > 0:
-        assessment.total_score = (total_score / total_weight * 100).quantize(Decimal("0.01"))
+        assessment.total_score = (total_score / total_weight * 100).quantize(
+            Decimal("0.01")
+        )
     assessment.status = Assessment.AssessmentStatus.COMPLETED
     assessment.completed_at = timezone.now()
     assessment.save(update_fields=["status", "completed_at", "total_score"])
@@ -204,7 +217,9 @@ def portal_assessment_submit(request, token: str):
         {
             "status": "completed",
             "responses_saved": saved_count,
-            "total_score": str(assessment.total_score) if assessment.total_score else None,
+            "total_score": (
+                str(assessment.total_score) if assessment.total_score else None
+            ),
             "completed_at": assessment.completed_at,
         },
         status=status.HTTP_200_OK,

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import AssessmentTemplate, Question, Assessment, AssessmentResponse
+from .models import Assessment, AssessmentResponse, AssessmentTemplate, Question
 
 
 class AssessmentTemplateSerializer(serializers.ModelSerializer):
