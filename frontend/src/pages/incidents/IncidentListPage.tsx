@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, Download, Eye, Pencil, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, Download, Eye, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useQueryClient } from "@tanstack/react-query";
 
 import {
   useIncidents,
@@ -18,6 +19,7 @@ import {
   type IncidentStatus,
 } from "@/api/incidents";
 import { useExportCsv } from "@/api/useExportCsv";
+import { ImportModal } from "@/components/common/ImportModal";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -194,8 +196,10 @@ export function IncidentFormModal({ open, onClose, incident }: IncidentFormModal
 
 export default function IncidentListPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [params, setParams] = useState<IncidentParams>({ page: 1, page_size: 20 });
   const [modalOpen, setModalOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editIncident, setEditIncident] = useState<Incident | undefined>();
   const [deleteTarget, setDeleteTarget] = useState<Incident | undefined>();
   const { exportCsv, isExporting } = useExportCsv();
@@ -247,6 +251,10 @@ export default function IncidentListPage() {
           >
             <Download className="h-4 w-4" />
             {isExporting ? "Exporting…" : "Export CSV"}
+          </Button>
+          <Button variant="outline" onClick={() => setImportOpen(true)}>
+            <Upload className="h-4 w-4" />
+            Import CSV
           </Button>
           <Button onClick={() => { setEditIncident(undefined); setModalOpen(true); }}>
             <Plus className="h-4 w-4" />
@@ -414,6 +422,14 @@ export default function IncidentListPage() {
       )}
 
       <IncidentFormModal open={modalOpen} onClose={() => { setModalOpen(false); setEditIncident(undefined); }} incident={editIncident} />
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        endpoint="/incidents/import-csv/"
+        entityName="Incidents"
+        templateColumns={["title", "severity", "description", "root_cause", "is_data_breach"]}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["incidents"] })}
+      />
       <ConfirmDialog
         open={!!deleteTarget}
         title="Delete Incident"

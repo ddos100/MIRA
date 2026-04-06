@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Upload } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useQueryClient } from "@tanstack/react-query";
 
 import {
   useAssets,
@@ -13,6 +14,7 @@ import {
   useCreateAsset,
   useUpdateAsset,
   useDeleteAsset,
+  assetKeys,
   type Asset,
   type AssetStatus,
 } from "@/api/assets";
@@ -24,6 +26,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { ImportModal } from "@/components/common/ImportModal";
 import { cn } from "@/utils/cn";
 
 // ─── Asset Form Modal ─────────────────────────────────────────────────────────
@@ -530,8 +533,10 @@ function DataFlowsTab() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AssetListPage() {
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<Tab>("all");
   const [showModal, setShowModal] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | undefined>();
 
   const handleEdit = (asset: Asset) => {
@@ -561,10 +566,16 @@ export default function AssetListPage() {
           </p>
         </div>
         {activeTab === "all" && (
-          <Button onClick={() => { setEditingAsset(undefined); setShowModal(true); }}>
-            <Plus className="h-4 w-4" />
-            New Asset
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              <Upload className="h-4 w-4" />
+              Import CSV
+            </Button>
+            <Button onClick={() => { setEditingAsset(undefined); setShowModal(true); }}>
+              <Plus className="h-4 w-4" />
+              New Asset
+            </Button>
+          </div>
         )}
       </div>
 
@@ -595,6 +606,15 @@ export default function AssetListPage() {
         open={showModal}
         onClose={handleCloseModal}
         asset={editingAsset}
+      />
+
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        endpoint="/assets/assets/import-csv/"
+        entityName="Assets"
+        templateColumns={["name", "criticality", "status", "asset_type", "description"]}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: assetKeys.lists() })}
       />
     </div>
   );

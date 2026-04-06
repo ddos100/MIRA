@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useNavigate, Routes, Route } from "react-router-dom";
-import { Plus, FileText, CheckCircle } from "lucide-react";
-import { usePolicies, useDeletePolicy, useAcknowledgePolicy } from "@/api/policies";
+import { Plus, FileText, CheckCircle, Upload } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { usePolicies, useDeletePolicy, useAcknowledgePolicy, policyKeys } from "@/api/policies";
+import { ImportModal } from "@/components/common/ImportModal";
 
 const statusColors: Record<string, string> = {
   draft: "bg-gray-100 text-gray-600",
@@ -12,9 +14,11 @@ const statusColors: Record<string, string> = {
 
 function PolicyListPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
+  const [importOpen, setImportOpen] = useState(false);
 
   const { data, isLoading } = usePolicies({
     search,
@@ -33,12 +37,21 @@ function PolicyListPage() {
           <h1 className="text-2xl font-bold">Policy Library</h1>
           <p className="text-muted-foreground">Manage organizational policies and track acknowledgements.</p>
         </div>
-        <button
-          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90"
-        >
-          <Plus className="h-4 w-4" />
-          New Policy
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setImportOpen(true)}
+            className="flex items-center gap-2 border px-4 py-2 rounded-md text-sm font-medium hover:bg-accent"
+          >
+            <Upload className="h-4 w-4" />
+            Import CSV
+          </button>
+          <button
+            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" />
+            New Policy
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-3">
@@ -115,6 +128,15 @@ function PolicyListPage() {
             className="px-3 py-1 border rounded text-sm disabled:opacity-50">Next</button>
         </div>
       )}
+
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        endpoint="/policies/policies/import-csv/"
+        entityName="Policies"
+        templateColumns={["title", "status", "version", "summary", "content"]}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: policyKeys.lists() })}
+      />
     </div>
   );
 }

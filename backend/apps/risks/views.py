@@ -6,7 +6,7 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 
-from apps.core.mixins import CsvExportMixin
+from apps.core.mixins import CsvExportMixin, CsvImportMixin
 
 from .models import Risk, RiskCategory, RiskReview, RiskTreatmentPlan
 from .serializers import (
@@ -24,8 +24,10 @@ class RiskCategoryViewSet(viewsets.ModelViewSet):
     serializer_class = RiskCategorySerializer
 
 
-class RiskViewSet(CsvExportMixin, viewsets.ModelViewSet):
-    """CRUD for Risks with filtering, search, and ordering."""
+class RiskViewSet(CsvExportMixin, CsvImportMixin, viewsets.ModelViewSet):
+    """CRUD for Risks with filtering, search, ordering, and CSV import."""
+
+    csv_import_fields = ["title", "status", "treatment_type", "description", "identified_date"]
 
     csv_filename = "risks"
     csv_export_fields = [

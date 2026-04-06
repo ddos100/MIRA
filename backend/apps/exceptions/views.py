@@ -6,12 +6,21 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 
+from apps.core.mixins import CsvExportMixin, CsvImportMixin
+
 from .models import GRCException
 from .serializers import GRCExceptionSerializer
 
 
-class GRCExceptionViewSet(viewsets.ModelViewSet):
-    """CRUD for GRC Exceptions with approve and reject actions."""
+class GRCExceptionViewSet(CsvExportMixin, CsvImportMixin, viewsets.ModelViewSet):
+    """CRUD for GRC Exceptions with approve, reject, CSV export and import."""
+
+    csv_filename = "exceptions"
+    csv_export_fields = [
+        "id", "title", "status", "exception_type", "requester",
+        "approver", "expiry_date", "is_expired", "created_at",
+    ]
+    csv_import_fields = ["title", "exception_type", "justification", "expiry_date"]
 
     queryset = GRCException.objects.select_related(
         "requester", "approver", "risk", "compliance_requirement", "policy", "control"

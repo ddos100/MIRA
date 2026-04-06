@@ -6,7 +6,7 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 
-from apps.core.mixins import CsvExportMixin
+from apps.core.mixins import CsvExportMixin, CsvImportMixin
 
 from .models import Incident, IncidentCategory, IncidentUpdate
 from .serializers import (
@@ -26,8 +26,10 @@ class IncidentCategoryViewSet(viewsets.ModelViewSet):
     ordering_fields = ["name", "created_at"]
 
 
-class IncidentViewSet(CsvExportMixin, viewsets.ModelViewSet):
-    """CRUD for Incidents with filtering, search, ordering, and lifecycle actions."""
+class IncidentViewSet(CsvExportMixin, CsvImportMixin, viewsets.ModelViewSet):
+    """CRUD for Incidents with filtering, search, ordering, lifecycle actions, and CSV."""
+
+    csv_import_fields = ["title", "severity", "description", "root_cause", "is_data_breach"]
 
     csv_filename = "incidents"
     csv_export_fields = [

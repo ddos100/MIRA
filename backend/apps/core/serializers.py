@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Attachment, AuditLog, Comment, CustomField, CustomFieldValue, Notification, Tag, Webhook, WebhookDelivery
+from .models import Attachment, AuditLog, Comment, CustomField, CustomFieldValue, Notification, StatusRule, Tag, Webhook, WebhookDelivery
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -51,6 +51,24 @@ class CustomFieldValueSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomFieldValue
         fields = ["id", "custom_field", "object_id", "value"]
+
+
+class StatusRuleSerializer(serializers.ModelSerializer):
+    content_type_label = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = StatusRule
+        fields = [
+            "id", "name", "description", "content_type", "content_type_label",
+            "conditions", "target_status", "rule_status",
+            "last_run_at", "last_affected_count", "created_at", "updated_at",
+        ]
+        read_only_fields = ["id", "last_run_at", "last_affected_count", "created_at", "updated_at"]
+
+    def get_content_type_label(self, obj):
+        if obj.content_type_id:
+            return f"{obj.content_type.app_label}.{obj.content_type.model}"
+        return None
 
 
 class WebhookDeliverySerializer(serializers.ModelSerializer):

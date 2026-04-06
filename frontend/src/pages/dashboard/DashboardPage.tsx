@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, CheckSquare, Lock, ShieldAlert, XCircle, LayoutDashboard, RefreshCw } from "lucide-react";
+import { AlertTriangle, CheckSquare, Lock, ShieldAlert, XCircle, LayoutDashboard, RefreshCw, Settings2 } from "lucide-react";
 import { apiClient } from "@/api/client";
 import { useAuthStore } from "@/store/authStore";
 import { cn } from "@/utils/cn";
+import { WidgetBuilderModal } from "@/components/dashboard/WidgetBuilderModal";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -232,6 +233,7 @@ function useCount(endpoint: string, params?: Record<string, string>) {
 export default function DashboardPage() {
   const user = useAuthStore((s) => s.user);
   const [showWidgets, setShowWidgets] = useState(true);
+  const [builderOpen, setBuilderOpen] = useState(false);
 
   const { data: dashboard, isLoading: dashLoading, refetch } = useDefaultDashboard();
 
@@ -250,13 +252,22 @@ export default function DashboardPage() {
             Welcome back, {user?.display_name}
           </p>
         </div>
-        <button
-          onClick={() => refetch()}
-          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg border hover:border-gray-400"
-        >
-          <RefreshCw size={14} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setBuilderOpen(true)}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg border hover:border-gray-400"
+          >
+            <Settings2 size={14} />
+            Manage Widgets
+          </button>
+          <button
+            onClick={() => refetch()}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg border hover:border-gray-400"
+          >
+            <RefreshCw size={14} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* KPI stats */}
@@ -318,6 +329,8 @@ export default function DashboardPage() {
           </>
         )}
       </div>
+
+      <WidgetBuilderModal open={builderOpen} onClose={() => { setBuilderOpen(false); refetch(); }} />
     </div>
   );
 }

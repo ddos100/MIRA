@@ -3,7 +3,7 @@ Serializers for the organizations app.
 """
 from rest_framework import serializers
 
-from .models import BusinessProcess, BusinessUnit
+from .models import BusinessProcess, BusinessUnit, OrgSettings
 
 
 class RecursiveBusinessUnitSerializer(serializers.Serializer):
@@ -69,3 +69,21 @@ class BusinessProcessSerializer(serializers.ModelSerializer):
             "updated_by",
         ]
         read_only_fields = ["id", "created_at", "updated_at", "created_by", "updated_by"]
+
+
+class OrgSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrgSettings
+        fields = [
+            "id",
+            "org_name",
+            "description",
+            "timezone",
+            "primary_contact_email",
+            "logo",
+            "max_risk_score",
+            "risk_review_days",
+            "policy_review_days",
+            "enable_2fa_required",
+        ]
+        read_only_fields = ["id"]

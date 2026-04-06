@@ -6,6 +6,8 @@ from rest_framework import viewsets
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.permissions import IsAuthenticated
 
+from apps.core.mixins import CsvExportMixin, CsvImportMixin
+
 from .models import Asset, AssetCategory, DataAsset, DataFlow
 from .serializers import (
     AssetCategorySerializer,
@@ -27,8 +29,15 @@ class AssetCategoryViewSet(viewsets.ModelViewSet):
     ordering = ["name"]
 
 
-class AssetViewSet(viewsets.ModelViewSet):
-    """CRUD for Asset with rich filtering and search."""
+class AssetViewSet(CsvExportMixin, CsvImportMixin, viewsets.ModelViewSet):
+    """CRUD for Asset with rich filtering, search, CSV export and import."""
+
+    csv_filename = "assets"
+    csv_export_fields = [
+        "id", "name", "criticality", "status", "asset_type",
+        "owner", "business_unit", "description", "created_at",
+    ]
+    csv_import_fields = ["name", "criticality", "status", "asset_type", "description"]
 
     queryset = Asset.objects.select_related(
         "category", "owner", "business_unit"
