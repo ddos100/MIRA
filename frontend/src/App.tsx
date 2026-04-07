@@ -26,6 +26,7 @@ const VendorsPage = lazy(() => import("@/pages/vendors/VendorsPage"));
 const OrganizationsPage = lazy(() => import("@/pages/organizations/OrganizationsPage"));
 const ReportsPage = lazy(() => import("@/pages/reports/ReportsPage"));
 const SettingsPage = lazy(() => import("@/pages/settings/SettingsPage"));
+const StatusRulesPage = lazy(() => import("@/pages/settings/StatusRulesPage"));
 const UsersPage = lazy(() => import("@/pages/users/UsersPage"));
 
 export default function App() {
@@ -80,6 +81,7 @@ export default function App() {
 
           {/* Settings */}
           <Route path="/settings/*" element={<SettingsPage />} />
+          <Route path="/settings/status-rules" element={<StatusRulesPage />} />
         </Route>
 
         {/* Catch-all */}

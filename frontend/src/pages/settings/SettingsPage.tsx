@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Building2, ClipboardList, Key, Lock, Plus, Trash2, User, Webhook, Zap } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { apiClient } from "@/api/client";
 import { useAuthStore } from "@/store/authStore";
 import { Button } from "@/components/ui/Button";
@@ -35,7 +36,7 @@ type PasswordFormValues = z.infer<typeof passwordSchema>;
 
 // ─── Tab types ────────────────────────────────────────────────────────────────
 
-type Tab = "profile" | "security" | "api-keys" | "audit-log" | "webhooks" | "organization";
+type Tab = "profile" | "security" | "api-keys" | "audit-log" | "webhooks" | "organization" | "status-rules";
 
 // ─── Profile Tab ──────────────────────────────────────────────────────────────
 
@@ -834,10 +835,12 @@ const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: "webhooks", label: "Webhooks", icon: Webhook },
   { id: "audit-log", label: "Audit Log", icon: ClipboardList },
   { id: "organization", label: "Organisation", icon: Building2 },
+  { id: "status-rules", label: "Status Engine", icon: Zap },
 ];
 
 export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>("profile");
+  const navigate = useNavigate();
 
   return (
     <div className="space-y-6">
@@ -871,6 +874,7 @@ export default function SettingsPage() {
         {tab === "webhooks" && <WebhooksTab />}
         {tab === "audit-log" && <AuditLogTab />}
         {tab === "organization" && <OrganizationTab />}
+        {tab === "status-rules" && navigate("/settings/status-rules") as never}
       </div>
     </div>
   );
