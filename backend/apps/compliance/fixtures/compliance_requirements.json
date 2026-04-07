@@ -9,11 +9,7 @@
       "title": "Organizational Controls",
       "description": "Controls related to organizational policies and procedures.",
       "guidance": "",
-      "order": 10,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 10
     }
   },
   {
@@ -26,11 +22,7 @@
       "title": "Policies for information security",
       "description": "Information security policy and topic-specific policies shall be defined, approved by management, published, communicated to and acknowledged by relevant personnel and relevant interested parties, and reviewed at planned intervals or if significant changes occur.",
       "guidance": "Ensure policies are reviewed at least annually and after significant changes.",
-      "order": 11,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 11
     }
   },
   {
@@ -43,11 +35,7 @@
       "title": "Information security roles and responsibilities",
       "description": "Information security roles and responsibilities shall be defined and allocated according to the organization's needs.",
       "guidance": "Clearly document and communicate all information security roles.",
-      "order": 12,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 12
     }
   },
   {
@@ -60,11 +48,7 @@
       "title": "Segregation of duties",
       "description": "Conflicting duties and conflicting areas of responsibility shall be segregated.",
       "guidance": "Review critical processes for proper segregation to prevent fraud or error.",
-      "order": 13,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 13
     }
   },
   {
@@ -77,11 +61,7 @@
       "title": "Threat intelligence",
       "description": "Information relating to information security threats shall be collected and analysed to produce threat intelligence.",
       "guidance": "Subscribe to threat intelligence feeds and act on findings.",
-      "order": 17,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 17
     }
   },
   {
@@ -94,11 +74,7 @@
       "title": "People Controls",
       "description": "Controls related to human resources and personnel security.",
       "guidance": "",
-      "order": 20,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 20
     }
   },
   {
@@ -111,11 +87,7 @@
       "title": "Screening",
       "description": "Background verification checks on all candidates for employment shall be carried out prior to joining the organization.",
       "guidance": "Screening level should be commensurate with business requirements and applicable laws.",
-      "order": 21,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 21
     }
   },
   {
@@ -128,11 +100,7 @@
       "title": "Information security awareness, education and training",
       "description": "Personnel of the organization and relevant interested parties shall receive appropriate information security awareness, education and training.",
       "guidance": "Run mandatory annual security awareness training for all staff.",
-      "order": 23,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 23
     }
   },
   {
@@ -145,11 +113,7 @@
       "title": "Physical Controls",
       "description": "Controls related to physical and environmental security.",
       "guidance": "",
-      "order": 30,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 30
     }
   },
   {
@@ -162,11 +126,7 @@
       "title": "Physical security perimeters",
       "description": "Security perimeters shall be defined and used to protect areas that contain information and other associated assets.",
       "guidance": "Implement physical barriers, access control and surveillance.",
-      "order": 31,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 31
     }
   },
   {
@@ -179,11 +139,7 @@
       "title": "Technological Controls",
       "description": "Controls related to technology and information systems.",
       "guidance": "",
-      "order": 40,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 40
     }
   },
   {
@@ -196,11 +152,7 @@
       "title": "Privileged access rights",
       "description": "The allocation and use of privileged access rights shall be restricted and managed.",
       "guidance": "Apply least-privilege principle; review privileged accounts quarterly.",
-      "order": 42,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 42
     }
   },
   {
@@ -213,11 +165,7 @@
       "title": "Secure authentication",
       "description": "Secure authentication technologies and procedures shall be implemented based on information access restrictions and the topic-specific policy on access control.",
       "guidance": "Enforce MFA for all privileged and remote access.",
-      "order": 45,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 45
     }
   },
   {
@@ -230,11 +178,7 @@
       "title": "Protection against malware",
       "description": "Protection against malware shall be implemented and supported by appropriate user awareness.",
       "guidance": "Deploy endpoint detection and response tools; keep signatures updated.",
-      "order": 47,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 47
     }
   },
   {
@@ -247,11 +191,7 @@
       "title": "Management of technical vulnerabilities",
       "description": "Information about technical vulnerabilities of information systems in use shall be obtained in a timely fashion.",
       "guidance": "Perform regular vulnerability scanning and patch within SLA.",
-      "order": 48,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 48
     }
   },
   {
@@ -264,11 +204,7 @@
       "title": "Logging",
       "description": "Logs that record activities, exceptions, faults and other relevant events shall be produced, stored, protected and analysed.",
       "guidance": "Retain logs for at least 12 months; protect against tampering.",
-      "order": 55,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 55
     }
   },
   {
@@ -281,11 +217,7 @@
       "title": "Use of cryptography",
       "description": "Rules for the effective use of cryptography, including cryptographic key management, shall be defined and implemented.",
       "guidance": "Use TLS 1.2+ for data in transit; AES-256 for data at rest.",
-      "order": 64,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 64
     }
   },
   {
@@ -298,11 +230,7 @@
       "title": "Principles relating to processing of personal data",
       "description": "Personal data shall be processed lawfully, fairly and in a transparent manner (lawfulness, fairness and transparency); collected for specified, explicit and legitimate purposes (purpose limitation); adequate, relevant and limited to what is necessary (data minimisation).",
       "guidance": "Maintain a Record of Processing Activities (ROPA) to demonstrate compliance.",
-      "order": 5,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 5
     }
   },
   {
@@ -315,11 +243,7 @@
       "title": "Lawfulness of processing",
       "description": "Processing shall be lawful only if and to the extent that at least one of the following applies: consent; contract; legal obligation; vital interests; public task; legitimate interests.",
       "guidance": "Document the legal basis for each processing activity in the ROPA.",
-      "order": 6,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 6
     }
   },
   {
@@ -332,11 +256,7 @@
       "title": "Information to be provided where personal data are collected from the data subject",
       "description": "Where personal data relating to a data subject are collected from the data subject, the controller shall provide the data subject with specific information at the time of collection.",
       "guidance": "Provide a clear privacy notice at the point of data collection.",
-      "order": 13,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 13
     }
   },
   {
@@ -349,11 +269,7 @@
       "title": "Right to erasure ('right to be forgotten')",
       "description": "The data subject shall have the right to obtain from the controller the erasure of personal data concerning him or her without undue delay.",
       "guidance": "Implement a process to handle erasure requests within 30 days.",
-      "order": 17,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 17
     }
   },
   {
@@ -366,11 +282,7 @@
       "title": "Data protection by design and by default",
       "description": "The controller shall implement appropriate technical and organisational measures designed to implement data-protection principles in an effective manner.",
       "guidance": "Conduct DPIAs for high-risk processing; apply privacy by design in system development.",
-      "order": 25,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 25
     }
   },
   {
@@ -383,11 +295,7 @@
       "title": "Security of processing",
       "description": "The controller and processor shall implement appropriate technical and organisational measures to ensure a level of security appropriate to the risk.",
       "guidance": "Implement encryption, pseudonymisation, access controls, and regular security testing.",
-      "order": 32,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 32
     }
   },
   {
@@ -400,11 +308,7 @@
       "title": "Notification of a personal data breach to the supervisory authority",
       "description": "In the case of a personal data breach, the controller shall without undue delay and, where feasible, not later than 72 hours after having become aware of it, notify the personal data breach to the supervisory authority.",
       "guidance": "Maintain an incident response plan that includes a 72-hour breach notification procedure.",
-      "order": 33,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 33
     }
   },
   {
@@ -417,11 +321,7 @@
       "title": "Data protection impact assessment",
       "description": "Where a type of processing is likely to result in a high risk to the rights and freedoms of natural persons, the controller shall carry out an assessment of the impact.",
       "guidance": "Conduct DPIA prior to launching new high-risk processing activities.",
-      "order": 35,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 35
     }
   },
   {
@@ -434,11 +334,7 @@
       "title": "GOVERN",
       "description": "Establish and monitor the organization's cybersecurity risk management strategy, expectations, and policy.",
       "guidance": "",
-      "order": 1,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 1
     }
   },
   {
@@ -449,13 +345,9 @@
       "parent": "22220005-0000-0000-0000-000000000001",
       "ref_code": "GV.OC",
       "title": "Organizational Context",
-      "description": "The circumstances \u2014 mission, stakeholder expectations, and legal, regulatory, and contractual requirements \u2014 surrounding the organization's cybersecurity risk management decisions are understood.",
+      "description": "The circumstances — mission, stakeholder expectations, and legal, regulatory, and contractual requirements — surrounding the organization's cybersecurity risk management decisions are understood.",
       "guidance": "Identify and document key stakeholders, regulatory requirements, and business objectives.",
-      "order": 11,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 11
     }
   },
   {
@@ -468,11 +360,7 @@
       "title": "Risk Management Strategy",
       "description": "The organization's priorities, constraints, risk tolerances and assumptions are established and used to support operational risk decisions.",
       "guidance": "Establish a formal risk appetite and tolerance statement approved by leadership.",
-      "order": 12,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 12
     }
   },
   {
@@ -485,11 +373,7 @@
       "title": "IDENTIFY",
       "description": "Help the organization understand its cybersecurity risk to systems, people, assets, data, and capabilities.",
       "guidance": "",
-      "order": 2,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 2
     }
   },
   {
@@ -502,11 +386,7 @@
       "title": "Asset Management",
       "description": "Assets (data, hardware, software, systems, facilities, services, people) that enable the organization to achieve business purposes are identified and managed consistent with their relative importance to organizational objectives and the organization's risk strategy.",
       "guidance": "Maintain an authoritative asset inventory updated at least quarterly.",
-      "order": 21,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 21
     }
   },
   {
@@ -519,11 +399,7 @@
       "title": "Risk Assessment",
       "description": "The cybersecurity risk to the organization, assets, and individuals is identified and prioritized, consistent with the risk management strategy.",
       "guidance": "Perform formal risk assessments at least annually and after significant changes.",
-      "order": 22,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 22
     }
   },
   {
@@ -536,11 +412,7 @@
       "title": "PROTECT",
       "description": "Safeguards to manage the organization's cybersecurity risks.",
       "guidance": "",
-      "order": 3,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 3
     }
   },
   {
@@ -553,11 +425,7 @@
       "title": "Identity Management, Authentication and Access Control",
       "description": "Access to physical and logical assets is limited to authorized users, services, and hardware and managed commensurate with the assessed risk of unauthorized access.",
       "guidance": "Implement MFA, least privilege, and regular access reviews.",
-      "order": 31,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 31
     }
   },
   {
@@ -570,11 +438,7 @@
       "title": "Awareness and Training",
       "description": "The organization's personnel are provided with cybersecurity awareness and training so they are adequately prepared to perform their cybersecurity-related duties and responsibilities consistent with related policies, procedures, and agreements.",
       "guidance": "Deliver role-based security training; track completion rates.",
-      "order": 32,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 32
     }
   },
   {
@@ -587,11 +451,7 @@
       "title": "Data Security",
       "description": "Data are managed consistent with the organization's risk strategy to protect the confidentiality, integrity, and availability of information.",
       "guidance": "Classify data, encrypt sensitive data at rest and in transit.",
-      "order": 33,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 33
     }
   },
   {
@@ -604,11 +464,7 @@
       "title": "DETECT",
       "description": "Find and analyze possible cybersecurity attacks and compromises.",
       "guidance": "",
-      "order": 4,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 4
     }
   },
   {
@@ -621,11 +477,7 @@
       "title": "Continuous Monitoring",
       "description": "Assets are monitored to find anomalies, indicators of compromise, and other potentially adverse events.",
       "guidance": "Deploy SIEM/SOC capabilities; define alert thresholds and escalation paths.",
-      "order": 41,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 41
     }
   },
   {
@@ -638,11 +490,7 @@
       "title": "RESPOND",
       "description": "Take action regarding a detected cybersecurity incident.",
       "guidance": "",
-      "order": 5,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 5
     }
   },
   {
@@ -655,11 +503,7 @@
       "title": "Incident Management",
       "description": "Responses to detected cybersecurity incidents are managed.",
       "guidance": "Maintain and exercise a documented incident response plan.",
-      "order": 51,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 51
     }
   },
   {
@@ -672,11 +516,7 @@
       "title": "RECOVER",
       "description": "Restore assets and operations that were impacted by a cybersecurity incident.",
       "guidance": "",
-      "order": 6,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 6
     }
   },
   {
@@ -689,11 +529,7 @@
       "title": "Incident Recovery Plan Execution",
       "description": "Restoration activities are performed to ensure operational availability of systems and services affected by cybersecurity incidents.",
       "guidance": "Test recovery procedures at least annually; document RTOs and RPOs.",
-      "order": 61,
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z",
-      "created_by": null,
-      "updated_by": null
+      "order": 61
     }
   }
 ]
