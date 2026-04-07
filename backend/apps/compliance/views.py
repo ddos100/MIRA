@@ -8,7 +8,9 @@ from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 
-from apps.core.mixins import CsvExportMixin
+from apps.controls.serializers import ControlSerializer
+from apps.core.mixins import CsvExportMixin, CsvImportMixin
+from apps.policies.serializers import PolicySerializer
 
 from .models import (
     ComplianceAssessment,
@@ -17,6 +19,7 @@ from .models import (
     ComplianceProgram,
     Evidence,
     Requirement,
+    RequirementMapping,
 )
 from .serializers import (
     ComplianceAssessmentSerializer,
@@ -24,23 +27,34 @@ from .serializers import (
     ComplianceFrameworkTemplateSerializer,
     ComplianceProgramSerializer,
     EvidenceSerializer,
+    RequirementMappingSerializer,
     RequirementSerializer,
 )
 
 
-class ComplianceFrameworkViewSet(viewsets.ModelViewSet):
-    """CRUD for Compliance Frameworks."""
+class ComplianceFrameworkViewSet(CsvImportMixin, viewsets.ModelViewSet):
+    """CRUD for Compliance Frameworks — includes CSV bulk import."""
 
-    queryset = ComplianceFramework.objects.all()
+    queryset = ComplianceFramework.objects.annotate(
+        requirements_count=Count("requirements")
+    )
     serializer_class = ComplianceFrameworkSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ["is_active"]
     search_fields = ["name", "short_name", "issuing_body"]
     ordering_fields = ["name", "created_at"]
+    csv_import_fields = [
+        "name",
+        "short_name",
+        "version",
+        "description",
+        "issuing_body",
+        "is_active",
+    ]
 
 
-class RequirementViewSet(viewsets.ModelViewSet):
-    """CRUD for Framework Requirements."""
+class RequirementViewSet(CsvExportMixin, CsvImportMixin, viewsets.ModelViewSet):
+    """CRUD for Framework Requirements — supports CSV import/export and linked resources."""
 
     queryset = Requirement.objects.select_related("framework", "parent")
     serializer_class = RequirementSerializer
@@ -48,6 +62,79 @@ class RequirementViewSet(viewsets.ModelViewSet):
     filterset_fields = ["framework", "parent"]
     search_fields = ["ref_code", "title", "description"]
     ordering_fields = ["order", "ref_code", "created_at"]
+    csv_filename = "requirements"
+    csv_export_fields = [
+        "id",
+        "framework",
+        "ref_code",
+        "title",
+        "description",
+        "guidance",
+        "order",
+        "parent",
+    ]
+    csv_import_fields = [
+        "framework",
+        "ref_code",
+        "title",
+        "description",
+        "guidance",
+        "order",
+        "parent",
+    ]
+
+    @action(detail=True, methods=["get"], url_path="linked-policies")
+    def linked_policies(self, request, pk=None):
+        """Return all policies that reference this requirement."""
+        requirement = self.get_object()
+        policies = requirement.policies.all()
+        serializer = PolicySerializer(policies, many=True, context={"request": request})
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["get"], url_path="linked-controls")
+    def linked_controls(self, request, pk=None):
+        """Return all controls that reference this requirement."""
+        requirement = self.get_object()
+        controls = requirement.controls.all()
+        serializer = ControlSerializer(
+            controls, many=True, context={"request": request}
+        )
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["get"], url_path="mappings")
+    def requirement_mappings(self, request, pk=None):
+        """Return all cross-framework mappings for this requirement (as source or target)."""
+        requirement = self.get_object()
+        source_mappings = RequirementMapping.objects.filter(
+            source=requirement
+        ).select_related("source__framework", "target__framework")
+        target_mappings = RequirementMapping.objects.filter(
+            target=requirement
+        ).select_related("source__framework", "target__framework")
+        all_mappings = source_mappings | target_mappings
+        serializer = RequirementMappingSerializer(
+            all_mappings, many=True, context={"request": request}
+        )
+        return Response(serializer.data)
+
+
+class RequirementMappingViewSet(viewsets.ModelViewSet):
+    """CRUD for cross-framework requirement mappings."""
+
+    queryset = RequirementMapping.objects.select_related(
+        "source__framework", "target__framework"
+    )
+    serializer_class = RequirementMappingSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ["source", "target", "relationship"]
+    search_fields = [
+        "source__ref_code",
+        "source__title",
+        "target__ref_code",
+        "target__title",
+        "notes",
+    ]
+    ordering_fields = ["created_at", "relationship"]
 
 
 class ComplianceProgramViewSet(CsvExportMixin, viewsets.ModelViewSet):
@@ -74,10 +161,6 @@ class ComplianceProgramViewSet(CsvExportMixin, viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"], url_path="gap-summary")
     def gap_summary(self, request, pk=None):
-        """
-        Return counts of assessments grouped by compliance status
-        for this program, suitable for gap analysis visualisation.
-        """
         program = self.get_object()
         counts = (
             program.assessments.values("status")
@@ -85,11 +168,8 @@ class ComplianceProgramViewSet(CsvExportMixin, viewsets.ModelViewSet):
             .order_by("status")
         )
         summary = {entry["status"]: entry["count"] for entry in counts}
-
-        # Ensure every possible status key is present even if count is 0
         for choice in ComplianceAssessment.ComplianceStatus.values:
             summary.setdefault(choice, 0)
-
         total = sum(summary.values())
         return Response({"program": str(program), "total": total, "by_status": summary})
 
@@ -121,7 +201,7 @@ class EvidenceViewSet(viewsets.ModelViewSet):
 class ComplianceFrameworkTemplateViewSet(viewsets.ModelViewSet):
     """
     CRUD for built-in / custom compliance framework templates.
-    Use POST /compliance/framework-templates/{id}/instantiate/ to create a
+    POST /compliance/framework-templates/{id}/instantiate/ to create a
     full ComplianceFramework + Requirement tree from the template.
     """
 
@@ -134,10 +214,6 @@ class ComplianceFrameworkTemplateViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="instantiate")
     def instantiate(self, request, pk=None):
-        """
-        Create a ComplianceFramework + its full Requirement tree from this template.
-        Optional body: {"name": "...", "version": "..."}  to override defaults.
-        """
         template = self.get_object()
         override_name = request.data.get("name", template.name)
         override_version = request.data.get("version", template.version)

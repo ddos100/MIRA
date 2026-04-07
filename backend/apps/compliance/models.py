@@ -91,6 +91,47 @@ class Requirement(BaseModel):
         return f"{self.framework.short_name} {self.ref_code}: {self.title}"
 
 
+class RequirementMapping(BaseModel):
+    """
+    Maps equivalent or related requirements across different frameworks.
+    Enables cross-framework gap analysis and common-control identification.
+    """
+
+    class Relationship(models.TextChoices):
+        EQUIVALENT = "equivalent", _("Equivalent")
+        SUBSET = "subset", _("Subset of")
+        SUPERSET = "superset", _("Superset of")
+        RELATED = "related", _("Related")
+
+    source = models.ForeignKey(
+        Requirement,
+        on_delete=models.CASCADE,
+        related_name="mappings_as_source",
+        help_text="The originating requirement",
+    )
+    target = models.ForeignKey(
+        Requirement,
+        on_delete=models.CASCADE,
+        related_name="mappings_as_target",
+        help_text="The mapped-to requirement in another framework",
+    )
+    relationship = models.CharField(
+        max_length=20,
+        choices=Relationship.choices,
+        default=Relationship.RELATED,
+    )
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = _("Requirement Mapping")
+        verbose_name_plural = _("Requirement Mappings")
+        unique_together = [("source", "target")]
+        ordering = ["source__ref_code"]
+
+    def __str__(self):
+        return f"{self.source} → {self.target} ({self.get_relationship_display()})"
+
+
 class ComplianceProgram(BaseModel):
     class Status(models.TextChoices):
         PLANNED = "planned", _("Planned")

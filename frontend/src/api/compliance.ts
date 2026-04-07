@@ -119,6 +119,45 @@ export const complianceKeys = {
     [...complianceKeys.assessments(), "detail", id] as const,
 };
 
+// ─── Extended Types ───────────────────────────────────────────────────────────
+
+export interface RequirementMapping {
+  id: string;
+  source: string;
+  source_ref: string;
+  source_title: string;
+  source_framework: string;
+  target: string;
+  target_ref: string;
+  target_title: string;
+  target_framework: string;
+  relationship: "equivalent" | "subset" | "superset" | "related";
+  notes: string;
+  created_at: string;
+}
+
+export interface StatusRule {
+  id: string;
+  name: string;
+  description: string;
+  content_type: number;
+  content_type_label?: string;
+  conditions: Array<{
+    field: string;
+    operator: string;
+    value: unknown;
+  }>;
+  target_status: string;
+  rule_status: "active" | "inactive";
+  last_run_at: string | null;
+  last_affected_count: number;
+  created_at: string;
+}
+
+// extend query keys
+const mappingKey = (params?: Record<string, unknown>) =>
+  ["compliance", "requirement-mappings", params] as const;
+
 // ─── Framework Hooks ──────────────────────────────────────────────────────────
 
 export function useFrameworks(params?: Record<string, unknown>) {
@@ -131,6 +170,62 @@ export function useFrameworks(params?: Record<string, unknown>) {
       );
       return data;
     },
+  });
+}
+
+export function useFramework(id: string) {
+  return useQuery({
+    queryKey: complianceKeys.frameworkDetail(id),
+    queryFn: async () => {
+      const { data } = await apiClient.get<ComplianceFramework>(
+        `/compliance/frameworks/${id}/`
+      );
+      return data;
+    },
+    enabled: !!id,
+  });
+}
+
+export function useCreateFramework() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: Partial<ComplianceFramework>) => {
+      const { data } = await apiClient.post<ComplianceFramework>(
+        "/compliance/frameworks/",
+        payload
+      );
+      return data;
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: complianceKeys.frameworkLists() }),
+  });
+}
+
+export function useUpdateFramework(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: Partial<ComplianceFramework>) => {
+      const { data } = await apiClient.patch<ComplianceFramework>(
+        `/compliance/frameworks/${id}/`,
+        payload
+      );
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: complianceKeys.frameworkLists() });
+      qc.invalidateQueries({ queryKey: complianceKeys.frameworkDetail(id) });
+    },
+  });
+}
+
+export function useDeleteFramework() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/compliance/frameworks/${id}/`);
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: complianceKeys.frameworkLists() }),
   });
 }
 
@@ -233,6 +328,149 @@ export function useRequirements(params?: Record<string, unknown>) {
       return data;
     },
     enabled: params !== undefined ? Object.keys(params).length > 0 : true,
+  });
+}
+
+export function useRequirement(id: string) {
+  return useQuery({
+    queryKey: [...complianceKeys.requirements(), "detail", id] as const,
+    queryFn: async () => {
+      const { data } = await apiClient.get<Requirement>(
+        `/compliance/requirements/${id}/`
+      );
+      return data;
+    },
+    enabled: !!id,
+  });
+}
+
+export function useCreateRequirement() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: Partial<Requirement>) => {
+      const { data } = await apiClient.post<Requirement>(
+        "/compliance/requirements/",
+        payload
+      );
+      return data;
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: complianceKeys.requirements() }),
+  });
+}
+
+export function useUpdateRequirement(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: Partial<Requirement>) => {
+      const { data } = await apiClient.patch<Requirement>(
+        `/compliance/requirements/${id}/`,
+        payload
+      );
+      return data;
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: complianceKeys.requirements() }),
+  });
+}
+
+export function useDeleteRequirement() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/compliance/requirements/${id}/`);
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: complianceKeys.requirements() }),
+  });
+}
+
+export function useRequirementLinkedPolicies(id: string) {
+  return useQuery({
+    queryKey: [...complianceKeys.requirements(), "linked-policies", id] as const,
+    queryFn: async () => {
+      const { data } = await apiClient.get(
+        `/compliance/requirements/${id}/linked-policies/`
+      );
+      return (data?.results ?? data) as Array<{
+        id: string;
+        title: string;
+        status: string;
+        version: string;
+      }>;
+    },
+    enabled: !!id,
+  });
+}
+
+export function useRequirementLinkedControls(id: string) {
+  return useQuery({
+    queryKey: [...complianceKeys.requirements(), "linked-controls", id] as const,
+    queryFn: async () => {
+      const { data } = await apiClient.get(
+        `/compliance/requirements/${id}/linked-controls/`
+      );
+      return (data?.results ?? data) as Array<{
+        id: string;
+        title: string;
+        status: string;
+        control_type: string;
+      }>;
+    },
+    enabled: !!id,
+  });
+}
+
+export function useRequirementMappings(requirementId: string) {
+  return useQuery({
+    queryKey: [...complianceKeys.requirements(), "mappings", requirementId] as const,
+    queryFn: async () => {
+      const { data } = await apiClient.get(
+        `/compliance/requirements/${requirementId}/mappings/`
+      );
+      return (data?.results ?? data) as RequirementMapping[];
+    },
+    enabled: !!requirementId,
+  });
+}
+
+export function useAllRequirementMappings(params?: Record<string, unknown>) {
+  return useQuery({
+    queryKey: mappingKey(params),
+    queryFn: async () => {
+      const { data } = await apiClient.get("/compliance/requirement-mappings/", {
+        params: { page_size: 200, ...params },
+      });
+      return (data?.results ?? data) as RequirementMapping[];
+    },
+  });
+}
+
+export function useCreateRequirementMapping() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (
+      payload: Omit<RequirementMapping, "id" | "created_at" | "source_ref" | "source_title" | "source_framework" | "target_ref" | "target_title" | "target_framework">
+    ) => {
+      const { data } = await apiClient.post<RequirementMapping>(
+        "/compliance/requirement-mappings/",
+        payload
+      );
+      return data;
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ["compliance", "requirement-mappings"] }),
+  });
+}
+
+export function useDeleteRequirementMapping() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/compliance/requirement-mappings/${id}/`);
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ["compliance", "requirement-mappings"] }),
   });
 }
 

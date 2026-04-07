@@ -9,6 +9,7 @@ from .views import (
     ComplianceFrameworkViewSet,
     ComplianceProgramViewSet,
     EvidenceViewSet,
+    RequirementMappingViewSet,
     RequirementViewSet,
 )
 
@@ -22,6 +23,11 @@ router.register(
     basename="frameworktemplate",
 )
 router.register(r"requirements", RequirementViewSet, basename="requirement")
+router.register(
+    r"requirement-mappings",
+    RequirementMappingViewSet,
+    basename="requirementmapping",
+)
 router.register(r"programs", ComplianceProgramViewSet, basename="complianceprogram")
 router.register(
     r"assessments", ComplianceAssessmentViewSet, basename="complianceassessment"

@@ -10,10 +10,20 @@ interface Props {
   onClose: () => void;
   /** API endpoint path, e.g. "/risks/import-csv/" */
   endpoint: string;
-  /** Human-readable entity name, e.g. "Risks" */
-  entityName: string;
-  /** Optional list of columns users can put in the CSV */
+  /** Modal title — or falls back to "Import {entityName}" */
+  title?: string;
+  /** Optional subtitle shown below the title area */
+  description?: string;
+  /** Legacy: human-readable entity name shown in title */
+  entityName?: string;
+  /** A raw CSV string to use as the download template */
+  templateCsv?: string;
+  /** Filename for the downloaded template */
+  templateFilename?: string;
+  /** Legacy: list of column names to build a template from */
   templateColumns?: string[];
+  /** Optional note shown in the info box (e.g. framework UUID hint) */
+  extraNote?: string;
   /** Called after a successful import so the parent can refetch data */
   onSuccess?: () => void;
 }
@@ -22,14 +32,32 @@ export function ImportModal({
   open,
   onClose,
   endpoint,
+  title,
+  description,
   entityName,
+  templateCsv,
+  templateFilename,
   templateColumns,
+  extraNote,
   onSuccess,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const { importCsv, isImporting, result, error, reset } = useImportCsv();
+
+  const modalTitle = title ?? (entityName ? `Import ${entityName}` : "Import CSV");
+  const resolvedEntityName = entityName ?? "records";
+
+  // Build template CSV string from whichever prop was provided
+  const resolvedTemplateCsv =
+    templateCsv ??
+    (templateColumns?.length ? templateColumns.join(",") + "\r\n" : null);
+  const resolvedTemplateFilename =
+    templateFilename ??
+    (entityName
+      ? `${entityName.toLowerCase().replace(/\s+/g, "-")}-template.csv`
+      : "template.csv");
 
   function handleClose() {
     setSelectedFile(null);
@@ -62,13 +90,15 @@ export function ImportModal({
   }
 
   function downloadTemplate() {
-    if (!templateColumns?.length) return;
-    const csv = templateColumns.join(",") + "\r\n";
+    if (!resolvedTemplateCsv) return;
+    const csv = resolvedTemplateCsv.endsWith("\r\n") || resolvedTemplateCsv.endsWith("\n")
+      ? resolvedTemplateCsv
+      : resolvedTemplateCsv + "\r\n";
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${entityName.toLowerCase().replace(/\s+/g, "-")}-template.csv`;
+    a.download = resolvedTemplateFilename;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -77,10 +107,21 @@ export function ImportModal({
   const hasErrors = (result?.errors.length ?? 0) > 0;
 
   return (
-    <Modal open={open} onClose={handleClose} title={`Import ${entityName}`} size="md">
+    <Modal open={open} onClose={handleClose} title={modalTitle} size="md">
       <div className="space-y-4">
+        {description && (
+          <p className="text-sm text-muted-foreground">{description}</p>
+        )}
+
+        {/* Extra note (e.g. framework UUID hint) */}
+        {extraNote && (
+          <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 px-3 py-2 text-xs text-blue-800 dark:text-blue-300">
+            {extraNote}
+          </div>
+        )}
+
         {/* Template download */}
-        {templateColumns && templateColumns.length > 0 && (
+        {resolvedTemplateCsv && (
           <div className="rounded-md bg-muted/40 px-4 py-3 text-sm flex items-center justify-between gap-2">
             <span className="text-muted-foreground">
               Need a template? Download a blank CSV with the correct headers.
@@ -97,7 +138,10 @@ export function ImportModal({
             ${dragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-accent/20"}
             ${selectedFile ? "border-primary/60 bg-primary/5" : ""}
           `}
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
@@ -132,7 +176,7 @@ export function ImportModal({
             <CheckCircle2 className="h-4 w-4 shrink-0" />
             <span>
               Successfully imported <strong>{result!.created}</strong>{" "}
-              {entityName.toLowerCase()}.
+              {resolvedEntityName.toLowerCase()}.
             </span>
           </div>
         )}
@@ -175,17 +219,17 @@ export function ImportModal({
             {hasResult && !hasErrors ? "Close" : "Cancel"}
           </Button>
           {!hasResult && (
-            <Button
-              onClick={handleImport}
-              disabled={!selectedFile || isImporting}
-            >
+            <Button onClick={handleImport} disabled={!selectedFile || isImporting}>
               {isImporting ? "Importing…" : "Import"}
             </Button>
           )}
           {hasResult && (hasErrors || result!.created > 0) && (
             <Button
               variant="outline"
-              onClick={() => { setSelectedFile(null); reset(); }}
+              onClick={() => {
+                setSelectedFile(null);
+                reset();
+              }}
             >
               Import Another File
             </Button>
