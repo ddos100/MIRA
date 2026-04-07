@@ -136,7 +136,14 @@ const navItems: NavItem[] = [
     ],
   },
   { label: "Reports", href: "/reports", icon: BookOpen },
-  { label: "Settings", href: "/settings", icon: Settings },
+  {
+    label: "Settings",
+    icon: Settings,
+    children: [
+      { label: "General", href: "/settings" },
+      { label: "Status Engine", href: "/settings/status-rules" },
+    ],
+  },
 ];
 
 function NavItemComponent({ item }: { item: NavItem }) {
@@ -181,7 +188,10 @@ function NavItemComponent({ item }: { item: NavItem }) {
       {open && (
         <div className="ml-6 mt-1 space-y-1">
           {item.children?.map((child) => {
-            const active = location.pathname.startsWith(child.href);
+            const active =
+              child.href === "/settings"
+                ? location.pathname === "/settings"
+                : location.pathname.startsWith(child.href);
             return (
               <Link
                 key={child.href}

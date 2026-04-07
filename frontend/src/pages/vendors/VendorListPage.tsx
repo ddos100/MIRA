@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Pencil, Trash2, Eye, Building2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, Building2, Upload } from "lucide-react";
+import { ImportModal } from "@/components/common/ImportModal";
 import { format, addDays, isBefore } from "date-fns";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -214,6 +215,7 @@ export default function VendorListPage() {
   const navigate = useNavigate();
   const [params, setParams] = useState<VendorParams>({ page: 1, page_size: 20 });
   const [modalOpen, setModalOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editVendor, setEditVendor] = useState<Vendor | undefined>();
   const [deleteTarget, setDeleteTarget] = useState<Vendor | undefined>();
 
@@ -266,10 +268,16 @@ export default function VendorListPage() {
           <h1 className="text-2xl font-bold">Third-Party Registry</h1>
           <p className="text-sm text-muted-foreground">Manage vendor relationships and risk assessments.</p>
         </div>
-        <Button onClick={openCreate}>
-          <Plus className="h-4 w-4" />
-          New Vendor
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setImportOpen(true)}>
+            <Upload className="h-4 w-4" />
+            Import CSV
+          </Button>
+          <Button onClick={openCreate}>
+            <Plus className="h-4 w-4" />
+            New Vendor
+          </Button>
+        </div>
       </div>
 
       {/* Stat Cards */}
@@ -444,6 +452,15 @@ export default function VendorListPage() {
 
       {/* Modals */}
       <VendorFormModal open={modalOpen} onClose={() => { setModalOpen(false); setEditVendor(undefined); }} vendor={editVendor} />
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        endpoint="/vendors/import-csv/"
+        title="Import Vendors"
+        description="Upload a CSV to bulk-create third-party vendors."
+        templateCsv="name,vendor_type,risk_tier,website,contact_name,contact_email,contract_start,contract_end,is_active"
+        templateFilename="vendors-template.csv"
+      />
       <ConfirmDialog
         open={!!deleteTarget}
         title="Delete Vendor"

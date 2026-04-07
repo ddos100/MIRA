@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Routes, Route } from "react-router-dom";
-import { Plus, XCircle } from "lucide-react";
+import { Plus, Upload, XCircle } from "lucide-react";
 import { useExceptions, useApproveException } from "@/api/exceptions";
 import { useAuthStore } from "@/store/authStore";
+import { ImportModal } from "@/components/common/ImportModal";
 
 const statusColors: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800",
@@ -25,6 +26,7 @@ function ExceptionListPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [page, setPage] = useState(1);
+  const [importOpen, setImportOpen] = useState(false);
 
   const { data, isLoading } = useExceptions({
     search,
@@ -44,10 +46,19 @@ function ExceptionListPage() {
           <h1 className="text-2xl font-bold">Exception Register</h1>
           <p className="text-muted-foreground">Track risk, compliance, policy and control exceptions.</p>
         </div>
-        <button className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90">
-          <Plus className="h-4 w-4" />
-          Request Exception
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setImportOpen(true)}
+            className="flex items-center gap-2 border border-input bg-background px-4 py-2 rounded-md text-sm font-medium hover:bg-accent"
+          >
+            <Upload className="h-4 w-4" />
+            Import CSV
+          </button>
+          <button className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90">
+            <Plus className="h-4 w-4" />
+            Request Exception
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-3">
@@ -59,7 +70,7 @@ function ExceptionListPage() {
           className="border rounded-md px-3 py-2 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-ring"
         />
         <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-          className="border rounded-md px-3 py-2 text-sm">
+          className="border border-input rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
           <option value="">All Statuses</option>
           <option value="pending">Pending</option>
           <option value="approved">Approved</option>
@@ -67,7 +78,7 @@ function ExceptionListPage() {
           <option value="expired">Expired</option>
         </select>
         <select value={typeFilter} onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
-          className="border rounded-md px-3 py-2 text-sm">
+          className="border border-input rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
           <option value="">All Types</option>
           <option value="risk">Risk</option>
           <option value="compliance">Compliance</option>
@@ -124,6 +135,16 @@ function ExceptionListPage() {
             className="px-3 py-1 border rounded text-sm disabled:opacity-50">Next</button>
         </div>
       )}
+
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        endpoint="/exceptions/import-csv/"
+        title="Import Exceptions"
+        description="Upload a CSV to bulk-create exception requests."
+        templateCsv="title,exception_type,justification,risk_level,expiry_date,requested_by"
+        templateFilename="exceptions-template.csv"
+      />
     </div>
   );
 }
