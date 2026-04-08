@@ -31,12 +31,19 @@ class AssetCategory(BaseModel):
 
 
 class Asset(BaseModel):
-    """An organizational asset (system, application, hardware, data store, etc.)."""
+    """An organizational asset (system, application, hardware, data store,
+    etc.)."""
 
     class Status(models.TextChoices):
         ACTIVE = "active", _("Active")
         INACTIVE = "inactive", _("Inactive")
         RETIRED = "retired", _("Retired")
+
+    class CIARating(models.TextChoices):
+        LOW = "low", _("Low")
+        MEDIUM = "medium", _("Medium")
+        HIGH = "high", _("High")
+        CRITICAL = "critical", _("Critical")
 
     name = models.CharField(max_length=255, db_index=True)
     description = models.TextField(blank=True)
@@ -83,6 +90,29 @@ class Asset(BaseModel):
         default=Status.ACTIVE,
         db_index=True,
     )
+    # ── CIA Triad ratings ───────────────────────────────────────────────────
+    confidentiality = models.CharField(
+        max_length=10,
+        choices=CIARating.choices,
+        default=CIARating.MEDIUM,
+        help_text=_("Confidentiality impact if this asset is compromised"),
+        db_index=True,
+    )
+    integrity = models.CharField(
+        max_length=10,
+        choices=CIARating.choices,
+        default=CIARating.MEDIUM,
+        help_text=_("Integrity impact if this asset is tampered with"),
+        db_index=True,
+    )
+    availability = models.CharField(
+        max_length=10,
+        choices=CIARating.choices,
+        default=CIARating.MEDIUM,
+        help_text=_("Availability impact if this asset is unavailable"),
+        db_index=True,
+    )
+
     notes = models.TextField(blank=True)
     tags = models.ManyToManyField(
         Tag,
@@ -101,7 +131,8 @@ class Asset(BaseModel):
 
 
 class DataAsset(BaseModel):
-    """Additional data-specific attributes linked to an Asset via one-to-one."""
+    """Additional data-specific attributes linked to an Asset via
+    one-to-one."""
 
     class Classification(models.TextChoices):
         PUBLIC = "public", _("Public")

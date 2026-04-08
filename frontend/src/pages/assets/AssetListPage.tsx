@@ -27,15 +27,47 @@ import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { ImportModal } from "@/components/common/ImportModal";
+import { BulkUploadSection } from "@/components/common/BulkUploadSection";
 import { cn } from "@/utils/cn";
 
 // ─── Asset Form Modal ─────────────────────────────────────────────────────────
+
+const CIA_OPTIONS = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+  { value: "critical", label: "Critical" },
+];
+
+const CIA_COLORS: Record<string, string> = {
+  low: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+  medium: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
+  high: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+  critical: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+};
+
+function CIABadge({ value }: { value?: string }) {
+  if (!value) return <span className="text-muted-foreground">—</span>;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium capitalize",
+        CIA_COLORS[value] ?? "bg-muted text-muted-foreground"
+      )}
+    >
+      {value}
+    </span>
+  );
+}
 
 const assetSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
   category: z.string().optional(),
   criticality: z.coerce.number().min(1).max(5),
+  confidentiality: z.enum(["low", "medium", "high", "critical"]),
+  integrity: z.enum(["low", "medium", "high", "critical"]),
+  availability: z.enum(["low", "medium", "high", "critical"]),
   status: z.enum(["active", "inactive", "retired"]),
   notes: z.string().optional(),
 });
@@ -65,6 +97,9 @@ function AssetFormModal({ open, onClose, asset }: AssetFormModalProps) {
       description: asset?.description ?? "",
       category: asset?.category ?? "",
       criticality: asset?.criticality ?? 3,
+      confidentiality: asset?.confidentiality ?? "medium",
+      integrity: asset?.integrity ?? "medium",
+      availability: asset?.availability ?? "medium",
       status: (asset?.status as AssetStatus) ?? "active",
       notes: asset?.notes ?? "",
     },
@@ -159,6 +194,30 @@ function AssetFormModal({ open, onClose, asset }: AssetFormModalProps) {
             />
           </div>
 
+          {/* CIA Triad */}
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              CIA Impact Ratings
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              <Select
+                label="Confidentiality"
+                options={CIA_OPTIONS}
+                {...register("confidentiality")}
+              />
+              <Select
+                label="Integrity"
+                options={CIA_OPTIONS}
+                {...register("integrity")}
+              />
+              <Select
+                label="Availability"
+                options={CIA_OPTIONS}
+                {...register("availability")}
+              />
+            </div>
+          </div>
+
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-foreground">Notes</label>
             <Textarea
@@ -190,7 +249,7 @@ function AssetFormModal({ open, onClose, asset }: AssetFormModalProps) {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
-type Tab = "all" | "data_assets" | "data_flows";
+type Tab = "all" | "data_assets" | "data_flows" | "bulk_upload";
 
 // ─── All Assets Tab ───────────────────────────────────────────────────────────
 
@@ -301,6 +360,15 @@ function AllAssetsTab({ onEdit }: AllAssetsTabProps) {
                   Criticality
                 </th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                  C
+                </th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                  I
+                </th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                  A
+                </th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
                   Status
                 </th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -315,7 +383,7 @@ function AllAssetsTab({ onEdit }: AllAssetsTabProps) {
               {assets.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={10}
                     className="px-4 py-10 text-center text-muted-foreground"
                   >
                     No assets found.
@@ -339,6 +407,15 @@ function AllAssetsTab({ onEdit }: AllAssetsTabProps) {
                       <CriticalityBadge
                         value={asset.criticality as 1 | 2 | 3 | 4 | 5}
                       />
+                    </td>
+                    <td className="px-4 py-3">
+                      <CIABadge value={asset.confidentiality} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <CIABadge value={asset.integrity} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <CIABadge value={asset.availability} />
                     </td>
                     <td className="px-4 py-3">
                       <Badge variant={asset.status}>{asset.status}</Badge>
@@ -383,6 +460,30 @@ function AllAssetsTab({ onEdit }: AllAssetsTabProps) {
         </div>
       )}
     </div>
+  );
+}
+
+// ─── Bulk Upload Tab ──────────────────────────────────────────────────────────
+
+const ASSET_COLUMNS = [
+  { name: "name", description: "Asset name", required: "Yes" },
+  { name: "description", description: "Brief description", required: "No" },
+  { name: "criticality", description: "1 (lowest) to 5 (highest)", required: "No (default 3)" },
+  { name: "status", description: "active | inactive | retired", required: "No (default active)" },
+  { name: "confidentiality", description: "low | medium | high | critical", required: "No (default medium)" },
+  { name: "integrity", description: "low | medium | high | critical", required: "No (default medium)" },
+  { name: "availability", description: "low | medium | high | critical", required: "No (default medium)" },
+  { name: "notes", description: "Additional notes", required: "No" },
+];
+
+function BulkUploadTab({ onSuccess }: { onSuccess: () => void }) {
+  return (
+    <BulkUploadSection
+      endpoint="/assets/assets/import-csv/"
+      entityName="Assets"
+      columns={ASSET_COLUMNS}
+      onSuccess={onSuccess}
+    />
   );
 }
 
@@ -553,6 +654,7 @@ export default function AssetListPage() {
     { key: "all", label: "All Assets" },
     { key: "data_assets", label: "Data Assets" },
     { key: "data_flows", label: "Data Flows" },
+    { key: "bulk_upload", label: "Bulk Upload" },
   ];
 
   return (
@@ -601,6 +703,11 @@ export default function AssetListPage() {
       {activeTab === "all" && <AllAssetsTab onEdit={handleEdit} />}
       {activeTab === "data_assets" && <DataAssetsTab />}
       {activeTab === "data_flows" && <DataFlowsTab />}
+      {activeTab === "bulk_upload" && (
+        <BulkUploadTab
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: assetKeys.lists() })}
+        />
+      )}
 
       <AssetFormModal
         open={showModal}

@@ -30,8 +30,12 @@ class AssetCategorySerializer(serializers.ModelSerializer):
 
 
 class AssetSerializer(serializers.ModelSerializer):
-    category_name = serializers.CharField(source="category.name", read_only=True)
-    owner_name = serializers.CharField(source="owner.get_full_name", read_only=True)
+    category_name = serializers.CharField(
+        source="category.name", read_only=True
+    )
+    owner_name = serializers.CharField(
+        source="owner.get_full_name", read_only=True
+    )
     business_unit_name = serializers.CharField(
         source="business_unit.name", read_only=True
     )
@@ -49,6 +53,9 @@ class AssetSerializer(serializers.ModelSerializer):
             "business_unit",
             "business_unit_name",
             "criticality",
+            "confidentiality",
+            "integrity",
+            "availability",
             "asset_value",
             "status",
             "notes",
