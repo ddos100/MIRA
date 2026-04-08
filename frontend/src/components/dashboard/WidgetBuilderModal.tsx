@@ -255,7 +255,7 @@ export function WidgetBuilderModal({ open, onClose }: Props) {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium text-muted-foreground">
-                Widgets on "{dashboard.name}" ({dashboard.widgets.length})
+                Widgets on "{dashboard.name}" ({(dashboard.widgets ?? []).length})
               </p>
               <Button
                 variant="outline"
@@ -274,14 +274,14 @@ export function WidgetBuilderModal({ open, onClose }: Props) {
               />
             )}
 
-            {dashboard.widgets.length === 0 && !showAddForm && (
+            {(dashboard.widgets ?? []).length === 0 && !showAddForm && (
               <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
                 No widgets yet. Click "Add Widget" to get started.
               </div>
             )}
 
             <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto">
-              {[...dashboard.widgets]
+              {[...(dashboard.widgets ?? [])]
                 .sort((a, b) => a.grid_y - b.grid_y || a.grid_x - b.grid_x)
                 .map((widget) => {
                   const wt = WIDGET_TYPES.find((t) => t.value === widget.widget_type);

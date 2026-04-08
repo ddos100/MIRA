@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Download, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { Download, Pencil, Plus, Trash2 } from "lucide-react";
+import { cn } from "@/utils/cn";
+import { BulkUploadSection } from "@/components/common/BulkUploadSection";
 import { useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -50,9 +52,12 @@ function ScoreBadge({ score, rating }: { score: number; rating: string }) {
   );
 }
 
+type Tab = "list" | "bulk_upload";
+
 export default function RiskListPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<Tab>("list");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -231,33 +236,54 @@ export default function RiskListPage() {
         title="Risk Register"
         description="Track and manage organisational risks."
         actions={
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={() =>
-                exportCsv("/risks/export-csv/", "risks", {
-                  search: search || undefined,
-                  status: status || undefined,
-                  category: categoryId || undefined,
-                })
-              }
-              disabled={isExporting}
-            >
-              <Download className="h-4 w-4" />
-              {isExporting ? "Exporting…" : "Export CSV"}
-            </Button>
-            <Button variant="outline" onClick={() => setImportOpen(true)}>
-              <Upload className="h-4 w-4" />
-              Import CSV
-            </Button>
-            <Button onClick={openCreate}>
-              <Plus className="h-4 w-4" />
-              New Risk
-            </Button>
-          </div>
+          activeTab === "list" ? (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() =>
+                  exportCsv("/risks/export-csv/", "risks", {
+                    search: search || undefined,
+                    status: status || undefined,
+                    category: categoryId || undefined,
+                  })
+                }
+                disabled={isExporting}
+              >
+                <Download className="h-4 w-4" />
+                {isExporting ? "Exporting…" : "Export CSV"}
+              </Button>
+              <Button onClick={openCreate}>
+                <Plus className="h-4 w-4" />
+                New Risk
+              </Button>
+            </div>
+          ) : null
         }
       />
 
+      {/* Tab Bar */}
+      <div className="flex gap-1 border-b">
+        {(["list", "bulk_upload"] as Tab[]).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={cn(
+              "px-4 py-2 text-sm font-medium transition-colors",
+              activeTab === tab
+                ? "border-b-2 border-primary text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {tab === "list" ? "Risk Register" : "Bulk Upload"}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "bulk_upload" && (
+        <RiskBulkUploadTab onSuccess={() => queryClient.invalidateQueries({ queryKey: riskKeys.lists() })} />
+      )}
+
+      {activeTab === "list" && <>
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
         <SearchInput
@@ -326,6 +352,30 @@ export default function RiskListPage() {
         isDestructive
         isLoading={deleteRisk.isPending}
       />
+      </>}
     </div>
+  );
+}
+
+// ─── Bulk Upload Tab ──────────────────────────────────────────────────────────
+
+const RISK_COLUMNS = [
+  { name: "title", description: "Risk title", required: "Yes" },
+  { name: "description", description: "Detailed description", required: "No" },
+  { name: "status", description: "open | in_treatment | accepted | closed | transferred", required: "No (default open)" },
+  { name: "treatment_type", description: "mitigate | avoid | transfer | accept", required: "No" },
+  { name: "likelihood", description: "1–5 likelihood score", required: "No (default 3)" },
+  { name: "impact", description: "1–5 impact score", required: "No (default 3)" },
+  { name: "identified_date", description: "ISO date (YYYY-MM-DD)", required: "No" },
+];
+
+function RiskBulkUploadTab({ onSuccess }: { onSuccess: () => void }) {
+  return (
+    <BulkUploadSection
+      endpoint="/risks/import-csv/"
+      entityName="Risks"
+      columns={RISK_COLUMNS}
+      onSuccess={onSuccess}
+    />
   );
 }

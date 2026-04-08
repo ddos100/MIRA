@@ -136,7 +136,14 @@ const navItems: NavItem[] = [
     ],
   },
   { label: "Reports", href: "/reports", icon: BookOpen },
-  { label: "Settings", href: "/settings", icon: Settings },
+  {
+    label: "Settings",
+    icon: Settings,
+    children: [
+      { label: "General", href: "/settings" },
+      { label: "Status Engine", href: "/settings/status-rules" },
+    ],
+  },
 ];
 
 function NavItemComponent({ item }: { item: NavItem }) {
@@ -149,15 +156,15 @@ function NavItemComponent({ item }: { item: NavItem }) {
   const Icon = item.icon;
 
   if (item.href && !item.children) {
-    const active = location.pathname === item.href;
+    const active = location.pathname === item.href || location.pathname.startsWith(item.href + "/");
     return (
       <Link
         to={item.href}
         className={clsx(
           "flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors",
           active
-            ? "bg-primary text-primary-foreground"
-            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            ? "bg-[hsl(196,90%,48%)] text-[hsl(218,68%,14%)] font-semibold"
+            : "text-white/70 hover:bg-white/10 hover:text-white"
         )}
       >
         <Icon className="h-4 w-4 shrink-0" />
@@ -170,7 +177,7 @@ function NavItemComponent({ item }: { item: NavItem }) {
     <div>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+        className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-white/70 hover:bg-white/10 hover:text-white transition-colors"
       >
         <Icon className="h-4 w-4 shrink-0" />
         <span className="flex-1 text-left">{item.label}</span>
@@ -179,9 +186,12 @@ function NavItemComponent({ item }: { item: NavItem }) {
         />
       </button>
       {open && (
-        <div className="ml-6 mt-1 space-y-1">
+        <div className="ml-6 mt-0.5 space-y-0.5">
           {item.children?.map((child) => {
-            const active = location.pathname.startsWith(child.href);
+            const active =
+              child.href === "/settings"
+                ? location.pathname === "/settings"
+                : location.pathname.startsWith(child.href);
             return (
               <Link
                 key={child.href}
@@ -189,8 +199,8 @@ function NavItemComponent({ item }: { item: NavItem }) {
                 className={clsx(
                   "block px-3 py-1.5 rounded-md text-sm transition-colors",
                   active
-                    ? "text-primary font-medium"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "text-[hsl(196,90%,60%)] font-medium"
+                    : "text-white/55 hover:text-white hover:bg-white/10"
                 )}
               >
                 {child.label}
@@ -205,22 +215,22 @@ function NavItemComponent({ item }: { item: NavItem }) {
 
 export function Sidebar() {
   return (
-    <div className="w-64 shrink-0 border-r bg-card flex flex-col h-full">
-      {/* Logo */}
-      <div className="p-4 border-b">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 bg-primary rounded-md flex items-center justify-center">
-            <ShieldAlert className="h-5 w-5 text-primary-foreground" />
+    <div className="w-64 shrink-0 flex flex-col h-full bg-[hsl(218,68%,14%)] text-white">
+      {/* Brand */}
+      <div className="px-5 py-4 border-b border-white/10">
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-lg bg-[hsl(196,90%,48%)] flex items-center justify-center shadow-lg">
+            <ShieldAlert className="h-5 w-5 text-[hsl(218,68%,14%)]" />
           </div>
           <div>
-            <p className="font-bold text-sm">MIRA</p>
-            <p className="text-xs text-muted-foreground">Managed GRC</p>
+            <p className="font-bold text-sm tracking-wide text-white">MIRA GRC</p>
+            <p className="text-[10px] text-white/50 tracking-widest uppercase">Securisti Consulting</p>
           </div>
         </div>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto p-3 space-y-1">
+      <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
         {navItems.map((item) => (
           <NavItemComponent key={item.label} item={item} />
         ))}

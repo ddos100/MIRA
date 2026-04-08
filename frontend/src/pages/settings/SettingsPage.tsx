@@ -842,6 +842,15 @@ export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>("profile");
   const navigate = useNavigate();
 
+  // Status Engine tab navigates to its own page rather than rendering inline
+  function handleTabClick(id: Tab) {
+    if (id === "status-rules") {
+      navigate("/settings/status-rules");
+    } else {
+      setTab(id);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -853,7 +862,7 @@ export default function SettingsPage() {
         {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
-            onClick={() => setTab(id)}
+            onClick={() => handleTabClick(id)}
             className={cn(
               "flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
               tab === id
@@ -874,7 +883,6 @@ export default function SettingsPage() {
         {tab === "webhooks" && <WebhooksTab />}
         {tab === "audit-log" && <AuditLogTab />}
         {tab === "organization" && <OrganizationTab />}
-        {tab === "status-rules" && navigate("/settings/status-rules") as never}
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Pencil, Trash2, Eye, Building2 } from "lucide-react";
+import { BulkUploadSection } from "@/components/common/BulkUploadSection";
 import { format, addDays, isBefore } from "date-fns";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -210,8 +211,23 @@ export function VendorFormModal({ open, onClose, vendor }: VendorFormModalProps)
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
+const VENDOR_COLUMNS = [
+  { name: "name", description: "Vendor name", required: "Yes" },
+  { name: "vendor_type", description: "software | hardware | service | consultant | other", required: "No" },
+  { name: "risk_tier", description: "tier1 | tier2 | tier3 | tier4", required: "No (default tier3)" },
+  { name: "website", description: "Vendor website URL", required: "No" },
+  { name: "contact_name", description: "Primary contact name", required: "No" },
+  { name: "contact_email", description: "Primary contact email", required: "No" },
+  { name: "contract_start", description: "ISO date (YYYY-MM-DD)", required: "No" },
+  { name: "contract_end", description: "ISO date (YYYY-MM-DD)", required: "No" },
+  { name: "is_active", description: "true | false", required: "No (default true)" },
+];
+
+type VendorTab = "vendors" | "bulk_upload";
+
 export default function VendorListPage() {
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<VendorTab>("vendors");
   const [params, setParams] = useState<VendorParams>({ page: 1, page_size: 20 });
   const [modalOpen, setModalOpen] = useState(false);
   const [editVendor, setEditVendor] = useState<Vendor | undefined>();
@@ -266,11 +282,36 @@ export default function VendorListPage() {
           <h1 className="text-2xl font-bold">Third-Party Registry</h1>
           <p className="text-sm text-muted-foreground">Manage vendor relationships and risk assessments.</p>
         </div>
-        <Button onClick={openCreate}>
-          <Plus className="h-4 w-4" />
-          New Vendor
-        </Button>
+        {activeTab === "vendors" && (
+          <Button onClick={openCreate}>
+            <Plus className="h-4 w-4" />
+            New Vendor
+          </Button>
+        )}
       </div>
+
+      {/* Tab Bar */}
+      <div className="flex gap-1 border-b">
+        {(["vendors", "bulk_upload"] as VendorTab[]).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${activeTab === tab ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            {tab === "vendors" ? "Vendors" : "Bulk Upload"}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "bulk_upload" && (
+        <BulkUploadSection
+          endpoint="/vendors/import-csv/"
+          entityName="Vendors"
+          columns={VENDOR_COLUMNS}
+        />
+      )}
+
+      {activeTab === "vendors" && <>
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -454,6 +495,7 @@ export default function VendorListPage() {
         isDestructive
         isLoading={deleteVendor.isPending}
       />
+      </>}
     </div>
   );
 }

@@ -13,6 +13,7 @@ export interface AssetCategory {
 }
 
 export type AssetStatus = "active" | "inactive" | "retired";
+export type CIARating = "low" | "medium" | "high" | "critical";
 
 export interface Asset {
   id: string;
@@ -25,6 +26,9 @@ export interface Asset {
   business_unit: string | null;
   business_unit_name?: string;
   criticality: 1 | 2 | 3 | 4 | 5;
+  confidentiality: CIARating;
+  integrity: CIARating;
+  availability: CIARating;
   asset_value: string | null;
   status: AssetStatus;
   notes: string;

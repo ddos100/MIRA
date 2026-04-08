@@ -128,7 +128,7 @@ function RequirementFormModal({
           </div>
           <div className="col-span-2">
             <label className="mb-1 block text-sm font-medium">Parent (optional)</label>
-            <select {...register("parent")} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+            <select {...register("parent")} className="w-full border border-input rounded-md bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
               <option value="">— Top level —</option>
               {topLevel.map((r) => (
                 <option key={r.id} value={r.id}>
@@ -201,7 +201,7 @@ function MappingModal({
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="mb-1 block text-sm font-medium">Target Framework</label>
-          <select value={targetFrameworkId} onChange={(e) => { setTargetFrameworkId(e.target.value); setTargetId(""); }} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+          <select value={targetFrameworkId} onChange={(e) => { setTargetFrameworkId(e.target.value); setTargetId(""); }} className="w-full border border-input rounded-md bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
             <option value="">Select framework...</option>
             {otherFrameworks.map((fw) => (
               <option key={fw.id} value={fw.id}>{fw.short_name} {fw.version}</option>
@@ -211,7 +211,7 @@ function MappingModal({
         {targetFrameworkId && (
           <div>
             <label className="mb-1 block text-sm font-medium">Target Requirement</label>
-            <select value={targetId} onChange={(e) => setTargetId(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+            <select value={targetId} onChange={(e) => setTargetId(e.target.value)} className="w-full border border-input rounded-md bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
               <option value="">Select requirement...</option>
               {(targetReqs?.results ?? []).map((r) => (
                 <option key={r.id} value={r.id}>{r.ref_code} – {r.title}</option>
@@ -221,7 +221,7 @@ function MappingModal({
         )}
         <div>
           <label className="mb-1 block text-sm font-medium">Relationship</label>
-          <select value={relationship} onChange={(e) => setRelationship(e.target.value as RequirementMapping["relationship"])} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+          <select value={relationship} onChange={(e) => setRelationship(e.target.value as RequirementMapping["relationship"])} className="w-full border border-input rounded-md bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
             <option value="equivalent">Equivalent</option>
             <option value="subset">Subset of</option>
             <option value="superset">Superset of</option>

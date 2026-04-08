@@ -181,7 +181,7 @@ function RuleFormModal({
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium">Rule Status</label>
-            <select {...register("rule_status")} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+            <select {...register("rule_status")} className="w-full border border-input rounded-md bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </select>
@@ -220,7 +220,7 @@ function RuleFormModal({
                     />
                   </div>
                   <div className="w-44">
-                    <select {...register(`conditions.${idx}.operator`)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                    <select {...register(`conditions.${idx}.operator`)} className="w-full border border-input rounded-md bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
                       {OPERATORS.map((op) => (
                         <option key={op.value} value={op.value}>
                           {op.label}
