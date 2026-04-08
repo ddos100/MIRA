@@ -45,7 +45,9 @@ function useDefaultDashboard() {
         params: { page_size: 10 },
       });
       const list: Dashboard[] = data.results ?? data;
-      return list.find((d) => d.is_default) ?? list[0] ?? null;
+      const found = list.find((d) => d.is_default) ?? list[0] ?? null;
+      if (found) found.widgets = found.widgets ?? [];
+      return found;
     },
     staleTime: 60_000,
   });
@@ -304,9 +306,9 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {!dashLoading && dashboard && dashboard.widgets.length > 0 && (
+            {!dashLoading && dashboard && (dashboard.widgets?.length ?? 0) > 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {[...dashboard.widgets]
+                {[...(dashboard.widgets ?? [])]
                   .sort((a, b) => a.grid_y - b.grid_y || a.grid_x - b.grid_x)
                   .map((widget) => (
                     <WidgetCard key={widget.id} widget={widget} />
@@ -314,7 +316,7 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {!dashLoading && (!dashboard || dashboard.widgets.length === 0) && (
+            {!dashLoading && (!dashboard || (dashboard.widgets?.length ?? 0) === 0) && (
               <div className="bg-card border rounded-lg p-10 text-center">
                 <LayoutDashboard className="mx-auto text-gray-300 mb-3" size={40} />
                 <p className="text-sm text-muted-foreground">
