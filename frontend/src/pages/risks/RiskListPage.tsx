@@ -200,6 +200,26 @@ export default function RiskListPage() {
       ),
     },
     {
+      key: "asset_names",
+      header: "Assets",
+      render: (row) => {
+        const names = row.asset_names ?? [];
+        if (names.length === 0) return <span className="text-sm text-muted-foreground">—</span>;
+        return (
+          <div className="flex flex-wrap gap-1">
+            {names.slice(0, 2).map((n) => (
+              <span key={n} className="inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-xs">
+                {n}
+              </span>
+            ))}
+            {names.length > 2 && (
+              <span className="text-xs text-muted-foreground">+{names.length - 2}</span>
+            )}
+          </div>
+        );
+      },
+    },
+    {
       key: "actions",
       header: "",
       className: "w-24",

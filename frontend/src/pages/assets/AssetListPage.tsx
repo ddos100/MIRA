@@ -18,6 +18,7 @@ import {
   type Asset,
   type AssetStatus,
 } from "@/api/assets";
+import { useBusinessUnits } from "@/api/organizations";
 import { CriticalityBadge } from "@/components/assets/CriticalityBadge";
 import { ClassificationBadge } from "@/components/assets/ClassificationBadge";
 import { Badge } from "@/components/ui/Badge";
@@ -64,6 +65,7 @@ const assetSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
   category: z.string().optional(),
+  business_unit: z.string().optional(),
   criticality: z.coerce.number().min(1).max(5),
   confidentiality: z.enum(["low", "medium", "high", "critical"]),
   integrity: z.enum(["low", "medium", "high", "critical"]),
@@ -82,6 +84,7 @@ interface AssetFormModalProps {
 
 function AssetFormModal({ open, onClose, asset }: AssetFormModalProps) {
   const { data: categoriesData } = useAssetCategories();
+  const { data: businessUnitsData } = useBusinessUnits({ page_size: 200 });
   const createAsset = useCreateAsset();
   const updateAsset = useUpdateAsset(asset?.id ?? "");
 
@@ -96,6 +99,7 @@ function AssetFormModal({ open, onClose, asset }: AssetFormModalProps) {
       name: asset?.name ?? "",
       description: asset?.description ?? "",
       category: asset?.category ?? "",
+      business_unit: asset?.business_unit ?? "",
       criticality: asset?.criticality ?? 3,
       confidentiality: asset?.confidentiality ?? "medium",
       integrity: asset?.integrity ?? "medium",
@@ -111,10 +115,19 @@ function AssetFormModal({ open, onClose, asset }: AssetFormModalProps) {
       label: c.name,
     })) ?? [];
 
+  const businessUnitOptions = [
+    { value: "", label: "No Business Unit" },
+    ...(businessUnitsData?.results ?? []).map((bu: { id: string; name: string }) => ({
+      value: bu.id,
+      label: bu.name,
+    })),
+  ];
+
   const onSubmit = (values: AssetForm) => {
     const payload = {
       ...values,
       category: values.category || null,
+      business_unit: values.business_unit || null,
       criticality: values.criticality as 1 | 2 | 3 | 4 | 5,
     };
 
@@ -164,11 +177,18 @@ function AssetFormModal({ open, onClose, asset }: AssetFormModalProps) {
             />
           </div>
 
-          <Select
-            label="Category"
-            options={[{ value: "", label: "No Category" }, ...categoryOptions]}
-            {...register("category")}
-          />
+          <div className="grid grid-cols-2 gap-4">
+            <Select
+              label="Category"
+              options={[{ value: "", label: "No Category" }, ...categoryOptions]}
+              {...register("category")}
+            />
+            <Select
+              label="Business Unit"
+              options={businessUnitOptions}
+              {...register("business_unit")}
+            />
+          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <Select

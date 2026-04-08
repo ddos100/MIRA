@@ -113,6 +113,8 @@ export interface Risk {
   review_date?: string | null;
   notes?: string;
   // New mappings
+  assets?: string[];
+  asset_names?: string[];
   policies?: string[];
   compliance_requirements?: string[];
   // Reverse relations accessible via existing M2M

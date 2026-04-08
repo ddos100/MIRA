@@ -14,6 +14,7 @@ import { usePolicies } from "@/api/policies";
 import { useRequirements } from "@/api/compliance";
 import { useBusinessUnits } from "@/api/organizations";
 import { useUsers } from "@/api/auth";
+import { useAssets } from "@/api/assets";
 import type { Risk } from "@/types";
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
@@ -78,6 +79,7 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
   const [selectedControls, setSelectedControls] = useState<string[]>([]);
   const [selectedPolicies, setSelectedPolicies] = useState<string[]>([]);
   const [selectedCompliance, setSelectedCompliance] = useState<string[]>([]);
+  const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
 
   // Reference data
   const { data: categories } = useRiskCategories();
@@ -86,12 +88,14 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
   const { data: controlsData } = useControls({ page_size: 200 });
   const { data: policiesData } = usePolicies({ page_size: 200 });
   const { data: requirementsData } = useRequirements({ page_size: 500 });
+  const { data: assetsData } = useAssets({ page_size: 200 });
 
   const businessUnits = businessUnitsData?.results ?? [];
   const users = usersData?.results ?? [];
   const controls = controlsData?.results ?? [];
   const policies = policiesData?.results ?? [];
   const requirements = requirementsData?.results ?? [];
+  const assets = assetsData?.results ?? [];
 
   const categoryOptions = [
     { value: "", label: "No category" },
@@ -122,6 +126,10 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
       label: `${r.ref_code} — ${r.title}`,
     })
   );
+  const assetOptions = assets.map((a: { id: string; name: string }) => ({
+    value: a.id,
+    label: a.name,
+  }));
 
   const createRisk = useCreateRisk();
   const updateRisk = useUpdateRisk(risk?.id ?? "");
@@ -173,6 +181,7 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
       setSelectedControls(risk.controls ?? []);
       setSelectedPolicies(risk.policies ?? []);
       setSelectedCompliance(risk.compliance_requirements ?? []);
+      setSelectedAssets(risk.assets ?? []);
     } else {
       reset({
         title: "",
@@ -193,6 +202,7 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
       setSelectedControls([]);
       setSelectedPolicies([]);
       setSelectedCompliance([]);
+      setSelectedAssets([]);
     }
   }, [risk, reset]);
 
@@ -216,6 +226,7 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
       controls: selectedControls,
       policies: selectedPolicies,
       compliance_requirements: selectedCompliance,
+      assets: selectedAssets,
     };
 
     if (isEditing) {
@@ -363,6 +374,14 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
             value={selectedCompliance}
             onChange={setSelectedCompliance}
             placeholder="Link compliance requirements…"
+          />
+
+          <MultiSelect
+            label="Assets"
+            options={assetOptions}
+            value={selectedAssets}
+            onChange={setSelectedAssets}
+            placeholder="Link affected assets…"
           />
         </fieldset>
 

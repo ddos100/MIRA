@@ -2,6 +2,8 @@
 
 from rest_framework import serializers
 
+from apps.controls.models import Control
+
 from .models import Risk, RiskCategory, RiskReview, RiskTreatmentPlan
 
 
@@ -17,6 +19,14 @@ class RiskSerializer(serializers.ModelSerializer):
     residual_rating = serializers.CharField(read_only=True)
     owner_name = serializers.SerializerMethodField()
     category_name = serializers.SerializerMethodField()
+    asset_names = serializers.SerializerMethodField()
+
+    # Reverse M2M: Control.risks → exposed on Risk as writable IDs
+    controls = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Control.objects.all(),
+        required=False,
+    )
 
     class Meta:
         model = Risk
@@ -38,6 +48,28 @@ class RiskSerializer(serializers.ModelSerializer):
 
     def get_category_name(self, obj):
         return obj.category.name if obj.category_id else None
+
+    def get_asset_names(self, obj):
+        return list(obj.assets.values_list("name", flat=True))
+
+    def _set_m2m(self, instance, controls):
+        """Sync the reverse M2M for controls."""
+        # controls is the reverse accessor on Risk (from Control.risks)
+        instance.controls.set(controls)
+
+    def create(self, validated_data):
+        controls = validated_data.pop("controls", None)
+        instance = super().create(validated_data)
+        if controls is not None:
+            self._set_m2m(instance, controls)
+        return instance
+
+    def update(self, instance, validated_data):
+        controls = validated_data.pop("controls", None)
+        instance = super().update(instance, validated_data)
+        if controls is not None:
+            self._set_m2m(instance, controls)
+        return instance
 
 
 class RiskTreatmentPlanSerializer(serializers.ModelSerializer):
