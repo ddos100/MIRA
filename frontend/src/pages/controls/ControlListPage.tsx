@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useControls, controlKeys } from "@/api/controls";
 import { useExportCsv } from "@/api/useExportCsv";
 import { BulkUploadSection } from "@/components/common/BulkUploadSection";
+import { ModuleStatusRulesTab } from "@/components/common/ModuleStatusRulesTab";
 
 // Inline minimal UI until shared components are ready
 function Badge({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -37,7 +38,7 @@ const CONTROL_COLUMNS = [
   { name: "notes", description: "Additional notes", required: "No" },
 ];
 
-type ControlTab = "controls" | "bulk_upload";
+type ControlTab = "controls" | "bulk_upload" | "status_rules";
 
 export default function ControlListPage() {
   const navigate = useNavigate();
@@ -96,13 +97,17 @@ export default function ControlListPage() {
 
       {/* Tab Bar */}
       <div className="flex gap-1 border-b">
-        {(["controls", "bulk_upload"] as ControlTab[]).map((tab) => (
+        {([
+          ["controls", "Controls"],
+          ["bulk_upload", "Bulk Upload"],
+          ["status_rules", "Status Rules"],
+        ] as [ControlTab, string][]).map(([tab, label]) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`px-4 py-2 text-sm font-medium transition-colors ${activeTab === tab ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground"}`}
           >
-            {tab === "controls" ? "Controls" : "Bulk Upload"}
+            {label}
           </button>
         ))}
       </div>
@@ -114,6 +119,10 @@ export default function ControlListPage() {
           columns={CONTROL_COLUMNS}
           onSuccess={() => queryClient.invalidateQueries({ queryKey: controlKeys.lists() })}
         />
+      )}
+
+      {activeTab === "status_rules" && (
+        <ModuleStatusRulesTab contentTypeLabel="controls.control" moduleLabel="Control" />
       )}
 
       {activeTab === "controls" && (

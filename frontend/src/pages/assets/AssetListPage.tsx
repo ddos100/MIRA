@@ -29,6 +29,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { ImportModal } from "@/components/common/ImportModal";
 import { BulkUploadSection } from "@/components/common/BulkUploadSection";
+import { ModuleStatusRulesTab } from "@/components/common/ModuleStatusRulesTab";
 import { cn } from "@/utils/cn";
 
 // ─── Asset Form Modal ─────────────────────────────────────────────────────────
@@ -269,7 +270,7 @@ function AssetFormModal({ open, onClose, asset }: AssetFormModalProps) {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
-type Tab = "all" | "data_assets" | "data_flows" | "bulk_upload";
+type Tab = "all" | "data_assets" | "data_flows" | "bulk_upload" | "status_rules";
 
 // ─── All Assets Tab ───────────────────────────────────────────────────────────
 
@@ -675,6 +676,7 @@ export default function AssetListPage() {
     { key: "data_assets", label: "Data Assets" },
     { key: "data_flows", label: "Data Flows" },
     { key: "bulk_upload", label: "Bulk Upload" },
+    { key: "status_rules", label: "Status Rules" },
   ];
 
   return (
@@ -727,6 +729,9 @@ export default function AssetListPage() {
         <BulkUploadTab
           onSuccess={() => queryClient.invalidateQueries({ queryKey: assetKeys.lists() })}
         />
+      )}
+      {activeTab === "status_rules" && (
+        <ModuleStatusRulesTab contentTypeLabel="assets.asset" moduleLabel="Asset" />
       )}
 
       <AssetFormModal

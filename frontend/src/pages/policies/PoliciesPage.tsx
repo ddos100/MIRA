@@ -4,6 +4,7 @@ import { Plus, FileText, CheckCircle } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePolicies, useAcknowledgePolicy, policyKeys } from "@/api/policies";
 import { BulkUploadSection } from "@/components/common/BulkUploadSection";
+import { ModuleStatusRulesTab } from "@/components/common/ModuleStatusRulesTab";
 
 const statusColors: Record<string, string> = {
   draft: "bg-gray-100 text-gray-600",
@@ -21,7 +22,7 @@ const POLICY_COLUMNS = [
   { name: "review_date", description: "ISO date (YYYY-MM-DD)", required: "No" },
 ];
 
-type PolicyTab = "policies" | "bulk_upload";
+type PolicyTab = "policies" | "bulk_upload" | "status_rules";
 
 function PolicyListPage() {
   const navigate = useNavigate();
@@ -61,13 +62,17 @@ function PolicyListPage() {
 
       {/* Tab Bar */}
       <div className="flex gap-1 border-b">
-        {(["policies", "bulk_upload"] as PolicyTab[]).map((tab) => (
+        {([
+          ["policies", "Policies"],
+          ["bulk_upload", "Bulk Upload"],
+          ["status_rules", "Status Rules"],
+        ] as [PolicyTab, string][]).map(([tab, label]) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`px-4 py-2 text-sm font-medium transition-colors ${activeTab === tab ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground"}`}
           >
-            {tab === "policies" ? "Policies" : "Bulk Upload"}
+            {label}
           </button>
         ))}
       </div>
@@ -79,6 +84,10 @@ function PolicyListPage() {
           columns={POLICY_COLUMNS}
           onSuccess={() => queryClient.invalidateQueries({ queryKey: policyKeys.lists() })}
         />
+      )}
+
+      {activeTab === "status_rules" && (
+        <ModuleStatusRulesTab contentTypeLabel="policies.policy" moduleLabel="Policy" />
       )}
 
       {activeTab === "policies" && (

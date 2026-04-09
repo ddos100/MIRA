@@ -17,6 +17,7 @@ import { useExportCsv } from "@/api/useExportCsv";
 import { ImportModal } from "@/components/common/ImportModal";
 import type { Risk } from "@/types";
 import RiskFormModal from "./RiskFormModal";
+import { ModuleStatusRulesTab } from "@/components/common/ModuleStatusRulesTab";
 
 const PAGE_SIZE = 20;
 
@@ -52,7 +53,7 @@ function ScoreBadge({ score, rating }: { score: number; rating: string }) {
   );
 }
 
-type Tab = "list" | "bulk_upload";
+type Tab = "list" | "bulk_upload" | "status_rules";
 
 export default function RiskListPage() {
   const navigate = useNavigate();
@@ -283,7 +284,11 @@ export default function RiskListPage() {
 
       {/* Tab Bar */}
       <div className="flex gap-1 border-b">
-        {(["list", "bulk_upload"] as Tab[]).map((tab) => (
+        {([
+          ["list", "Risk Register"],
+          ["bulk_upload", "Bulk Upload"],
+          ["status_rules", "Status Rules"],
+        ] as [Tab, string][]).map(([tab, label]) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -294,13 +299,17 @@ export default function RiskListPage() {
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
-            {tab === "list" ? "Risk Register" : "Bulk Upload"}
+            {label}
           </button>
         ))}
       </div>
 
       {activeTab === "bulk_upload" && (
         <RiskBulkUploadTab onSuccess={() => queryClient.invalidateQueries({ queryKey: riskKeys.lists() })} />
+      )}
+
+      {activeTab === "status_rules" && (
+        <ModuleStatusRulesTab contentTypeLabel="risks.risk" moduleLabel="Risk" />
       )}
 
       {activeTab === "list" && <>

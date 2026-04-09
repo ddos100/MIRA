@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from .models import (
     Attachment,
     AuditLog,
+    AutomatedAction,
     Comment,
     CustomField,
     CustomFieldValue,
@@ -20,6 +21,7 @@ from .models import (
 from .serializers import (
     AttachmentSerializer,
     AuditLogSerializer,
+    AutomatedActionSerializer,
     CommentSerializer,
     CustomFieldSerializer,
     CustomFieldValueSerializer,
@@ -284,6 +286,50 @@ class StatusRuleViewSet(viewsets.ModelViewSet):
 
         results = evaluate_all_rules()
         return Response({"status": "ok", "results": results})
+
+
+class AutomatedActionViewSet(viewsets.ModelViewSet):
+    """CRUD for automated actions attached to a StatusRule."""
+
+    queryset = AutomatedAction.objects.select_related("status_rule").all()
+    serializer_class = AutomatedActionSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ["status_rule", "action_type", "is_active"]
+    ordering_fields = ["name", "created_at"]
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def list_content_types(request):
+    """
+    Return a curated list of GRC content types with their IDs and labels.
+    Used to populate the Content Type dropdown in Status Rules and module tabs.
+    """
+    # Only expose the models that make sense for status rules
+    targets = [
+        ("risks", "risk"),
+        ("controls", "control"),
+        ("policies", "policy"),
+        ("compliance", "complianceprogram"),
+        ("compliance", "complianceassessment"),
+        ("assets", "asset"),
+        ("third_parties", "thirdparty"),
+        ("incidents", "incident"),
+        ("exceptions", "exception"),
+        ("projects", "project"),
+    ]
+    result = []
+    for app_label, model_name in targets:
+        try:
+            ct = ContentType.objects.get(app_label=app_label, model=model_name)
+            result.append({
+                "id": ct.pk,
+                "label": f"{app_label}.{model_name}",
+                "display": ct.model_class().__name__ if ct.model_class() else model_name.title(),
+            })
+        except ContentType.DoesNotExist:
+            pass
+    return Response(result)
 
 
 class WebhookViewSet(viewsets.ModelViewSet):

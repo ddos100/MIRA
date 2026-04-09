@@ -3,6 +3,7 @@ from rest_framework import serializers
 from .models import (
     Attachment,
     AuditLog,
+    AutomatedAction,
     Comment,
     CustomField,
     CustomFieldValue,
@@ -152,6 +153,29 @@ class StatusRuleSerializer(serializers.ModelSerializer):
         if obj.content_type_id:
             return f"{obj.content_type.app_label}.{obj.content_type.model}"
         return None
+
+
+class AutomatedActionSerializer(serializers.ModelSerializer):
+    action_type_display = serializers.CharField(
+        source="get_action_type_display", read_only=True
+    )
+
+    class Meta:
+        model = AutomatedAction
+        fields = [
+            "id",
+            "status_rule",
+            "action_type",
+            "action_type_display",
+            "name",
+            "is_active",
+            "config",
+            "last_triggered_at",
+            "trigger_count",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "last_triggered_at", "trigger_count", "created_at", "updated_at"]
 
 
 class WebhookDeliverySerializer(serializers.ModelSerializer):

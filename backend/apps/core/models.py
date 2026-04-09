@@ -286,6 +286,48 @@ class StatusRule(BaseModel):
         return f"{self.name} → {self.target_status}"
 
 
+# ─── Automated Actions ────────────────────────────────────────────────────────
+
+
+class AutomatedAction(BaseModel):
+    """
+    An action to fire automatically when a StatusRule transitions records.
+
+    config schema per action_type:
+      send_email:
+        {"to": ["addr@example.com"], "subject": "...", "body_template": "..."}
+      call_webhook:
+        {"url": "...", "method": "POST", "headers": {}, "body_template": {...}}
+      create_notification:
+        {"title": "...", "body": "...", "recipient_type": "all_admins|owner|all_users"}
+    """
+
+    class ActionType(models.TextChoices):
+        SEND_EMAIL = "send_email", _("Send Email")
+        CALL_WEBHOOK = "call_webhook", _("Call API / Webhook")
+        CREATE_NOTIFICATION = "create_notification", _("In-App Notification")
+
+    status_rule = models.ForeignKey(
+        StatusRule,
+        on_delete=models.CASCADE,
+        related_name="automated_actions",
+    )
+    action_type = models.CharField(max_length=30, choices=ActionType.choices)
+    name = models.CharField(max_length=200)
+    is_active = models.BooleanField(default=True)
+    config = models.JSONField(default=dict)
+    last_triggered_at = models.DateTimeField(null=True, blank=True)
+    trigger_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        verbose_name = _("Automated Action")
+        verbose_name_plural = _("Automated Actions")
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.name} ({self.get_action_type_display()})"
+
+
 # ─── Webhooks ─────────────────────────────────────────────────────────────────
 
 
