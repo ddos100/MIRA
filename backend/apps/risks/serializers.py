@@ -3,6 +3,7 @@
 from rest_framework import serializers
 
 from apps.controls.models import Control
+from apps.projects.models import Project
 
 from .models import Risk, RiskCategory, RiskReview, RiskTreatmentPlan
 
@@ -20,11 +21,19 @@ class RiskSerializer(serializers.ModelSerializer):
     owner_name = serializers.SerializerMethodField()
     category_name = serializers.SerializerMethodField()
     asset_names = serializers.SerializerMethodField()
+    project_names = serializers.SerializerMethodField()
 
     # Reverse M2M: Control.risks → exposed on Risk as writable IDs
     controls = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=Control.objects.all(),
+        required=False,
+    )
+
+    # Reverse M2M: Project.risks → exposed on Risk as writable IDs
+    projects = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Project.objects.all(),
         required=False,
     )
 
@@ -52,23 +61,28 @@ class RiskSerializer(serializers.ModelSerializer):
     def get_asset_names(self, obj):
         return list(obj.assets.values_list("name", flat=True))
 
-    def _set_m2m(self, instance, controls):
-        """Sync the reverse M2M for controls."""
-        # controls is the reverse accessor on Risk (from Control.risks)
-        instance.controls.set(controls)
+    def get_project_names(self, obj):
+        return list(obj.projects.values_list("title", flat=True))
+
+    def _set_reverse_m2m(self, instance, controls, projects):
+        """Sync reverse M2M relations that aren't direct model fields."""
+        if controls is not None:
+            instance.controls.set(controls)
+        if projects is not None:
+            instance.projects.set(projects)
 
     def create(self, validated_data):
         controls = validated_data.pop("controls", None)
+        projects = validated_data.pop("projects", None)
         instance = super().create(validated_data)
-        if controls is not None:
-            self._set_m2m(instance, controls)
+        self._set_reverse_m2m(instance, controls, projects)
         return instance
 
     def update(self, instance, validated_data):
         controls = validated_data.pop("controls", None)
+        projects = validated_data.pop("projects", None)
         instance = super().update(instance, validated_data)
-        if controls is not None:
-            self._set_m2m(instance, controls)
+        self._set_reverse_m2m(instance, controls, projects)
         return instance
 
 

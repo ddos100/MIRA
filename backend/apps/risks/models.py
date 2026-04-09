@@ -94,6 +94,11 @@ class Risk(BaseModel):
     )
     # projects accessible via reverse: risk.projects (from Project.risks M2M)
 
+    # Residual risk narrative
+    residual_description = models.TextField(
+        blank=True, help_text="Describe the residual risk after controls are applied"
+    )
+
     # Dates
     identified_date = models.DateField(null=True, blank=True)
     review_date = models.DateField(null=True, blank=True)

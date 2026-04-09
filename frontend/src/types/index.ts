@@ -111,15 +111,17 @@ export interface Risk {
   residual_rating: RiskRating;
   identified_date?: string | null;
   review_date?: string | null;
+  residual_description?: string;
   notes?: string;
-  // New mappings
+  // M2M
   assets?: string[];
   asset_names?: string[];
   policies?: string[];
   compliance_requirements?: string[];
-  // Reverse relations accessible via existing M2M
-  controls?: string[];   // via Control.risks
-  projects?: string[];   // via Project.risks
+  // Reverse M2M
+  controls?: string[];       // via Control.risks
+  projects?: string[];       // via Project.risks
+  project_names?: string[];
   created_at: string;
   updated_at: string;
 }
