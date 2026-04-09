@@ -286,6 +286,48 @@ class StatusRule(BaseModel):
         return f"{self.name} → {self.target_status}"
 
 
+# ─── Automated Actions ────────────────────────────────────────────────────────
+
+
+class AutomatedAction(BaseModel):
+    """
+    An action to fire automatically when a StatusRule transitions records.
+
+    config schema per action_type:
+      send_email:
+        {"to": ["addr@example.com"], "subject": "...", "body_template": "..."}
+      call_webhook:
+        {"url": "...", "method": "POST", "headers": {}, "body_template": {...}}
+      create_notification:
+        {"title": "...", "body": "...", "recipient_type": "all_admins|owner|all_users"}
+    """
+
+    class ActionType(models.TextChoices):
+        SEND_EMAIL = "send_email", _("Send Email")
+        CALL_WEBHOOK = "call_webhook", _("Call API / Webhook")
+        CREATE_NOTIFICATION = "create_notification", _("In-App Notification")
+
+    status_rule = models.ForeignKey(
+        StatusRule,
+        on_delete=models.CASCADE,
+        related_name="automated_actions",
+    )
+    action_type = models.CharField(max_length=30, choices=ActionType.choices)
+    name = models.CharField(max_length=200)
+    is_active = models.BooleanField(default=True)
+    config = models.JSONField(default=dict)
+    last_triggered_at = models.DateTimeField(null=True, blank=True)
+    trigger_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        verbose_name = _("Automated Action")
+        verbose_name_plural = _("Automated Actions")
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.name} ({self.get_action_type_display()})"
+
+
 # ─── Webhooks ─────────────────────────────────────────────────────────────────
 
 
@@ -311,6 +353,120 @@ class Webhook(BaseModel):
 
     def __str__(self):
         return f"{self.name} → {self.url}"
+
+
+# ─── Generic Review (Maker/Checker Workflow) ──────────────────────────────────
+
+
+class Review(BaseModel):
+    """
+    Generic review record attachable to any model (Risk, Asset, Control, etc.).
+    Implements the Maker/Checker (4-eyes) principle per ISO 27001:2022 §9.1/9.3.
+
+    Reviewer (Maker) creates and submits; Approver (Checker) approves or rejects.
+    """
+
+    class ReviewType(models.TextChoices):
+        PERIODIC = "periodic", _("Periodic Review")
+        TRIGGERED = "triggered", _("Triggered Review")
+        AD_HOC = "ad_hoc", _("Ad Hoc")
+        AUDIT = "audit", _("Internal Audit")
+        MANAGEMENT = "management", _("Management Review")
+
+    class WorkflowState(models.TextChoices):
+        DRAFT = "draft", _("Draft")
+        SUBMITTED = "submitted", _("Submitted for Approval")
+        APPROVED = "approved", _("Approved")
+        REJECTED = "rejected", _("Rejected — Needs Revision")
+
+    class Outcome(models.TextChoices):
+        SATISFACTORY = "satisfactory", _("Satisfactory")
+        NEEDS_IMPROVEMENT = "needs_improvement", _("Needs Improvement")
+        UNSATISFACTORY = "unsatisfactory", _("Unsatisfactory")
+        CRITICAL = "critical", _("Critical — Immediate Action Required")
+
+    # Generic relation — links to any model instance
+    content_type = models.ForeignKey(
+        ContentType, on_delete=models.CASCADE, related_name="reviews"
+    )
+    object_id = models.UUIDField(db_index=True)
+    content_object = GenericForeignKey("content_type", "object_id")
+
+    review_type = models.CharField(
+        max_length=20, choices=ReviewType.choices, default=ReviewType.PERIODIC
+    )
+    review_date = models.DateField()
+
+    # Maker (reviewer who conducts and submits)
+    reviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="reviews_conducted",
+        help_text="Maker — person conducting the review",
+    )
+    # Checker (approver who validates)
+    approver = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="reviews_approved",
+        help_text="Checker — person approving the review",
+    )
+
+    workflow_state = models.CharField(
+        max_length=20,
+        choices=WorkflowState.choices,
+        default=WorkflowState.DRAFT,
+        db_index=True,
+    )
+    outcome = models.CharField(
+        max_length=30, choices=Outcome.choices, blank=True
+    )
+
+    # Content
+    findings = models.TextField(blank=True)
+    recommendations = models.TextField(blank=True)
+    actions_required = models.TextField(blank=True)
+    evidence = models.TextField(blank=True, help_text="Evidence references or links")
+
+    next_review_date = models.DateField(null=True, blank=True)
+
+    # Approval audit trail
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(blank=True)
+
+    # Sequence and display
+    sequence_number = models.PositiveIntegerField(
+        default=1,
+        help_text="Review iteration number for this object (1 = first review)",
+    )
+    object_repr = models.CharField(
+        max_length=500, blank=True,
+        help_text="Snapshot of linked object name/title at review creation time",
+    )
+
+    class Meta:
+        verbose_name = _("Review")
+        verbose_name_plural = _("Reviews")
+        ordering = ["-review_date"]
+        indexes = [
+            models.Index(fields=["content_type", "object_id"]),
+        ]
+
+    def __str__(self):
+        return f"Review [{self.content_type}] on {self.review_date} — {self.workflow_state}"
+
+    @property
+    def period_status(self) -> str:
+        """Classify review as: previous (closed), current, or upcoming."""
+        from datetime import date
+        if self.workflow_state == self.WorkflowState.APPROVED:
+            return "previous"
+        if self.review_date and self.review_date > date.today():
+            return "upcoming"
+        return "current"
 
 
 class WebhookDelivery(models.Model):

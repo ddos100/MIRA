@@ -18,6 +18,7 @@ import {
   type Asset,
   type AssetStatus,
 } from "@/api/assets";
+import { useBusinessUnits } from "@/api/organizations";
 import { CriticalityBadge } from "@/components/assets/CriticalityBadge";
 import { ClassificationBadge } from "@/components/assets/ClassificationBadge";
 import { Badge } from "@/components/ui/Badge";
@@ -28,6 +29,9 @@ import { Textarea } from "@/components/ui/Textarea";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { ImportModal } from "@/components/common/ImportModal";
 import { BulkUploadSection } from "@/components/common/BulkUploadSection";
+import { ModuleStatusRulesTab } from "@/components/common/ModuleStatusRulesTab";
+import { ModuleReviewsTab } from "@/components/common/ModuleReviewsTab";
+import { useContentTypes } from "@/api/automatedActions";
 import { cn } from "@/utils/cn";
 
 // ─── Asset Form Modal ─────────────────────────────────────────────────────────
@@ -64,6 +68,7 @@ const assetSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
   category: z.string().optional(),
+  business_unit: z.string().optional(),
   criticality: z.coerce.number().min(1).max(5),
   confidentiality: z.enum(["low", "medium", "high", "critical"]),
   integrity: z.enum(["low", "medium", "high", "critical"]),
@@ -82,6 +87,7 @@ interface AssetFormModalProps {
 
 function AssetFormModal({ open, onClose, asset }: AssetFormModalProps) {
   const { data: categoriesData } = useAssetCategories();
+  const { data: businessUnitsData } = useBusinessUnits({ page_size: 200 });
   const createAsset = useCreateAsset();
   const updateAsset = useUpdateAsset(asset?.id ?? "");
 
@@ -96,6 +102,7 @@ function AssetFormModal({ open, onClose, asset }: AssetFormModalProps) {
       name: asset?.name ?? "",
       description: asset?.description ?? "",
       category: asset?.category ?? "",
+      business_unit: asset?.business_unit ?? "",
       criticality: asset?.criticality ?? 3,
       confidentiality: asset?.confidentiality ?? "medium",
       integrity: asset?.integrity ?? "medium",
@@ -111,10 +118,19 @@ function AssetFormModal({ open, onClose, asset }: AssetFormModalProps) {
       label: c.name,
     })) ?? [];
 
+  const businessUnitOptions = [
+    { value: "", label: "No Business Unit" },
+    ...(businessUnitsData?.results ?? []).map((bu: { id: string; name: string }) => ({
+      value: bu.id,
+      label: bu.name,
+    })),
+  ];
+
   const onSubmit = (values: AssetForm) => {
     const payload = {
       ...values,
       category: values.category || null,
+      business_unit: values.business_unit || null,
       criticality: values.criticality as 1 | 2 | 3 | 4 | 5,
     };
 
@@ -164,11 +180,18 @@ function AssetFormModal({ open, onClose, asset }: AssetFormModalProps) {
             />
           </div>
 
-          <Select
-            label="Category"
-            options={[{ value: "", label: "No Category" }, ...categoryOptions]}
-            {...register("category")}
-          />
+          <div className="grid grid-cols-2 gap-4">
+            <Select
+              label="Category"
+              options={[{ value: "", label: "No Category" }, ...categoryOptions]}
+              {...register("category")}
+            />
+            <Select
+              label="Business Unit"
+              options={businessUnitOptions}
+              {...register("business_unit")}
+            />
+          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <Select
@@ -249,7 +272,7 @@ function AssetFormModal({ open, onClose, asset }: AssetFormModalProps) {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
-type Tab = "all" | "data_assets" | "data_flows" | "bulk_upload";
+type Tab = "all" | "data_assets" | "data_flows" | "reviews" | "bulk_upload" | "status_rules";
 
 // ─── All Assets Tab ───────────────────────────────────────────────────────────
 
@@ -650,11 +673,20 @@ export default function AssetListPage() {
     setEditingAsset(undefined);
   };
 
+  const { data: contentTypes = [] } = useContentTypes();
+  const assetContentTypeId = contentTypes.find((ct) => ct.label === "assets.asset")?.id;
+
+  // Flat list of all assets for the Reviews tab object selector
+  const { data: allAssetsData } = useAssets({ page_size: 500 });
+  const assetObjects = (allAssetsData?.results ?? []).map((a) => ({ id: a.id, label: a.name }));
+
   const tabs: { key: Tab; label: string }[] = [
     { key: "all", label: "All Assets" },
     { key: "data_assets", label: "Data Assets" },
     { key: "data_flows", label: "Data Flows" },
+    { key: "reviews", label: "Reviews" },
     { key: "bulk_upload", label: "Bulk Upload" },
+    { key: "status_rules", label: "Status Rules" },
   ];
 
   return (
@@ -703,10 +735,16 @@ export default function AssetListPage() {
       {activeTab === "all" && <AllAssetsTab onEdit={handleEdit} />}
       {activeTab === "data_assets" && <DataAssetsTab />}
       {activeTab === "data_flows" && <DataFlowsTab />}
+      {activeTab === "reviews" && (
+        <ModuleReviewsTab contentTypeId={assetContentTypeId} moduleLabel="Asset" objects={assetObjects} />
+      )}
       {activeTab === "bulk_upload" && (
         <BulkUploadTab
           onSuccess={() => queryClient.invalidateQueries({ queryKey: assetKeys.lists() })}
         />
+      )}
+      {activeTab === "status_rules" && (
+        <ModuleStatusRulesTab contentTypeLabel="assets.asset" moduleLabel="Asset" />
       )}
 
       <AssetFormModal

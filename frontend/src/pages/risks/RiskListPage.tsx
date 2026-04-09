@@ -17,6 +17,9 @@ import { useExportCsv } from "@/api/useExportCsv";
 import { ImportModal } from "@/components/common/ImportModal";
 import type { Risk } from "@/types";
 import RiskFormModal from "./RiskFormModal";
+import { ModuleStatusRulesTab } from "@/components/common/ModuleStatusRulesTab";
+import { ModuleReviewsTab } from "@/components/common/ModuleReviewsTab";
+import { useContentTypes } from "@/api/automatedActions";
 
 const PAGE_SIZE = 20;
 
@@ -52,12 +55,14 @@ function ScoreBadge({ score, rating }: { score: number; rating: string }) {
   );
 }
 
-type Tab = "list" | "bulk_upload";
+type Tab = "list" | "reviews" | "bulk_upload" | "status_rules";
 
 export default function RiskListPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<Tab>("list");
+  const { data: contentTypes = [] } = useContentTypes();
+  const riskContentTypeId = contentTypes.find((ct) => ct.label === "risks.risk")?.id;
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -79,6 +84,11 @@ export default function RiskListPage() {
   const { data, isLoading } = useRisks(params);
   const risks: Risk[] = data?.results ?? [];
   const totalPages = data?.total_pages ?? Math.ceil((data?.count ?? 0) / PAGE_SIZE);
+
+  // Flat list of all risks for the Reviews tab object selector
+  const { data: allRisksData } = useRisks({ page_size: 500 });
+  const allRisks = allRisksData?.results ?? [];
+  const riskObjects = allRisks.map((r) => ({ id: r.id, label: r.title }));
 
   const deleteRisk = useDeleteRisk();
 
@@ -200,6 +210,26 @@ export default function RiskListPage() {
       ),
     },
     {
+      key: "asset_names",
+      header: "Assets",
+      render: (row) => {
+        const names = row.asset_names ?? [];
+        if (names.length === 0) return <span className="text-sm text-muted-foreground">—</span>;
+        return (
+          <div className="flex flex-wrap gap-1">
+            {names.slice(0, 2).map((n) => (
+              <span key={n} className="inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-xs">
+                {n}
+              </span>
+            ))}
+            {names.length > 2 && (
+              <span className="text-xs text-muted-foreground">+{names.length - 2}</span>
+            )}
+          </div>
+        );
+      },
+    },
+    {
       key: "actions",
       header: "",
       className: "w-24",
@@ -263,7 +293,12 @@ export default function RiskListPage() {
 
       {/* Tab Bar */}
       <div className="flex gap-1 border-b">
-        {(["list", "bulk_upload"] as Tab[]).map((tab) => (
+        {([
+          ["list", "Risk Register"],
+          ["reviews", "Reviews"],
+          ["bulk_upload", "Bulk Upload"],
+          ["status_rules", "Status Rules"],
+        ] as [Tab, string][]).map(([tab, label]) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -274,13 +309,21 @@ export default function RiskListPage() {
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
-            {tab === "list" ? "Risk Register" : "Bulk Upload"}
+            {label}
           </button>
         ))}
       </div>
 
+      {activeTab === "reviews" && (
+        <ModuleReviewsTab contentTypeId={riskContentTypeId} moduleLabel="Risk" objects={riskObjects} />
+      )}
+
       {activeTab === "bulk_upload" && (
         <RiskBulkUploadTab onSuccess={() => queryClient.invalidateQueries({ queryKey: riskKeys.lists() })} />
+      )}
+
+      {activeTab === "status_rules" && (
+        <ModuleStatusRulesTab contentTypeLabel="risks.risk" moduleLabel="Risk" />
       )}
 
       {activeTab === "list" && <>

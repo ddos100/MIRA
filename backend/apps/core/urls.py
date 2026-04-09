@@ -4,15 +4,18 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     AttachmentViewSet,
     AuditLogListView,
+    AutomatedActionViewSet,
     CommentViewSet,
     CustomFieldValueViewSet,
     CustomFieldViewSet,
     NotificationListView,
+    ReviewViewSet,
     StatusRuleViewSet,
     TagDetailView,
     TagListCreateView,
     WebhookViewSet,
     health_check,
+    list_content_types,
     mark_all_notifications_read,
     mark_notification_read,
 )
@@ -26,9 +29,12 @@ router.register(
     r"custom-field-values", CustomFieldValueViewSet, basename="custom-field-value"
 )
 router.register(r"status-rules", StatusRuleViewSet, basename="status-rule")
+router.register(r"automated-actions", AutomatedActionViewSet, basename="automated-action")
+router.register(r"reviews", ReviewViewSet, basename="review")
 
 urlpatterns = router.urls + [
     path("health/", health_check, name="health-check"),
+    path("content-types/", list_content_types, name="content-types"),
     path("tags/", TagListCreateView.as_view(), name="tag-list"),
     path("tags/<uuid:pk>/", TagDetailView.as_view(), name="tag-detail"),
     path("notifications/", NotificationListView.as_view(), name="notification-list"),

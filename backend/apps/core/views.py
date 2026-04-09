@@ -1,5 +1,6 @@
 from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
+from django.db import models as db_models
 from rest_framework import generics, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -8,10 +9,12 @@ from rest_framework.response import Response
 from .models import (
     Attachment,
     AuditLog,
+    AutomatedAction,
     Comment,
     CustomField,
     CustomFieldValue,
     Notification,
+    Review,
     StatusRule,
     Tag,
     Webhook,
@@ -20,10 +23,12 @@ from .models import (
 from .serializers import (
     AttachmentSerializer,
     AuditLogSerializer,
+    AutomatedActionSerializer,
     CommentSerializer,
     CustomFieldSerializer,
     CustomFieldValueSerializer,
     NotificationSerializer,
+    ReviewSerializer,
     StatusRuleSerializer,
     TagSerializer,
     WebhookDeliverySerializer,
@@ -284,6 +289,171 @@ class StatusRuleViewSet(viewsets.ModelViewSet):
 
         results = evaluate_all_rules()
         return Response({"status": "ok", "results": results})
+
+
+class AutomatedActionViewSet(viewsets.ModelViewSet):
+    """CRUD for automated actions attached to a StatusRule."""
+
+    queryset = AutomatedAction.objects.select_related("status_rule").all()
+    serializer_class = AutomatedActionSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ["status_rule", "action_type", "is_active"]
+    ordering_fields = ["name", "created_at"]
+
+
+class ReviewViewSet(viewsets.ModelViewSet):
+    """
+    Generic reviews for any GRC object (Risk, Asset, Control, Policy, etc.).
+    Filter by ?content_type=<id>&object_id=<uuid>.
+    Implements Maker/Checker workflow: reviewer submits, approver approves/rejects.
+    """
+
+    queryset = Review.objects.select_related(
+        "content_type", "reviewer", "approver"
+    ).all()
+    serializer_class = ReviewSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ["content_type", "workflow_state", "review_type", "reviewer", "approver"]
+    ordering_fields = ["review_date", "created_at"]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        object_id = self.request.query_params.get("object_id")
+        if object_id:
+            qs = qs.filter(object_id=object_id)
+        return qs
+
+    def perform_create(self, serializer):
+        # Compute next sequence_number for this content_type + object_id
+        ct_id = self.request.data.get("content_type")
+        obj_id = self.request.data.get("object_id")
+        max_seq = (
+            Review.objects
+            .filter(content_type_id=ct_id, object_id=obj_id)
+            .aggregate(m=db_models.Max("sequence_number"))["m"]
+        ) or 0
+        serializer.save(
+            created_by=self.request.user,
+            reviewer=self.request.user,
+            sequence_number=max_seq + 1,
+        )
+
+    @action(detail=True, methods=["post"], url_path="submit")
+    def submit(self, request, pk=None):
+        """Maker submits review for checker approval."""
+        review = self.get_object()
+        if review.workflow_state != Review.WorkflowState.DRAFT:
+            return Response(
+                {"error": "Only draft reviews can be submitted."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        review.workflow_state = Review.WorkflowState.SUBMITTED
+        review.submitted_at = timezone.now()
+        review.updated_by = request.user
+        review.save(update_fields=["workflow_state", "submitted_at", "updated_by", "updated_at"])
+        return Response(ReviewSerializer(review).data)
+
+    @action(detail=True, methods=["post"], url_path="approve")
+    def approve(self, request, pk=None):
+        """
+        Checker approves (closes) the review.
+        Requires next_review_date — automatically creates the next review cycle.
+        """
+        review = self.get_object()
+        if review.workflow_state != Review.WorkflowState.SUBMITTED:
+            return Response(
+                {"error": "Only submitted reviews can be approved."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # next_review_date is mandatory for closure
+        next_date = request.data.get("next_review_date") or review.next_review_date
+        if not next_date:
+            return Response(
+                {"error": "next_review_date is required to close a review."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        review.workflow_state = Review.WorkflowState.APPROVED
+        review.approver = request.user
+        review.approved_at = timezone.now()
+        review.next_review_date = next_date
+        review.updated_by = request.user
+        review.save(
+            update_fields=[
+                "workflow_state", "approver", "approved_at",
+                "next_review_date", "updated_by", "updated_at",
+            ]
+        )
+
+        # Auto-create the next review cycle
+        Review.objects.create(
+            content_type=review.content_type,
+            object_id=review.object_id,
+            object_repr=review.object_repr,
+            review_type=review.review_type,
+            review_date=next_date,
+            reviewer=review.reviewer,
+            sequence_number=review.sequence_number + 1,
+            created_by=request.user,
+        )
+
+        return Response(ReviewSerializer(review).data)
+
+    @action(detail=True, methods=["post"], url_path="reject")
+    def reject(self, request, pk=None):
+        """Checker rejects the review with a reason."""
+        review = self.get_object()
+        if review.workflow_state != Review.WorkflowState.SUBMITTED:
+            return Response(
+                {"error": "Only submitted reviews can be rejected."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        review.workflow_state = Review.WorkflowState.REJECTED
+        review.rejection_reason = request.data.get("reason", "")
+        review.approver = request.user
+        review.updated_by = request.user
+        review.save(
+            update_fields=[
+                "workflow_state", "rejection_reason", "approver", "updated_by", "updated_at"
+            ]
+        )
+        return Response(ReviewSerializer(review).data)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def list_content_types(request):
+    """
+    Return a curated list of GRC content types with their IDs and labels.
+    Used to populate the Content Type dropdown in Status Rules and module tabs.
+    """
+    # Only expose the models that make sense for status rules
+    targets = [
+        ("risks", "risk"),
+        ("controls", "control"),
+        ("controls", "controltest"),
+        ("policies", "policy"),
+        ("compliance", "complianceprogram"),
+        ("compliance", "complianceassessment"),
+        ("assets", "asset"),
+        ("third_parties", "thirdparty"),
+        ("incidents", "incident"),
+        ("exceptions", "exception"),
+        ("projects", "project"),
+    ]
+    result = []
+    for app_label, model_name in targets:
+        try:
+            ct = ContentType.objects.get(app_label=app_label, model=model_name)
+            result.append({
+                "id": ct.pk,
+                "label": f"{app_label}.{model_name}",
+                "display": ct.model_class().__name__ if ct.model_class() else model_name.title(),
+            })
+        except ContentType.DoesNotExist:
+            pass
+    return Response(result)
 
 
 class WebhookViewSet(viewsets.ModelViewSet):

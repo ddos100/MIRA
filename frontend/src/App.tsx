@@ -28,6 +28,8 @@ const ReportsPage = lazy(() => import("@/pages/reports/ReportsPage"));
 const SettingsPage = lazy(() => import("@/pages/settings/SettingsPage"));
 const StatusRulesPage = lazy(() => import("@/pages/settings/StatusRulesPage"));
 const UsersPage = lazy(() => import("@/pages/users/UsersPage"));
+const GoalsPage = lazy(() => import("@/pages/organization/GoalsPage"));
+const ThreatsPage = lazy(() => import("@/pages/threats/ThreatsPage"));
 
 export default function App() {
   return (
@@ -72,6 +74,8 @@ export default function App() {
           <Route path="/assets/*" element={<AssetsPage />} />
           <Route path="/vendors/*" element={<VendorsPage />} />
           <Route path="/organizations/*" element={<OrganizationsPage />} />
+          <Route path="/organization/goals" element={<GoalsPage />} />
+          <Route path="/threats" element={<ThreatsPage />} />
 
           {/* Users */}
           <Route path="/users/*" element={<UsersPage />} />

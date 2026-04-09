@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Check, ChevronDown, X } from "lucide-react";
 import { cn } from "@/utils/cn";
 
@@ -30,18 +31,55 @@ export function MultiSelect({
 }: MultiSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
 
+  // Recalculate position whenever dropdown opens
+  useEffect(() => {
+    if (open && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setDropdownStyle({
+        position: "fixed",
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+        zIndex: 9999,
+      });
+    } else {
+      setSearch("");
+    }
+  }, [open]);
+
+  // Close on click outside (both trigger and portal dropdown)
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const insideTrigger = triggerRef.current?.contains(target);
+      const insideDropdown = dropdownRef.current?.contains(target);
+      if (!insideTrigger && !insideDropdown) {
         setOpen(false);
-        setSearch("");
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    if (open) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [open]);
+
+  // Close on scroll/resize to avoid stale position
+  useEffect(() => {
+    if (!open) return;
+    function close() {
+      setOpen(false);
+    }
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [open]);
 
   const selectedLabels = options
     .filter((o) => value.includes(o.value))
@@ -64,12 +102,62 @@ export function MultiSelect({
     onChange(value.filter((v) => v !== val));
   }
 
+  const dropdown = open
+    ? createPortal(
+        <div
+          ref={dropdownRef}
+          style={dropdownStyle}
+          className="max-h-60 overflow-auto rounded-md border border-border bg-popover shadow-lg"
+        >
+          <div className="sticky top-0 bg-popover p-1 border-b border-border">
+            <input
+              autoFocus
+              className="w-full bg-transparent px-2 py-1 text-sm outline-none placeholder:text-muted-foreground"
+              placeholder="Search..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          {filtered.length === 0 ? (
+            <div className="py-4 text-center text-sm text-muted-foreground">
+              No options found
+            </div>
+          ) : (
+            filtered.map((opt) => (
+              <div
+                key={opt.value}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground",
+                  value.includes(opt.value) && "bg-accent/50"
+                )}
+                onMouseDown={(e) => {
+                  e.preventDefault(); // prevent blur on trigger
+                  toggle(opt.value);
+                }}
+              >
+                <Check
+                  className={cn(
+                    "h-4 w-4 shrink-0",
+                    value.includes(opt.value) ? "opacity-100" : "opacity-0"
+                  )}
+                />
+                {opt.label}
+              </div>
+            ))
+          )}
+        </div>,
+        document.body
+      )
+    : null;
+
   return (
-    <div className={cn("flex flex-col gap-1", className)} ref={containerRef}>
+    <div className={cn("flex flex-col gap-1", className)}>
       {label && (
         <label className="text-sm font-medium text-foreground">{label}</label>
       )}
       <div
+        ref={triggerRef}
         className={cn(
           "relative min-h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm cursor-pointer",
           "focus-visible:outline-none",
@@ -104,47 +192,7 @@ export function MultiSelect({
         />
       </div>
 
-      {open && (
-        <div className="absolute z-50 mt-1 w-full max-h-60 overflow-auto rounded-md border border-border bg-popover shadow-md">
-          <div className="p-1 border-b border-border">
-            <input
-              autoFocus
-              className="w-full bg-transparent px-2 py-1 text-sm outline-none placeholder:text-muted-foreground"
-              placeholder="Search..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onClick={(e) => e.stopPropagation()}
-            />
-          </div>
-          {filtered.length === 0 ? (
-            <div className="py-4 text-center text-sm text-muted-foreground">
-              No options found
-            </div>
-          ) : (
-            filtered.map((opt) => (
-              <div
-                key={opt.value}
-                className={cn(
-                  "flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground",
-                  value.includes(opt.value) && "bg-accent/50"
-                )}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggle(opt.value);
-                }}
-              >
-                <Check
-                  className={cn(
-                    "h-4 w-4 shrink-0",
-                    value.includes(opt.value) ? "opacity-100" : "opacity-0"
-                  )}
-                />
-                {opt.label}
-              </div>
-            ))
-          )}
-        </div>
-      )}
+      {dropdown}
 
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>

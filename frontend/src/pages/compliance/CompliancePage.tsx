@@ -4,6 +4,7 @@ import ComplianceFrameworkListPage from "./ComplianceFrameworkListPage";
 import ComplianceFrameworkDetailPage from "./ComplianceFrameworkDetailPage";
 import ComplianceGapPage from "./ComplianceGapPage";
 import ComplianceProgramDetailPage from "./ComplianceProgramDetailPage";
+import FrameworkTemplatesPage from "./FrameworkTemplatesPage";
 
 export default function CompliancePage() {
   return (
@@ -12,6 +13,7 @@ export default function CompliancePage() {
       <Route path="frameworks" element={<ComplianceFrameworkListPage />} />
       <Route path="frameworks/:id" element={<ComplianceFrameworkDetailPage />} />
       <Route path="gaps" element={<ComplianceGapPage />} />
+      <Route path="framework-templates" element={<FrameworkTemplatesPage />} />
       <Route path=":id" element={<ComplianceProgramDetailPage />} />
     </Routes>
   );

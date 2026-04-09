@@ -3,10 +3,12 @@ from rest_framework import serializers
 from .models import (
     Attachment,
     AuditLog,
+    AutomatedAction,
     Comment,
     CustomField,
     CustomFieldValue,
     Notification,
+    Review,
     StatusRule,
     Tag,
     Webhook,
@@ -152,6 +154,82 @@ class StatusRuleSerializer(serializers.ModelSerializer):
         if obj.content_type_id:
             return f"{obj.content_type.app_label}.{obj.content_type.model}"
         return None
+
+
+class AutomatedActionSerializer(serializers.ModelSerializer):
+    action_type_display = serializers.CharField(
+        source="get_action_type_display", read_only=True
+    )
+
+    class Meta:
+        model = AutomatedAction
+        fields = [
+            "id",
+            "status_rule",
+            "action_type",
+            "action_type_display",
+            "name",
+            "is_active",
+            "config",
+            "last_triggered_at",
+            "trigger_count",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "last_triggered_at", "trigger_count", "created_at", "updated_at"]
+
+
+class ReviewSerializer(serializers.ModelSerializer):
+    reviewer_name = serializers.CharField(
+        source="reviewer.get_full_name", read_only=True
+    )
+    approver_name = serializers.CharField(
+        source="approver.get_full_name", read_only=True, default=None
+    )
+    content_type_label = serializers.SerializerMethodField()
+    period_status = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Review
+        fields = [
+            "id",
+            "content_type",
+            "content_type_label",
+            "object_id",
+            "object_repr",
+            "sequence_number",
+            "review_type",
+            "review_date",
+            "reviewer",
+            "reviewer_name",
+            "approver",
+            "approver_name",
+            "workflow_state",
+            "period_status",
+            "outcome",
+            "findings",
+            "recommendations",
+            "actions_required",
+            "evidence",
+            "next_review_date",
+            "submitted_at",
+            "approved_at",
+            "rejection_reason",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id", "sequence_number", "period_status",
+            "submitted_at", "approved_at", "created_at", "updated_at",
+        ]
+
+    def get_content_type_label(self, obj):
+        if obj.content_type_id:
+            return f"{obj.content_type.app_label}.{obj.content_type.model}"
+        return None
+
+    def get_period_status(self, obj):
+        return obj.period_status
 
 
 class WebhookDeliverySerializer(serializers.ModelSerializer):

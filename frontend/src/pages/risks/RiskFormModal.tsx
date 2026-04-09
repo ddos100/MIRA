@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Wand2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -14,6 +15,8 @@ import { usePolicies } from "@/api/policies";
 import { useRequirements } from "@/api/compliance";
 import { useBusinessUnits } from "@/api/organizations";
 import { useUsers } from "@/api/auth";
+import { useAssets } from "@/api/assets";
+import { useProjects, useCreateProject } from "@/api/projects";
 import type { Risk } from "@/types";
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
@@ -30,6 +33,7 @@ const schema = z.object({
   inherent_impact: z.coerce.number().min(1).max(5),
   residual_likelihood: z.coerce.number().min(1).max(5),
   residual_impact: z.coerce.number().min(1).max(5),
+  residual_description: z.string().optional(),
   identified_date: z.string().optional(),
   review_date: z.string().optional(),
   notes: z.string().optional(),
@@ -74,10 +78,12 @@ interface RiskFormModalProps {
 export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProps) {
   const isEditing = !!risk;
 
-  // M2M state (outside react-hook-form since MultiSelect uses controlled values)
+  // M2M state — outside react-hook-form (MultiSelect is controlled)
   const [selectedControls, setSelectedControls] = useState<string[]>([]);
   const [selectedPolicies, setSelectedPolicies] = useState<string[]>([]);
   const [selectedCompliance, setSelectedCompliance] = useState<string[]>([]);
+  const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
+  const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
 
   // Reference data
   const { data: categories } = useRiskCategories();
@@ -86,13 +92,18 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
   const { data: controlsData } = useControls({ page_size: 200 });
   const { data: policiesData } = usePolicies({ page_size: 200 });
   const { data: requirementsData } = useRequirements({ page_size: 500 });
+  const { data: assetsData } = useAssets({ page_size: 200 });
+  const { data: projectsData } = useProjects({ page_size: 200 });
 
   const businessUnits = businessUnitsData?.results ?? [];
   const users = usersData?.results ?? [];
   const controls = controlsData?.results ?? [];
   const policies = policiesData?.results ?? [];
   const requirements = requirementsData?.results ?? [];
+  const assets = assetsData?.results ?? [];
+  const projects = projectsData?.results ?? [];
 
+  // Build option arrays
   const categoryOptions = [
     { value: "", label: "No category" },
     ...(categories ?? []).map((c) => ({ value: c.id, label: c.name })),
@@ -122,9 +133,18 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
       label: `${r.ref_code} — ${r.title}`,
     })
   );
+  const assetOptions = assets.map((a: { id: string; name: string }) => ({
+    value: a.id,
+    label: a.name,
+  }));
+  const projectOptions = projects.map((p: { id: string; title: string }) => ({
+    value: p.id,
+    label: p.title,
+  }));
 
   const createRisk = useCreateRisk();
   const updateRisk = useUpdateRisk(risk?.id ?? "");
+  const createProject = useCreateProject();
 
   const {
     register,
@@ -146,6 +166,7 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
       inherent_impact: 1,
       residual_likelihood: 1,
       residual_impact: 1,
+      residual_description: "",
       identified_date: "",
       review_date: "",
       notes: "",
@@ -166,6 +187,7 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
         inherent_impact: risk.inherent_impact ?? 1,
         residual_likelihood: risk.residual_likelihood ?? 1,
         residual_impact: risk.residual_impact ?? 1,
+        residual_description: risk.residual_description ?? "",
         identified_date: risk.identified_date ?? "",
         review_date: risk.review_date ?? "",
         notes: risk.notes ?? "",
@@ -173,6 +195,8 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
       setSelectedControls(risk.controls ?? []);
       setSelectedPolicies(risk.policies ?? []);
       setSelectedCompliance(risk.compliance_requirements ?? []);
+      setSelectedAssets(risk.assets ?? []);
+      setSelectedProjects(risk.projects ?? []);
     } else {
       reset({
         title: "",
@@ -186,6 +210,7 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
         inherent_impact: 1,
         residual_likelihood: 1,
         residual_impact: 1,
+        residual_description: "",
         identified_date: "",
         review_date: "",
         notes: "",
@@ -193,9 +218,13 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
       setSelectedControls([]);
       setSelectedPolicies([]);
       setSelectedCompliance([]);
+      setSelectedAssets([]);
+      setSelectedProjects([]);
     }
   }, [risk, reset]);
 
+  const title = watch("title");
+  const treatmentType = watch("treatment_type");
   const inherentLikelihood = watch("inherent_likelihood");
   const inherentImpact = watch("inherent_impact");
   const residualLikelihood = watch("residual_likelihood");
@@ -203,6 +232,19 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
 
   const inherentScore = Number(inherentLikelihood) * Number(inherentImpact);
   const residualScore = Number(residualLikelihood) * Number(residualImpact);
+
+  // Auto-create a treatment project and link it
+  async function handleAutoCreateProject() {
+    const projectTitle = `Risk Treatment: ${title || "Untitled Risk"}`;
+    const created = await createProject.mutateAsync({
+      title: projectTitle,
+      description: `Automatically created treatment plan for risk: ${title || "Untitled Risk"}`,
+      status: "planned",
+    });
+    setSelectedProjects((prev) =>
+      prev.includes(created.id) ? prev : [...prev, created.id]
+    );
+  }
 
   async function onSubmit(values: FormValues) {
     const payload: Partial<Risk> = {
@@ -216,6 +258,8 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
       controls: selectedControls,
       policies: selectedPolicies,
       compliance_requirements: selectedCompliance,
+      assets: selectedAssets,
+      projects: selectedProjects,
     };
 
     if (isEditing) {
@@ -231,10 +275,11 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
       open={open}
       onClose={onClose}
       title={isEditing ? "Edit Risk" : "New Risk"}
-      size="lg"
+      size="xl"
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-        {/* Title */}
+
+        {/* ── Basic info ── */}
         <Input
           label="Title"
           placeholder="Brief risk title"
@@ -242,7 +287,6 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
           {...register("title")}
         />
 
-        {/* Description */}
         <Textarea
           label="Description"
           placeholder="Describe the risk in detail…"
@@ -251,7 +295,6 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
           {...register("description")}
         />
 
-        {/* Category + Status */}
         <div className="grid grid-cols-2 gap-4">
           <Select
             label="Category"
@@ -267,7 +310,6 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
           />
         </div>
 
-        {/* Owner + Business Unit */}
         <div className="grid grid-cols-2 gap-4">
           <Select
             label="Owner"
@@ -283,17 +325,25 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
           />
         </div>
 
-        {/* Treatment type */}
-        <Select
-          label="Treatment Type"
-          options={TREATMENT_OPTIONS}
-          error={errors.treatment_type?.message}
-          {...register("treatment_type")}
-        />
+        {/* ── Treatment ── */}
+        <div className="space-y-2">
+          <Select
+            label="Treatment Type"
+            options={TREATMENT_OPTIONS}
+            error={errors.treatment_type?.message}
+            {...register("treatment_type")}
+          />
+          {treatmentType && (
+            <p className="text-xs text-muted-foreground">
+              Link an existing project below or auto-create a treatment project.
+            </p>
+          )}
+        </div>
 
-        {/* Inherent scoring */}
-        <fieldset className="rounded-md border border-border p-4 space-y-3">
-          <legend className="text-sm font-medium text-foreground px-1">Inherent Risk</legend>
+        {/* ── Inherent Risk ── */}
+        <fieldset className="rounded-md border border-border p-4 space-y-4">
+          <legend className="text-sm font-semibold text-foreground px-1">Inherent Risk</legend>
+
           <div className="grid grid-cols-2 gap-4">
             <Select
               label="Likelihood"
@@ -308,15 +358,25 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
               {...register("inherent_impact")}
             />
           </div>
+
           <p className="text-sm text-muted-foreground">
             Inherent Score:{" "}
             <span className="font-semibold text-foreground">{inherentScore}</span>
           </p>
+
+          <MultiSelect
+            label="Existing Controls (Mitigating Inherent Risk)"
+            options={controlOptions}
+            value={selectedControls}
+            onChange={setSelectedControls}
+            placeholder="Select controls already in place…"
+          />
         </fieldset>
 
-        {/* Residual scoring */}
-        <fieldset className="rounded-md border border-border p-4 space-y-3">
-          <legend className="text-sm font-medium text-foreground px-1">Residual Risk</legend>
+        {/* ── Residual Risk ── */}
+        <fieldset className="rounded-md border border-border p-4 space-y-4">
+          <legend className="text-sm font-semibold text-foreground px-1">Residual Risk</legend>
+
           <div className="grid grid-cols-2 gap-4">
             <Select
               label="Likelihood"
@@ -331,23 +391,24 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
               {...register("residual_impact")}
             />
           </div>
+
           <p className="text-sm text-muted-foreground">
             Residual Score:{" "}
             <span className="font-semibold text-foreground">{residualScore}</span>
           </p>
+
+          <Textarea
+            label="Residual Risk Description"
+            placeholder="Describe the remaining risk after controls are applied…"
+            rows={2}
+            error={errors.residual_description?.message}
+            {...register("residual_description")}
+          />
         </fieldset>
 
-        {/* M2M mappings */}
+        {/* ── Mappings ── */}
         <fieldset className="rounded-md border border-border p-4 space-y-4">
-          <legend className="text-sm font-medium text-foreground px-1">Mappings</legend>
-
-          <MultiSelect
-            label="Controls"
-            options={controlOptions}
-            value={selectedControls}
-            onChange={setSelectedControls}
-            placeholder="Link controls…"
-          />
+          <legend className="text-sm font-semibold text-foreground px-1">Mappings</legend>
 
           <MultiSelect
             label="Policies"
@@ -364,9 +425,46 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
             onChange={setSelectedCompliance}
             placeholder="Link compliance requirements…"
           />
+
+          <MultiSelect
+            label="Assets"
+            options={assetOptions}
+            value={selectedAssets}
+            onChange={setSelectedAssets}
+            placeholder="Link affected assets…"
+          />
         </fieldset>
 
-        {/* Dates */}
+        {/* ── Treatment Plan / Projects ── */}
+        <fieldset className="rounded-md border border-border p-4 space-y-4">
+          <legend className="text-sm font-semibold text-foreground px-1">Risk Treatment Plan</legend>
+
+          <div className="space-y-2">
+            <MultiSelect
+              label="Linked Projects"
+              options={projectOptions}
+              value={selectedProjects}
+              onChange={setSelectedProjects}
+              placeholder="Link to existing projects…"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleAutoCreateProject}
+              isLoading={createProject.isPending}
+              className="w-full"
+            >
+              <Wand2 className="h-3.5 w-3.5" />
+              Auto-Create Treatment Project
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Creates a new project named "Risk Treatment: {title || "…"}" and links it automatically.
+            </p>
+          </div>
+        </fieldset>
+
+        {/* ── Dates ── */}
         <div className="grid grid-cols-2 gap-4">
           <Input
             label="Identified Date"
@@ -382,7 +480,6 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
           />
         </div>
 
-        {/* Notes */}
         <Textarea
           label="Notes"
           placeholder="Additional notes…"
@@ -391,7 +488,7 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
           {...register("notes")}
         />
 
-        {/* Actions */}
+        {/* ── Submit ── */}
         <div className="flex justify-end gap-3 pt-2">
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
