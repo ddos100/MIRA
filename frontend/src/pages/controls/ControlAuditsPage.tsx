@@ -13,6 +13,8 @@ import { Modal } from "@/components/ui/Modal";
 import { DataTable } from "@/components/ui/DataTable";
 import type { Column } from "@/components/ui/DataTable";
 import { cn } from "@/utils/cn";
+import { ModuleReviewsTab } from "@/components/common/ModuleReviewsTab";
+import { useContentTypes } from "@/api/automatedActions";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -260,13 +262,19 @@ function ControlTestFormModal({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
+type AuditTab = "audits" | "reviews";
+
 export default function ControlAuditsPage() {
   const qc = useQueryClient();
+  const [activeTab, setActiveTab] = useState<AuditTab>("audits");
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<ControlTest | undefined>();
   const [resultFilter, setResultFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+
+  const { data: contentTypes = [] } = useContentTypes();
+  const controlTestContentTypeId = contentTypes.find((ct) => ct.label === "controls.controltest")?.id;
 
   const { data: testsData, isLoading } = useQuery({
     queryKey: ["control-tests-all", { result: resultFilter, date_from: dateFrom, date_to: dateTo }],
@@ -404,17 +412,46 @@ export default function ControlAuditsPage() {
         title="Control Audits"
         description="Schedule and track control tests and audit evidence."
         actions={
-          <Button
-            onClick={() => {
-              setEditTarget(undefined);
-              setModalOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            Schedule Audit
-          </Button>
+          activeTab === "audits" ? (
+            <Button
+              onClick={() => {
+                setEditTarget(undefined);
+                setModalOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              Schedule Audit
+            </Button>
+          ) : null
         }
       />
+
+      {/* Tab Bar */}
+      <div className="flex gap-1 border-b">
+        {([
+          ["audits", "Audit Tests"],
+          ["reviews", "Reviews"],
+        ] as [AuditTab, string][]).map(([tab, label]) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={cn(
+              "px-4 py-2 text-sm font-medium transition-colors",
+              activeTab === tab
+                ? "border-b-2 border-primary text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "reviews" && (
+        <ModuleReviewsTab contentTypeId={controlTestContentTypeId} moduleLabel="Control Audit" />
+      )}
+
+      {activeTab === "audits" && <>
 
       {/* Summary stat cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -488,6 +525,7 @@ export default function ControlAuditsPage() {
         }}
         editData={editTarget}
       />
+      </>}
     </div>
   );
 }

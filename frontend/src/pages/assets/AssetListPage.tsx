@@ -30,6 +30,8 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { ImportModal } from "@/components/common/ImportModal";
 import { BulkUploadSection } from "@/components/common/BulkUploadSection";
 import { ModuleStatusRulesTab } from "@/components/common/ModuleStatusRulesTab";
+import { ModuleReviewsTab } from "@/components/common/ModuleReviewsTab";
+import { useContentTypes } from "@/api/automatedActions";
 import { cn } from "@/utils/cn";
 
 // ─── Asset Form Modal ─────────────────────────────────────────────────────────
@@ -270,7 +272,7 @@ function AssetFormModal({ open, onClose, asset }: AssetFormModalProps) {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
-type Tab = "all" | "data_assets" | "data_flows" | "bulk_upload" | "status_rules";
+type Tab = "all" | "data_assets" | "data_flows" | "reviews" | "bulk_upload" | "status_rules";
 
 // ─── All Assets Tab ───────────────────────────────────────────────────────────
 
@@ -671,10 +673,14 @@ export default function AssetListPage() {
     setEditingAsset(undefined);
   };
 
+  const { data: contentTypes = [] } = useContentTypes();
+  const assetContentTypeId = contentTypes.find((ct) => ct.label === "assets.asset")?.id;
+
   const tabs: { key: Tab; label: string }[] = [
     { key: "all", label: "All Assets" },
     { key: "data_assets", label: "Data Assets" },
     { key: "data_flows", label: "Data Flows" },
+    { key: "reviews", label: "Reviews" },
     { key: "bulk_upload", label: "Bulk Upload" },
     { key: "status_rules", label: "Status Rules" },
   ];
@@ -725,6 +731,9 @@ export default function AssetListPage() {
       {activeTab === "all" && <AllAssetsTab onEdit={handleEdit} />}
       {activeTab === "data_assets" && <DataAssetsTab />}
       {activeTab === "data_flows" && <DataFlowsTab />}
+      {activeTab === "reviews" && (
+        <ModuleReviewsTab contentTypeId={assetContentTypeId} moduleLabel="Asset" />
+      )}
       {activeTab === "bulk_upload" && (
         <BulkUploadTab
           onSuccess={() => queryClient.invalidateQueries({ queryKey: assetKeys.lists() })}

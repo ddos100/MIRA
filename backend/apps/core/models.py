@@ -437,6 +437,16 @@ class Review(BaseModel):
     approved_at = models.DateTimeField(null=True, blank=True)
     rejection_reason = models.TextField(blank=True)
 
+    # Sequence and display
+    sequence_number = models.PositiveIntegerField(
+        default=1,
+        help_text="Review iteration number for this object (1 = first review)",
+    )
+    object_repr = models.CharField(
+        max_length=500, blank=True,
+        help_text="Snapshot of linked object name/title at review creation time",
+    )
+
     class Meta:
         verbose_name = _("Review")
         verbose_name_plural = _("Reviews")
@@ -447,6 +457,16 @@ class Review(BaseModel):
 
     def __str__(self):
         return f"Review [{self.content_type}] on {self.review_date} — {self.workflow_state}"
+
+    @property
+    def period_status(self) -> str:
+        """Classify review as: previous (closed), current, or upcoming."""
+        from datetime import date
+        if self.workflow_state == self.WorkflowState.APPROVED:
+            return "previous"
+        if self.review_date and self.review_date > date.today():
+            return "upcoming"
+        return "current"
 
 
 class WebhookDelivery(models.Model):

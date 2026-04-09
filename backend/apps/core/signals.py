@@ -121,6 +121,74 @@ def _post_delete_handler(sender, instance, **kwargs):
 _SKIP_APPS = {"core", "auth", "admin", "sessions", "contenttypes"}
 _SKIP_MODELS = {"auditlog", "notification", "webhookdelivery", "customfieldvalue"}
 
+# ─── Auto-review creation ─────────────────────────────────────────────────────
+
+# Models that get an auto-review on creation: (app_label, model_name, repr_field)
+_AUTO_REVIEW_MODELS = [
+    ("risks", "risk", "title"),
+    ("assets", "asset", "name"),
+    ("controls", "controltest", "description"),
+]
+
+
+def _auto_create_review(sender, instance, created, **kwargs):
+    """Create an initial Review whenever a tracked GRC object is first saved."""
+    if not created:
+        return
+    try:
+        from datetime import date, timedelta
+
+        from django.contrib.contenttypes.models import ContentType
+
+        from .models import Review
+
+        ct = ContentType.objects.get_for_model(sender)
+        # Derive a human-readable label from the instance
+        repr_field = None
+        for _app, _model, field in _AUTO_REVIEW_MODELS:
+            if sender._meta.app_label == _app and sender._meta.model_name == _model:
+                repr_field = field
+                break
+
+        obj_repr = str(getattr(instance, repr_field, "")) if repr_field else str(instance)[:200]
+
+        # Default review_date: today + 90 days
+        review_date = date.today() + timedelta(days=90)
+
+        # Use the created_by user as reviewer (may be None for imports/fixtures)
+        reviewer = getattr(instance, "created_by", None)
+        if reviewer is None:
+            from .middleware import get_current_user
+            reviewer = get_current_user()
+        if reviewer is None:
+            # Skip if no user context (migrations, fixtures, etc.)
+            return
+
+        Review.objects.create(
+            content_type=ct,
+            object_id=instance.pk,
+            object_repr=obj_repr[:500],
+            reviewer=reviewer,
+            review_date=review_date,
+            sequence_number=1,
+            review_type=Review.ReviewType.PERIODIC,
+            created_by=reviewer,
+        )
+    except Exception:
+        logger.exception("Auto-review creation failed for %s %s", sender, instance.pk)
+
+
+def connect_auto_review_signals():
+    """Wire up auto-review handlers for Risk, Asset, ControlTest."""
+    from django.apps import apps as django_apps
+
+    for app_label, model_name, _ in _AUTO_REVIEW_MODELS:
+        try:
+            model = django_apps.get_model(app_label, model_name)
+            post_save.connect(_auto_create_review, sender=model, weak=False)
+        except Exception:
+            logger.warning("Could not connect auto-review signal for %s.%s", app_label, model_name)
+
 
 def connect_signals():
     """
@@ -148,3 +216,4 @@ def connect_signals():
             post_delete.connect(_post_delete_handler, sender=model, weak=False)
 
     logger.debug("MIRA signals connected for %d models", len(_WATCHED))
+    connect_auto_review_signals()

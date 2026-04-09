@@ -1,5 +1,6 @@
 from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
+from django.db import models as db_models
 from rest_framework import generics, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -323,9 +324,18 @@ class ReviewViewSet(viewsets.ModelViewSet):
         return qs
 
     def perform_create(self, serializer):
+        # Compute next sequence_number for this content_type + object_id
+        ct_id = self.request.data.get("content_type")
+        obj_id = self.request.data.get("object_id")
+        max_seq = (
+            Review.objects
+            .filter(content_type_id=ct_id, object_id=obj_id)
+            .aggregate(m=db_models.Max("sequence_number"))["m"]
+        ) or 0
         serializer.save(
             created_by=self.request.user,
             reviewer=self.request.user,
+            sequence_number=max_seq + 1,
         )
 
     @action(detail=True, methods=["post"], url_path="submit")
@@ -345,20 +355,49 @@ class ReviewViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="approve")
     def approve(self, request, pk=None):
-        """Checker approves the review."""
+        """
+        Checker approves (closes) the review.
+        Requires next_review_date — automatically creates the next review cycle.
+        """
         review = self.get_object()
         if review.workflow_state != Review.WorkflowState.SUBMITTED:
             return Response(
                 {"error": "Only submitted reviews can be approved."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        # next_review_date is mandatory for closure
+        next_date = request.data.get("next_review_date") or review.next_review_date
+        if not next_date:
+            return Response(
+                {"error": "next_review_date is required to close a review."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         review.workflow_state = Review.WorkflowState.APPROVED
         review.approver = request.user
         review.approved_at = timezone.now()
+        review.next_review_date = next_date
         review.updated_by = request.user
         review.save(
-            update_fields=["workflow_state", "approver", "approved_at", "updated_by", "updated_at"]
+            update_fields=[
+                "workflow_state", "approver", "approved_at",
+                "next_review_date", "updated_by", "updated_at",
+            ]
         )
+
+        # Auto-create the next review cycle
+        Review.objects.create(
+            content_type=review.content_type,
+            object_id=review.object_id,
+            object_repr=review.object_repr,
+            review_type=review.review_type,
+            review_date=next_date,
+            reviewer=review.reviewer,
+            sequence_number=review.sequence_number + 1,
+            created_by=request.user,
+        )
+
         return Response(ReviewSerializer(review).data)
 
     @action(detail=True, methods=["post"], url_path="reject")
@@ -393,6 +432,7 @@ def list_content_types(request):
     targets = [
         ("risks", "risk"),
         ("controls", "control"),
+        ("controls", "controltest"),
         ("policies", "policy"),
         ("compliance", "complianceprogram"),
         ("compliance", "complianceassessment"),

@@ -18,6 +18,8 @@ import { ImportModal } from "@/components/common/ImportModal";
 import type { Risk } from "@/types";
 import RiskFormModal from "./RiskFormModal";
 import { ModuleStatusRulesTab } from "@/components/common/ModuleStatusRulesTab";
+import { ModuleReviewsTab } from "@/components/common/ModuleReviewsTab";
+import { useContentTypes } from "@/api/automatedActions";
 
 const PAGE_SIZE = 20;
 
@@ -53,12 +55,14 @@ function ScoreBadge({ score, rating }: { score: number; rating: string }) {
   );
 }
 
-type Tab = "list" | "bulk_upload" | "status_rules";
+type Tab = "list" | "reviews" | "bulk_upload" | "status_rules";
 
 export default function RiskListPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<Tab>("list");
+  const { data: contentTypes = [] } = useContentTypes();
+  const riskContentTypeId = contentTypes.find((ct) => ct.label === "risks.risk")?.id;
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -286,6 +290,7 @@ export default function RiskListPage() {
       <div className="flex gap-1 border-b">
         {([
           ["list", "Risk Register"],
+          ["reviews", "Reviews"],
           ["bulk_upload", "Bulk Upload"],
           ["status_rules", "Status Rules"],
         ] as [Tab, string][]).map(([tab, label]) => (
@@ -303,6 +308,10 @@ export default function RiskListPage() {
           </button>
         ))}
       </div>
+
+      {activeTab === "reviews" && (
+        <ModuleReviewsTab contentTypeId={riskContentTypeId} moduleLabel="Risk" />
+      )}
 
       {activeTab === "bulk_upload" && (
         <RiskBulkUploadTab onSuccess={() => queryClient.invalidateQueries({ queryKey: riskKeys.lists() })} />

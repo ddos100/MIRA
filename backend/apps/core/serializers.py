@@ -187,6 +187,7 @@ class ReviewSerializer(serializers.ModelSerializer):
         source="approver.get_full_name", read_only=True, default=None
     )
     content_type_label = serializers.SerializerMethodField()
+    period_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Review
@@ -195,6 +196,8 @@ class ReviewSerializer(serializers.ModelSerializer):
             "content_type",
             "content_type_label",
             "object_id",
+            "object_repr",
+            "sequence_number",
             "review_type",
             "review_date",
             "reviewer",
@@ -202,6 +205,7 @@ class ReviewSerializer(serializers.ModelSerializer):
             "approver",
             "approver_name",
             "workflow_state",
+            "period_status",
             "outcome",
             "findings",
             "recommendations",
@@ -214,12 +218,18 @@ class ReviewSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "submitted_at", "approved_at", "created_at", "updated_at"]
+        read_only_fields = [
+            "id", "sequence_number", "period_status",
+            "submitted_at", "approved_at", "created_at", "updated_at",
+        ]
 
     def get_content_type_label(self, obj):
         if obj.content_type_id:
             return f"{obj.content_type.app_label}.{obj.content_type.model}"
         return None
+
+    def get_period_status(self, obj):
+        return obj.period_status
 
 
 class WebhookDeliverySerializer(serializers.ModelSerializer):
