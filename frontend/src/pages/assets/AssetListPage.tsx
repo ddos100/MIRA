@@ -676,6 +676,10 @@ export default function AssetListPage() {
   const { data: contentTypes = [] } = useContentTypes();
   const assetContentTypeId = contentTypes.find((ct) => ct.label === "assets.asset")?.id;
 
+  // Flat list of all assets for the Reviews tab object selector
+  const { data: allAssetsData } = useAssets({ page_size: 500 });
+  const assetObjects = (allAssetsData?.results ?? []).map((a) => ({ id: a.id, label: a.name }));
+
   const tabs: { key: Tab; label: string }[] = [
     { key: "all", label: "All Assets" },
     { key: "data_assets", label: "Data Assets" },
@@ -732,7 +736,7 @@ export default function AssetListPage() {
       {activeTab === "data_assets" && <DataAssetsTab />}
       {activeTab === "data_flows" && <DataFlowsTab />}
       {activeTab === "reviews" && (
-        <ModuleReviewsTab contentTypeId={assetContentTypeId} moduleLabel="Asset" />
+        <ModuleReviewsTab contentTypeId={assetContentTypeId} moduleLabel="Asset" objects={assetObjects} />
       )}
       {activeTab === "bulk_upload" && (
         <BulkUploadTab

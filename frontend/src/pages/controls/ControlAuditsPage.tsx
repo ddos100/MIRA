@@ -292,6 +292,10 @@ export default function ControlAuditsPage() {
   });
 
   const tests: ControlTest[] = testsData?.results ?? [];
+  const controlTestObjects = tests.map((t) => ({
+    id: t.id,
+    label: t.control_title ? `${t.control_title} — ${t.test_date}` : `Audit ${t.test_date}`,
+  }));
 
   const deleteTest = useMutation({
     mutationFn: (id: string) => apiClient.delete(`/controls/control-tests/${id}/`),
@@ -448,7 +452,7 @@ export default function ControlAuditsPage() {
       </div>
 
       {activeTab === "reviews" && (
-        <ModuleReviewsTab contentTypeId={controlTestContentTypeId} moduleLabel="Control Audit" />
+        <ModuleReviewsTab contentTypeId={controlTestContentTypeId} moduleLabel="Control Audit" objects={controlTestObjects} />
       )}
 
       {activeTab === "audits" && <>

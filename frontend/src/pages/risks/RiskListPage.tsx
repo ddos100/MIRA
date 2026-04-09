@@ -85,6 +85,11 @@ export default function RiskListPage() {
   const risks: Risk[] = data?.results ?? [];
   const totalPages = data?.total_pages ?? Math.ceil((data?.count ?? 0) / PAGE_SIZE);
 
+  // Flat list of all risks for the Reviews tab object selector
+  const { data: allRisksData } = useRisks({ page_size: 500 });
+  const allRisks = allRisksData?.results ?? [];
+  const riskObjects = allRisks.map((r) => ({ id: r.id, label: r.title }));
+
   const deleteRisk = useDeleteRisk();
 
   const categoryOptions = [
@@ -310,7 +315,7 @@ export default function RiskListPage() {
       </div>
 
       {activeTab === "reviews" && (
-        <ModuleReviewsTab contentTypeId={riskContentTypeId} moduleLabel="Risk" />
+        <ModuleReviewsTab contentTypeId={riskContentTypeId} moduleLabel="Risk" objects={riskObjects} />
       )}
 
       {activeTab === "bulk_upload" && (

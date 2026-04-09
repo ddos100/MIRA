@@ -2,22 +2,21 @@
  * ModuleReviewsTab — Module-level reviews tab for Risks, Assets, Control Audits.
  *
  * Features:
- *  - Three sections: Current | Upcoming | Previous (closed)
- *  - Auto-review created when an object is added (shown immediately via refetch)
- *  - Manual review addition
- *  - Only "current" reviews are editable
+ *  - Three clearly marked sections: Current | Upcoming | Previous (Closed)
+ *  - Auto-review created when an object is added (backend signal)
+ *  - Manual review addition with object selector + configurable Maker/Checker
+ *  - Only the "current" (most recent non-approved) review per object is editable
  *  - Closing a review requires next_review_date → auto-creates next cycle
- *  - Maker/Checker (4-eyes) workflow: Submit → Approve/Reject
- *  - Clear visual state machine for each review
+ *  - Maker/Checker (4-eyes) ISO 27001:2022 §9.3 workflow: Draft → Submit → Approve/Reject
  */
 import { useState, useMemo } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
   AlertCircle, CalendarCheck2, CheckCircle2, ChevronDown, ChevronUp,
   ClipboardCheck, ClipboardList, Clock, Edit2, Lock, Plus, Shield,
-  Trash2, XCircle,
+  Trash2, UserCheck, Users, XCircle,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { Button } from "@/components/ui/Button";
@@ -32,6 +31,21 @@ import {
   useSubmitReview, useApproveReview, useRejectReview,
   type Review,
 } from "@/api/reviews";
+import { useUsers, type UserDetail } from "@/api/auth";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export interface ReviewableObject {
+  id: string;
+  label: string; // human-readable name shown in selector
+}
+
+interface ModuleReviewsTabProps {
+  contentTypeId: number | undefined;
+  moduleLabel: string;
+  /** List of objects in this module so users can target a review at a specific item */
+  objects?: ReviewableObject[];
+}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -57,12 +71,12 @@ const WORKFLOW_CONFIG: Record<string, { label: string; color: string; icon: Reac
     icon: <Edit2 className="h-3 w-3" />,
   },
   submitted: {
-    label: "Submitted — Awaiting Approval",
+    label: "Awaiting Approval",
     color: "bg-blue-100 text-blue-700 border-blue-200",
     icon: <Clock className="h-3 w-3" />,
   },
   approved: {
-    label: "Approved (Closed)",
+    label: "Approved — Closed",
     color: "bg-green-100 text-green-700 border-green-200",
     icon: <CheckCircle2 className="h-3 w-3" />,
   },
@@ -75,14 +89,44 @@ const WORKFLOW_CONFIG: Record<string, { label: string; color: string; icon: Reac
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatDate(d: string | null) {
+function fmt(d: string | null | undefined) {
   if (!d) return "—";
   return new Date(d).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+function UserSelect({
+  value, onChange, users, placeholder, disabled,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  users: UserDetail[];
+  placeholder: string;
+  disabled?: boolean;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
+      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-50"
+    >
+      <option value="">{placeholder}</option>
+      {users.map((u) => (
+        <option key={u.id} value={u.id}>
+          {u.display_name || `${u.first_name} ${u.last_name}`.trim() || u.email}
+        </option>
+      ))}
+    </select>
+  );
 }
 
 // ─── Review Form Modal ────────────────────────────────────────────────────────
 
 const reviewSchema = z.object({
+  object_id: z.string().min(1, "Please select the item being reviewed"),
+  object_repr: z.string().optional(),
+  reviewer: z.string().min(1, "Reviewer (Maker) is required"),
+  approver: z.string().optional(),
   review_type: z.enum(["periodic", "triggered", "ad_hoc", "audit", "management"]),
   review_date: z.string().min(1, "Review date is required"),
   outcome: z.enum(["satisfactory", "needs_improvement", "unsatisfactory", "critical", ""]),
@@ -91,7 +135,6 @@ const reviewSchema = z.object({
   actions_required: z.string().optional(),
   evidence: z.string().optional(),
   next_review_date: z.string().optional(),
-  object_repr: z.string().optional(),
 });
 type ReviewFormValues = z.infer<typeof reviewSchema>;
 
@@ -99,39 +142,57 @@ interface ReviewFormModalProps {
   open: boolean;
   review?: Review | null;
   contentTypeId: number;
-  defaultObjectId?: string;
-  defaultObjectRepr?: string;
+  objects: ReviewableObject[];
   onClose: () => void;
 }
 
-function ReviewFormModal({
-  open, review, contentTypeId, defaultObjectId, defaultObjectRepr, onClose,
-}: ReviewFormModalProps) {
-  const [selectedObjectId, setSelectedObjectId] = useState(review?.object_id ?? defaultObjectId ?? "");
+function ReviewFormModal({ open, review, contentTypeId, objects, onClose }: ReviewFormModalProps) {
   const createMutation = useCreateReview();
   const updateMutation = useUpdateReview(review?.id ?? "");
   const isEditing = !!review;
 
-  const { register, handleSubmit, formState: { errors }, reset } = useForm<ReviewFormValues>({
-    resolver: zodResolver(reviewSchema),
-    defaultValues: {
-      review_type: review?.review_type ?? "periodic",
-      review_date: review?.review_date ?? new Date().toISOString().slice(0, 10),
-      outcome: review?.outcome ?? "",
-      findings: review?.findings ?? "",
-      recommendations: review?.recommendations ?? "",
-      actions_required: review?.actions_required ?? "",
-      evidence: review?.evidence ?? "",
-      next_review_date: review?.next_review_date ?? "",
-      object_repr: review?.object_repr ?? defaultObjectRepr ?? "",
-    },
-  });
+  const { data: usersData } = useUsers({ page_size: 200, is_active: true });
+  const users: UserDetail[] = usersData?.results ?? [];
+
+  const { register, handleSubmit, control, formState: { errors }, reset, watch, setValue } =
+    useForm<ReviewFormValues>({
+      resolver: zodResolver(reviewSchema),
+      defaultValues: {
+        object_id: review?.object_id ?? "",
+        object_repr: review?.object_repr ?? "",
+        reviewer: review?.reviewer ?? "",
+        approver: review?.approver ?? "",
+        review_type: review?.review_type ?? "periodic",
+        review_date: review?.review_date ?? new Date().toISOString().slice(0, 10),
+        outcome: review?.outcome ?? "",
+        findings: review?.findings ?? "",
+        recommendations: review?.recommendations ?? "",
+        actions_required: review?.actions_required ?? "",
+        evidence: review?.evidence ?? "",
+        next_review_date: review?.next_review_date ?? "",
+      },
+    });
+
+  const selectedObjectId = watch("object_id");
+
+  // Auto-fill object_repr when object is selected
+  function handleObjectChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const id = e.target.value;
+    setValue("object_id", id);
+    const obj = objects.find((o) => o.id === id);
+    if (obj) setValue("object_repr", obj.label);
+  }
 
   async function onSubmit(values: ReviewFormValues) {
+    // Ensure object_repr is populated
+    if (!values.object_repr) {
+      const obj = objects.find((o) => o.id === values.object_id);
+      values.object_repr = obj?.label ?? values.object_id;
+    }
     const payload = {
       ...values,
       content_type: contentTypeId,
-      object_id: selectedObjectId || review?.object_id,
+      approver: values.approver || null,
       next_review_date: values.next_review_date || null,
     };
     if (isEditing) {
@@ -147,12 +208,97 @@ function ReviewFormModal({
 
   return (
     <Modal open={open} onClose={onClose} title={isEditing ? "Edit Review" : "Add Review"} size="lg">
-      <div className="mb-4 p-3 rounded-md bg-blue-50 border border-blue-200 text-xs text-blue-800">
-        <span className="font-semibold">Maker/Checker:</span> You (Maker) create this review draft.
-        After submitting, an Approver (Checker) closes it. Closing automatically schedules the next review.
+      {/* Maker/Checker notice */}
+      <div className="mb-4 p-3 rounded-md bg-blue-50 border border-blue-200 text-xs text-blue-800 flex gap-2">
+        <Shield className="h-4 w-4 shrink-0 mt-0.5 text-blue-600" />
+        <div>
+          <span className="font-semibold">Maker/Checker (4-eyes) Workflow:</span>{" "}
+          The <strong>Reviewer (Maker)</strong> creates and submits this review.
+          The <strong>Approver (Checker)</strong> then closes it.
+          Closing automatically schedules the next review cycle.
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+
+        {/* ── Object selection ── */}
+        <div className="p-3 rounded-md border border-border bg-muted/30 space-y-3">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Item Being Reviewed</p>
+          {isEditing ? (
+            <p className="text-sm font-medium text-foreground">{review?.object_repr || review?.object_id}</p>
+          ) : (
+            <div>
+              {objects.length > 0 ? (
+                <select
+                  value={selectedObjectId}
+                  onChange={handleObjectChange}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">— Select item —</option>
+                  {objects.map((o) => (
+                    <option key={o.id} value={o.id}>{o.label}</option>
+                  ))}
+                </select>
+              ) : (
+                <Input {...register("object_id")} placeholder="Object ID (UUID)" />
+              )}
+              {errors.object_id && (
+                <p className="text-xs text-red-600 mt-1">{errors.object_id.message}</p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ── Maker/Checker assignment ── */}
+        <div className="p-3 rounded-md border border-border bg-muted/30 space-y-3">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+            <Users className="h-3.5 w-3.5" />
+            Maker / Checker Assignment
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium mb-1">
+                Reviewer — Maker <span className="text-red-500">*</span>
+              </label>
+              <Controller
+                control={control}
+                name="reviewer"
+                render={({ field }) => (
+                  <UserSelect
+                    value={field.value}
+                    onChange={field.onChange}
+                    users={users}
+                    placeholder="Select Maker"
+                  />
+                )}
+              />
+              {errors.reviewer && (
+                <p className="text-xs text-red-600 mt-1">{errors.reviewer.message}</p>
+              )}
+              <p className="text-xs text-muted-foreground mt-0.5">Creates &amp; submits the review</p>
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1">
+                Approver — Checker
+              </label>
+              <Controller
+                control={control}
+                name="approver"
+                render={({ field }) => (
+                  <UserSelect
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    users={users}
+                    placeholder="Select Checker (optional)"
+                  />
+                )}
+              />
+              <p className="text-xs text-muted-foreground mt-0.5">Approves &amp; closes the review</p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Review details ── */}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1">Review Type</label>
@@ -164,7 +310,7 @@ function ReviewFormModal({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Review Date *</label>
+            <label className="block text-sm font-medium mb-1">Review Date <span className="text-red-500">*</span></label>
             <Input type="date" {...register("review_date")} />
             {errors.review_date && <p className="text-xs text-red-600 mt-1">{errors.review_date.message}</p>}
           </div>
@@ -184,23 +330,27 @@ function ReviewFormModal({
             <Input type="date" {...register("next_review_date")} />
           </div>
         </div>
+
         <div>
           <label className="block text-sm font-medium mb-1">Findings</label>
           <Textarea {...register("findings")} rows={3} placeholder="Observations from this review…" />
         </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Recommendations</label>
-          <Textarea {...register("recommendations")} rows={2} placeholder="Improvement recommendations…" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Actions Required</label>
-          <Textarea {...register("actions_required")} rows={2} placeholder="Specific actions to be taken…" />
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Recommendations</label>
+            <Textarea {...register("recommendations")} rows={2} placeholder="Improvements recommended…" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Actions Required</label>
+            <Textarea {...register("actions_required")} rows={2} placeholder="Actions to be taken…" />
+          </div>
         </div>
         <div>
           <label className="block text-sm font-medium mb-1">Evidence</label>
-          <Textarea {...register("evidence")} rows={2} placeholder="Evidence references or links…" />
+          <Textarea {...register("evidence")} rows={2} placeholder="Evidence references or document links…" />
         </div>
-        <div className="flex justify-end gap-2 pt-2">
+
+        <div className="flex justify-end gap-2 pt-2 border-t border-border">
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
           <Button type="submit" isLoading={isPending}>
             {isEditing ? "Save Changes" : "Add Review"}
@@ -223,18 +373,22 @@ function ApproveModal({ open, review, onClose }: ApproveModalProps) {
   const [nextDate, setNextDate] = useState(review?.next_review_date ?? "");
   const approveMutation = useApproveReview();
 
+  // Reset date when review changes
+  if (review?.next_review_date && !nextDate) setNextDate(review.next_review_date);
+
   async function handleApprove() {
     if (!review || !nextDate) return;
     await approveMutation.mutateAsync({ id: review.id, next_review_date: nextDate });
+    setNextDate("");
     onClose();
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Close Review & Schedule Next" size="sm">
+    <Modal open={open} onClose={() => { onClose(); setNextDate(""); }} title="Close Review & Schedule Next Cycle" size="sm">
       <div className="space-y-4">
         <div className="p-3 rounded-md bg-green-50 border border-green-200 text-sm text-green-800">
-          Approving this review will <strong>close it</strong> and automatically create the next review
-          cycle using the date below.
+          Approving <strong>closes</strong> this review and automatically creates the next review cycle
+          with the date below. The next review will be in <em>Draft</em> status ready for the Maker.
         </div>
         <div>
           <label className="block text-sm font-medium mb-1">
@@ -247,11 +401,11 @@ function ApproveModal({ open, review, onClose }: ApproveModalProps) {
             min={new Date().toISOString().slice(0, 10)}
           />
           {!nextDate && (
-            <p className="text-xs text-red-600 mt-1">Required — sets the date for the next review cycle.</p>
+            <p className="text-xs text-red-600 mt-1">Required — sets when the next review cycle starts.</p>
           )}
         </div>
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
+        <div className="flex justify-end gap-2 pt-1">
+          <Button variant="outline" onClick={() => { onClose(); setNextDate(""); }}>Cancel</Button>
           <Button
             disabled={!nextDate}
             isLoading={approveMutation.isPending}
@@ -259,7 +413,7 @@ function ApproveModal({ open, review, onClose }: ApproveModalProps) {
             className="bg-green-600 hover:bg-green-700 text-white"
           >
             <ClipboardCheck className="h-4 w-4" />
-            Approve & Close Review
+            Approve &amp; Close
           </Button>
         </div>
       </div>
@@ -267,109 +421,157 @@ function ApproveModal({ open, review, onClose }: ApproveModalProps) {
   );
 }
 
-// ─── Review Row ───────────────────────────────────────────────────────────────
+// ─── Workflow Status Bar ──────────────────────────────────────────────────────
 
-interface ReviewRowProps {
+function WorkflowBar({ state }: { state: string }) {
+  const steps = ["draft", "submitted", "approved"] as const;
+  const idx = steps.indexOf(state as typeof steps[number]);
+  const isRejected = state === "rejected";
+
+  return (
+    <div className="flex items-center gap-0 text-xs">
+      {steps.map((s, i) => {
+        const done = isRejected ? false : i < idx;
+        const active = isRejected ? s === "submitted" : i === idx;
+        return (
+          <div key={s} className="flex items-center">
+            <div className={cn(
+              "px-2 py-0.5 rounded text-xs font-medium border",
+              done ? "bg-green-100 text-green-700 border-green-200" :
+              active && isRejected ? "bg-red-100 text-red-700 border-red-200" :
+              active ? "bg-blue-100 text-blue-700 border-blue-200 ring-1 ring-blue-300" :
+              "bg-muted text-muted-foreground border-border"
+            )}>
+              {s === "approved" ? "Closed" : s.charAt(0).toUpperCase() + s.slice(1)}
+            </div>
+            {i < steps.length - 1 && (
+              <div className={cn("w-4 h-px", done ? "bg-green-300" : "bg-border")} />
+            )}
+          </div>
+        );
+      })}
+      {isRejected && (
+        <span className="ml-2 px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 border border-red-200">
+          Rejected
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ─── Review Card ──────────────────────────────────────────────────────────────
+
+interface ReviewCardProps {
   review: Review;
   isCurrentReview: boolean;
   onEdit: (r: Review) => void;
   onDelete: (r: Review) => void;
   onApprove: (r: Review) => void;
   onReject: (r: Review) => void;
-  onSubmit: (r: Review) => void;
+  onSubmit: (id: string) => void;
 }
 
-function ReviewRow({ review, isCurrentReview, onEdit, onDelete, onApprove, onReject, onSubmit }: ReviewRowProps) {
+function ReviewCard({ review, isCurrentReview, onEdit, onDelete, onApprove, onReject, onSubmit }: ReviewCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const submitMutation = useSubmitReview();
 
-  const wf = WORKFLOW_CONFIG[review.workflow_state] ?? WORKFLOW_CONFIG.draft;
+  const isClosed = review.workflow_state === "approved";
   const isEditable = isCurrentReview && review.workflow_state === "draft";
   const canSubmit = isCurrentReview && review.workflow_state === "draft";
   const canApproveReject = review.workflow_state === "submitted";
-  const isClosed = review.workflow_state === "approved";
+
+  // Period badge config
+  const periodConfig = isClosed
+    ? { label: "Closed", cls: "bg-green-100 text-green-700 border-green-200" }
+    : review.period_status === "upcoming"
+      ? { label: "Upcoming", cls: "bg-violet-100 text-violet-700 border-violet-200" }
+      : { label: "Current", cls: "bg-primary/10 text-primary border-primary/30 font-bold" };
 
   return (
     <div className={cn(
-      "rounded-lg border overflow-hidden transition-shadow",
-      isCurrentReview && !isClosed
-        ? "border-primary/30 bg-primary/5 shadow-sm"
-        : isClosed
-          ? "border-green-200 bg-green-50/30 dark:bg-green-950/10"
-          : "border-border bg-card"
+      "rounded-lg border overflow-hidden transition-shadow hover:shadow-sm",
+      isCurrentReview && !isClosed ? "border-primary/40 shadow-sm" :
+      isClosed ? "border-green-200 opacity-80" :
+      "border-border"
     )}>
-      {/* Header row */}
-      <div className="flex items-start gap-3 px-4 py-3">
-        {/* Period indicator */}
+      {/* Main row */}
+      <div className={cn(
+        "flex items-start gap-3 px-4 py-3",
+        isCurrentReview && !isClosed ? "bg-primary/5" :
+        isClosed ? "bg-green-50/40" :
+        "bg-card"
+      )}>
+        {/* Period tag */}
         <div className={cn(
-          "shrink-0 mt-0.5 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider border",
-          review.period_status === "current" && !isClosed
-            ? "bg-primary text-primary-foreground border-primary"
-            : review.period_status === "upcoming"
-              ? "bg-violet-100 text-violet-700 border-violet-200"
-              : "bg-green-100 text-green-700 border-green-200"
+          "shrink-0 mt-0.5 px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider border",
+          periodConfig.cls
         )}>
-          {isClosed ? "Closed" : review.period_status === "upcoming" ? "Upcoming" : "Current"}
+          {periodConfig.label}
         </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center flex-wrap gap-2">
-            {/* Object name */}
-            <span className="text-sm font-semibold text-foreground truncate max-w-xs">
+        <div className="flex-1 min-w-0 space-y-1.5">
+          {/* Title row */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold text-foreground truncate max-w-sm">
               {review.object_repr || "—"}
             </span>
-            <span className="text-xs text-muted-foreground">#{review.sequence_number}</span>
-
-            {/* Workflow badge */}
-            <span className={cn(
-              "inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border",
-              wf.color
-            )}>
-              {wf.icon}
-              {wf.label}
+            <span className="text-xs text-muted-foreground">
+              Review #{review.sequence_number}
             </span>
-
-            {/* Review type */}
-            <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">
+            <span className="text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground">
               {REVIEW_TYPE_LABELS[review.review_type]}
             </span>
-
-            {/* Outcome */}
             {review.outcome && (
-              <Badge variant={OUTCOME_VARIANTS[review.outcome] ?? "default"}>
+              <Badge variant={OUTCOME_VARIANTS[review.outcome] ?? "default"} className="text-xs">
                 {OUTCOME_LABELS[review.outcome]}
               </Badge>
             )}
           </div>
 
-          <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground flex-wrap">
-            <span>Review date: <span className="font-medium text-foreground">{formatDate(review.review_date)}</span></span>
+          {/* Workflow bar */}
+          <WorkflowBar state={review.workflow_state} />
+
+          {/* Meta row */}
+          <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+            <span>
+              Date: <span className="font-medium text-foreground">{fmt(review.review_date)}</span>
+            </span>
             {review.next_review_date && (
-              <span>Next: <span className="font-medium text-foreground">{formatDate(review.next_review_date)}</span></span>
+              <span>
+                Next: <span className="font-medium text-foreground">{fmt(review.next_review_date)}</span>
+              </span>
             )}
-            <span>Reviewer: <span className="font-medium text-foreground">{review.reviewer_name || review.reviewer}</span></span>
+            <span className="flex items-center gap-1">
+              <UserCheck className="h-3 w-3" />
+              Maker: <span className="font-medium text-foreground">{review.reviewer_name || "—"}</span>
+            </span>
             {review.approver_name && (
               <span className="flex items-center gap-1">
                 <Shield className="h-3 w-3" />
-                Approver: <span className="font-medium text-foreground">{review.approver_name}</span>
+                Checker: <span className="font-medium text-foreground">{review.approver_name}</span>
               </span>
             )}
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-1 shrink-0">
+        {/* Action buttons */}
+        <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
           {isEditable && (
-            <Button size="sm" variant="ghost" onClick={() => onEdit(review)} title="Edit">
-              <Edit2 className="h-3.5 w-3.5" />
-            </Button>
-          )}
-          {isEditable && (
-            <Button size="sm" variant="ghost" onClick={() => onDelete(review)} title="Delete">
-              <Trash2 className="h-3.5 w-3.5 text-destructive" />
-            </Button>
+            <>
+              <Button size="sm" variant="ghost" onClick={() => onEdit(review)} title="Edit">
+                <Edit2 className="h-3.5 w-3.5" />
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => onDelete(review)} title="Delete">
+                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+              </Button>
+            </>
           )}
           {canSubmit && (
-            <Button size="sm" onClick={() => onSubmit(review)}>
+            <Button
+              size="sm"
+              onClick={() => onSubmit(review.id)}
+              isLoading={submitMutation.isPending}
+            >
               Submit for Approval
             </Button>
           )}
@@ -379,6 +581,7 @@ function ReviewRow({ review, isCurrentReview, onEdit, onDelete, onApprove, onRej
                 size="sm"
                 className="bg-green-600 hover:bg-green-700 text-white"
                 onClick={() => onApprove(review)}
+                title="Approve & close review"
               >
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 Approve
@@ -388,6 +591,7 @@ function ReviewRow({ review, isCurrentReview, onEdit, onDelete, onApprove, onRej
                 variant="outline"
                 className="text-red-600 border-red-200 hover:bg-red-50"
                 onClick={() => onReject(review)}
+                title="Reject — return to maker"
               >
                 <XCircle className="h-3.5 w-3.5" />
                 Reject
@@ -395,11 +599,15 @@ function ReviewRow({ review, isCurrentReview, onEdit, onDelete, onApprove, onRej
             </>
           )}
           {isClosed && (
-            <Lock className="h-4 w-4 text-muted-foreground" title="Closed — read only" />
+            <Lock className="h-4 w-4 text-muted-foreground mx-1" title="Closed — read only" />
+          )}
+          {!isEditable && !canSubmit && !canApproveReject && !isClosed && (
+            <Lock className="h-4 w-4 text-muted-foreground mx-1" title="Upcoming — not yet editable" />
           )}
           <button
             onClick={() => setExpanded(!expanded)}
             className="p-1.5 rounded hover:bg-muted transition-colors"
+            title="Toggle details"
           >
             {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </button>
@@ -409,38 +617,41 @@ function ReviewRow({ review, isCurrentReview, onEdit, onDelete, onApprove, onRej
       {/* Expanded detail */}
       {expanded && (
         <div className="border-t border-border px-4 py-3 space-y-3 text-sm bg-muted/20">
-          {review.findings && (
+          {review.findings ? (
             <div>
-              <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide mb-1">Findings</p>
-              <p className="whitespace-pre-wrap text-foreground">{review.findings}</p>
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Findings</p>
+              <p className="text-foreground whitespace-pre-wrap">{review.findings}</p>
             </div>
-          )}
-          {review.recommendations && (
+          ) : null}
+          {review.recommendations ? (
             <div>
-              <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide mb-1">Recommendations</p>
-              <p className="whitespace-pre-wrap text-foreground">{review.recommendations}</p>
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Recommendations</p>
+              <p className="text-foreground whitespace-pre-wrap">{review.recommendations}</p>
             </div>
-          )}
-          {review.actions_required && (
+          ) : null}
+          {review.actions_required ? (
             <div>
-              <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide mb-1">Actions Required</p>
-              <p className="whitespace-pre-wrap text-foreground">{review.actions_required}</p>
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Actions Required</p>
+              <p className="text-foreground whitespace-pre-wrap">{review.actions_required}</p>
             </div>
-          )}
-          {review.evidence && (
+          ) : null}
+          {review.evidence ? (
             <div>
-              <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide mb-1">Evidence</p>
-              <p className="whitespace-pre-wrap text-foreground">{review.evidence}</p>
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Evidence</p>
+              <p className="text-foreground whitespace-pre-wrap">{review.evidence}</p>
             </div>
-          )}
+          ) : null}
           {review.rejection_reason && (
             <div className="p-2 rounded bg-red-50 border border-red-200 text-xs text-red-700">
-              <span className="font-medium">Rejection reason:</span> {review.rejection_reason}
+              <span className="font-semibold">Rejection reason:</span> {review.rejection_reason}
             </div>
           )}
+          {!review.findings && !review.recommendations && !review.actions_required && !review.evidence && !review.rejection_reason && (
+            <p className="text-xs text-muted-foreground italic">No findings recorded yet.</p>
+          )}
           <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1 border-t border-border/50">
-            {review.submitted_at && <span>Submitted: {formatDate(review.submitted_at)}</span>}
-            {review.approved_at && <span>Approved/Closed: {formatDate(review.approved_at)}</span>}
+            {review.submitted_at && <span>Submitted: {fmt(review.submitted_at)}</span>}
+            {review.approved_at && <span>Closed: {fmt(review.approved_at)}</span>}
           </div>
         </div>
       )}
@@ -448,51 +659,44 @@ function ReviewRow({ review, isCurrentReview, onEdit, onDelete, onApprove, onRej
   );
 }
 
-// ─── Section ──────────────────────────────────────────────────────────────────
+// ─── Section wrapper ──────────────────────────────────────────────────────────
 
-interface SectionProps {
-  title: string;
-  icon: React.ReactNode;
-  color: string;
-  count: number;
-  children: React.ReactNode;
-  defaultOpen?: boolean;
-}
-
-function Section({ title, icon, color, count, children, defaultOpen = true }: SectionProps) {
+function Section({
+  title, icon, titleColor, count, children, defaultOpen = true,
+}: {
+  title: string; icon: React.ReactNode; titleColor: string;
+  count: number; children: React.ReactNode; defaultOpen?: boolean;
+}) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="space-y-2">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between group"
+        className="w-full flex items-center justify-between"
       >
-        <div className="flex items-center gap-2">
-          <span className={cn("flex items-center gap-1.5 text-sm font-semibold", color)}>
-            {icon}
-            {title}
-          </span>
-          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+        <span className={cn("flex items-center gap-2 text-sm font-semibold", titleColor)}>
+          {icon}
+          {title}
+          <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
             {count}
           </span>
-        </div>
+        </span>
         <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-180")} />
       </button>
-      {open && <div className="space-y-2">{children}</div>}
+      {open && (
+        <div className="space-y-2 pl-0">
+          {count === 0
+            ? <p className="text-sm text-muted-foreground pl-2 py-2 italic">None.</p>
+            : children}
+        </div>
+      )}
     </div>
   );
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-interface ModuleReviewsTabProps {
-  /** Django ContentType id for this module */
-  contentTypeId: number | undefined;
-  /** Human-readable module name e.g. "Risk", "Asset" */
-  moduleLabel: string;
-}
-
-export function ModuleReviewsTab({ contentTypeId, moduleLabel }: ModuleReviewsTabProps) {
+export function ModuleReviewsTab({ contentTypeId, moduleLabel, objects = [] }: ModuleReviewsTabProps) {
   const [search, setSearch] = useState("");
   const [filterPeriod, setFilterPeriod] = useState<"all" | "current" | "upcoming" | "previous">("all");
   const [modalOpen, setModalOpen] = useState(false);
@@ -507,7 +711,7 @@ export function ModuleReviewsTab({ contentTypeId, moduleLabel }: ModuleReviewsTa
   const rejectMutation = useRejectReview();
   const deleteMutation = useDeleteReview();
 
-  // Group reviews by object; for each object, "current" = the most recent non-approved
+  // For each object_id, "current" = most recent non-approved review
   const currentReviewIds = useMemo(() => {
     const byObject = new Map<string, Review>();
     for (const r of allReviews) {
@@ -521,8 +725,8 @@ export function ModuleReviewsTab({ contentTypeId, moduleLabel }: ModuleReviewsTa
     return new Set([...byObject.values()].map((r) => r.id));
   }, [allReviews]);
 
-  // Filter + search
-  const filteredReviews = useMemo(() => {
+  // Filtered list
+  const filtered = useMemo(() => {
     let list = allReviews;
     if (search) {
       const q = search.toLowerCase();
@@ -544,31 +748,23 @@ export function ModuleReviewsTab({ contentTypeId, moduleLabel }: ModuleReviewsTa
     return list;
   }, [allReviews, search, filterPeriod, currentReviewIds]);
 
-  const currentReviews = filteredReviews.filter(
-    (r) => currentReviewIds.has(r.id) && r.workflow_state !== "approved"
-  );
-  const upcomingReviews = filteredReviews.filter((r) => r.period_status === "upcoming");
-  const previousReviews = filteredReviews.filter((r) => r.workflow_state === "approved");
+  const currentList = filtered.filter((r) => currentReviewIds.has(r.id) && r.workflow_state !== "approved");
+  const upcomingList = filtered.filter((r) => r.period_status === "upcoming");
+  const previousList = filtered.filter((r) => r.workflow_state === "approved");
 
   // Stats
   const pendingApproval = allReviews.filter((r) => r.workflow_state === "submitted").length;
-  const overdue = allReviews.filter((r) => {
-    const d = new Date(r.review_date);
-    return r.workflow_state !== "approved" && d < new Date();
+  const overdueCount = allReviews.filter((r) => {
+    if (r.workflow_state === "approved") return false;
+    return new Date(r.review_date) < new Date();
   }).length;
 
-  function handleEdit(r: Review) {
-    setEditingReview(r);
-    setModalOpen(true);
-  }
+  function openCreate() { setEditingReview(null); setModalOpen(true); }
+  function handleModalClose() { setModalOpen(false); setEditingReview(null); }
+  function handleEdit(r: Review) { setEditingReview(r); setModalOpen(true); }
 
-  function handleModalClose() {
-    setModalOpen(false);
-    setEditingReview(null);
-  }
-
-  async function handleSubmit(r: Review) {
-    await submitMutation.mutateAsync(r.id);
+  async function handleSubmit(id: string) {
+    await submitMutation.mutateAsync(id);
   }
 
   async function handleReject() {
@@ -580,68 +776,46 @@ export function ModuleReviewsTab({ contentTypeId, moduleLabel }: ModuleReviewsTa
 
   return (
     <div className="space-y-5">
-      {/* Stats bar */}
+
+      {/* ── Stats bar ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-card border border-border rounded-lg p-3">
-          <div className="flex items-center gap-1.5 mb-1">
-            <ClipboardList className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Total Reviews</span>
+        {[
+          { label: "Total Reviews", value: allReviews.length, icon: <ClipboardList className="h-4 w-4 text-muted-foreground" />, highlight: "" },
+          { label: "Pending Approval", value: pendingApproval, icon: <Clock className="h-4 w-4 text-blue-500" />, highlight: pendingApproval > 0 ? "text-blue-600" : "" },
+          { label: "Overdue", value: overdueCount, icon: <AlertCircle className="h-4 w-4 text-amber-500" />, highlight: overdueCount > 0 ? "text-amber-600" : "" },
+          { label: "Closed", value: previousList.length, icon: <CalendarCheck2 className="h-4 w-4 text-green-500" />, highlight: "text-green-600" },
+        ].map((s) => (
+          <div key={s.label} className="bg-card border border-border rounded-lg p-3">
+            <div className="flex items-center gap-1.5 mb-1">{s.icon}<span className="text-xs text-muted-foreground">{s.label}</span></div>
+            <p className={cn("text-2xl font-bold", s.highlight)}>{s.value}</p>
           </div>
-          <p className="text-xl font-bold">{allReviews.length}</p>
-        </div>
-        <div className={cn("bg-card border rounded-lg p-3", pendingApproval > 0 ? "border-blue-300" : "border-border")}>
-          <div className="flex items-center gap-1.5 mb-1">
-            <Clock className={cn("h-3.5 w-3.5", pendingApproval > 0 ? "text-blue-500" : "text-muted-foreground")} />
-            <span className="text-xs text-muted-foreground">Pending Approval</span>
-          </div>
-          <p className={cn("text-xl font-bold", pendingApproval > 0 && "text-blue-600")}>{pendingApproval}</p>
-        </div>
-        <div className={cn("bg-card border rounded-lg p-3", overdue > 0 ? "border-amber-300" : "border-border")}>
-          <div className="flex items-center gap-1.5 mb-1">
-            <AlertCircle className={cn("h-3.5 w-3.5", overdue > 0 ? "text-amber-500" : "text-muted-foreground")} />
-            <span className="text-xs text-muted-foreground">Overdue</span>
-          </div>
-          <p className={cn("text-xl font-bold", overdue > 0 && "text-amber-600")}>{overdue}</p>
-        </div>
-        <div className="bg-card border border-border rounded-lg p-3">
-          <div className="flex items-center gap-1.5 mb-1">
-            <CalendarCheck2 className="h-3.5 w-3.5 text-green-500" />
-            <span className="text-xs text-muted-foreground">Closed</span>
-          </div>
-          <p className="text-xl font-bold text-green-600">{previousReviews.length}</p>
-        </div>
+        ))}
       </div>
 
-      {/* Maker/Checker workflow notice */}
-      <div className="flex items-start gap-2 p-3 rounded-md bg-blue-50 border border-blue-200 text-xs text-blue-800">
-        <Shield className="h-4 w-4 shrink-0 mt-0.5" />
+      {/* ── Workflow guide ── */}
+      <div className="p-3 rounded-md border border-blue-200 bg-blue-50 text-xs text-blue-800 flex gap-2 items-start">
+        <Shield className="h-4 w-4 shrink-0 mt-0.5 text-blue-600" />
         <div>
-          <span className="font-semibold">ISO 27001:2022 §9.3 — Maker/Checker (4-eyes) Workflow:</span>{" "}
-          Reviewer (Maker) creates and submits reviews. Approver (Checker) closes them.
-          Closing a review requires a next review date — the next cycle is created automatically.
-          Only the <strong>Current</strong> review for each {moduleLabel.toLowerCase()} is editable.
+          <span className="font-semibold">ISO 27001:2022 §9.3 — Maker/Checker (4-eyes):</span>{" "}
+          <strong>Maker</strong> (Reviewer) creates the draft and submits.{" "}
+          <strong>Checker</strong> (Approver) approves or rejects.{" "}
+          Approving <em>closes</em> the review and auto-schedules the next cycle.{" "}
+          Only the <strong className="underline">Current</strong> review per {moduleLabel.toLowerCase()} is editable.
         </div>
       </div>
 
-      {/* Toolbar */}
+      {/* ── Toolbar ── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 flex-wrap">
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            placeholder={`Search reviews…`}
-            className="w-56"
-          />
-          <div className="flex border border-input rounded-md overflow-hidden text-xs">
+          <SearchInput value={search} onChange={setSearch} placeholder="Search reviews…" className="w-56" />
+          <div className="flex border border-input rounded-md overflow-hidden text-xs font-medium">
             {(["all", "current", "upcoming", "previous"] as const).map((p) => (
               <button
                 key={p}
                 onClick={() => setFilterPeriod(p)}
                 className={cn(
-                  "px-3 py-1.5 font-medium capitalize transition-colors",
-                  filterPeriod === p
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-background text-muted-foreground hover:bg-muted"
+                  "px-3 py-1.5 capitalize transition-colors",
+                  filterPeriod === p ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"
                 )}
               >
                 {p}
@@ -649,20 +823,22 @@ export function ModuleReviewsTab({ contentTypeId, moduleLabel }: ModuleReviewsTa
             ))}
           </div>
         </div>
-        <Button onClick={() => { setEditingReview(null); setModalOpen(true); }}>
+        <Button onClick={openCreate}>
           <Plus className="h-4 w-4" />
           Add Review
         </Button>
       </div>
 
-      {/* Content */}
+      {/* ── Content ── */}
       {isLoading ? (
-        <div className="text-center py-12 text-muted-foreground text-sm">Loading reviews…</div>
+        <div className="text-center py-12 text-sm text-muted-foreground">Loading reviews…</div>
       ) : allReviews.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-lg">
-          <ClipboardList className="h-10 w-10 mx-auto mb-3 opacity-30" />
-          <p className="text-sm font-medium">No reviews yet</p>
-          <p className="text-xs mt-1">Reviews are created automatically when {moduleLabel}s are added, or you can add one manually.</p>
+        <div className="text-center py-12 border border-dashed border-border rounded-lg space-y-2">
+          <ClipboardList className="h-10 w-10 mx-auto opacity-25" />
+          <p className="text-sm font-medium text-muted-foreground">No reviews yet</p>
+          <p className="text-xs text-muted-foreground">
+            Reviews are created automatically when {moduleLabel}s are added, or add one manually.
+          </p>
         </div>
       ) : (
         <div className="space-y-6">
@@ -671,26 +847,17 @@ export function ModuleReviewsTab({ contentTypeId, moduleLabel }: ModuleReviewsTa
             <Section
               title="Current Reviews"
               icon={<ClipboardCheck className="h-4 w-4" />}
-              color="text-primary"
-              count={currentReviews.length}
+              titleColor="text-primary"
+              count={currentList.length}
               defaultOpen
             >
-              {currentReviews.length === 0 ? (
-                <p className="text-sm text-muted-foreground pl-2">No current reviews.</p>
-              ) : (
-                currentReviews.map((r) => (
-                  <ReviewRow
-                    key={r.id}
-                    review={r}
-                    isCurrentReview={currentReviewIds.has(r.id)}
-                    onEdit={handleEdit}
-                    onDelete={setDeletingReview}
-                    onApprove={setApprovingReview}
-                    onReject={setRejectingReview}
-                    onSubmit={handleSubmit}
-                  />
-                ))
-              )}
+              {currentList.map((r) => (
+                <ReviewCard key={r.id} review={r} isCurrentReview
+                  onEdit={handleEdit} onDelete={setDeletingReview}
+                  onApprove={setApprovingReview} onReject={setRejectingReview}
+                  onSubmit={handleSubmit}
+                />
+              ))}
             </Section>
           )}
 
@@ -699,119 +866,83 @@ export function ModuleReviewsTab({ contentTypeId, moduleLabel }: ModuleReviewsTa
             <Section
               title="Upcoming Reviews"
               icon={<Clock className="h-4 w-4" />}
-              color="text-violet-600"
-              count={upcomingReviews.length}
+              titleColor="text-violet-600"
+              count={upcomingList.length}
               defaultOpen
             >
-              {upcomingReviews.length === 0 ? (
-                <p className="text-sm text-muted-foreground pl-2">No upcoming reviews scheduled.</p>
-              ) : (
-                upcomingReviews.map((r) => (
-                  <ReviewRow
-                    key={r.id}
-                    review={r}
-                    isCurrentReview={false}
-                    onEdit={() => {}}
-                    onDelete={() => {}}
-                    onApprove={() => {}}
-                    onReject={() => {}}
-                    onSubmit={() => {}}
-                  />
-                ))
-              )}
+              {upcomingList.map((r) => (
+                <ReviewCard key={r.id} review={r} isCurrentReview={false}
+                  onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} onReject={() => {}} onSubmit={() => {}}
+                />
+              ))}
             </Section>
           )}
 
-          {/* Previous (closed) */}
+          {/* Previous / Closed */}
           {(filterPeriod === "all" || filterPeriod === "previous") && (
             <Section
               title="Previous Reviews (Closed)"
               icon={<CheckCircle2 className="h-4 w-4" />}
-              color="text-green-600"
-              count={previousReviews.length}
+              titleColor="text-green-600"
+              count={previousList.length}
               defaultOpen={false}
             >
-              {previousReviews.length === 0 ? (
-                <p className="text-sm text-muted-foreground pl-2">No closed reviews yet.</p>
-              ) : (
-                previousReviews.map((r) => (
-                  <ReviewRow
-                    key={r.id}
-                    review={r}
-                    isCurrentReview={false}
-                    onEdit={() => {}}
-                    onDelete={() => {}}
-                    onApprove={() => {}}
-                    onReject={() => {}}
-                    onSubmit={() => {}}
-                  />
-                ))
-              )}
+              {previousList.map((r) => (
+                <ReviewCard key={r.id} review={r} isCurrentReview={false}
+                  onEdit={() => {}} onDelete={() => {}} onApprove={() => {}} onReject={() => {}} onSubmit={() => {}}
+                />
+              ))}
             </Section>
           )}
         </div>
       )}
 
-      {/* Review Form Modal */}
+      {/* ── Modals ── */}
       <ReviewFormModal
         open={modalOpen}
         review={editingReview}
         contentTypeId={contentTypeId ?? 0}
+        objects={objects}
         onClose={handleModalClose}
       />
 
-      {/* Approve Modal */}
       <ApproveModal
         open={!!approvingReview}
         review={approvingReview}
         onClose={() => setApprovingReview(null)}
       />
 
-      {/* Reject Modal */}
       <Modal
         open={!!rejectingReview}
         onClose={() => { setRejectingReview(null); setRejectReason(""); }}
-        title="Reject Review"
+        title="Reject Review — Return to Maker"
         size="sm"
       >
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
             Provide a reason so the Reviewer (Maker) can address the issues and resubmit.
           </p>
-          <Textarea
-            value={rejectReason}
-            onChange={(e) => setRejectReason(e.target.value)}
-            rows={3}
-            placeholder="Explain why this review is being rejected…"
-          />
+          <Textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} rows={3}
+            placeholder="Explain why this review is being rejected…" />
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => { setRejectingReview(null); setRejectReason(""); }}>
               Cancel
             </Button>
-            <Button
-              variant="destructive"
-              disabled={!rejectReason.trim()}
-              isLoading={rejectMutation.isPending}
-              onClick={handleReject}
-            >
-              Reject Review
+            <Button variant="destructive" disabled={!rejectReason.trim()} isLoading={rejectMutation.isPending} onClick={handleReject}>
+              Reject
             </Button>
           </div>
         </div>
       </Modal>
 
-      {/* Delete Confirm */}
       <ConfirmDialog
         open={!!deletingReview}
         title="Delete Review"
-        description="Are you sure you want to delete this review? This action cannot be undone."
+        description="Delete this review? This action cannot be undone."
         confirmLabel="Delete"
         variant="destructive"
         onConfirm={async () => {
-          if (deletingReview) {
-            await deleteMutation.mutateAsync(deletingReview);
-            setDeletingReview(null);
-          }
+          if (deletingReview) { await deleteMutation.mutateAsync(deletingReview); setDeletingReview(null); }
         }}
         onCancel={() => setDeletingReview(null)}
       />
