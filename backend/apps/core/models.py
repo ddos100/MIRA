@@ -355,6 +355,100 @@ class Webhook(BaseModel):
         return f"{self.name} → {self.url}"
 
 
+# ─── Generic Review (Maker/Checker Workflow) ──────────────────────────────────
+
+
+class Review(BaseModel):
+    """
+    Generic review record attachable to any model (Risk, Asset, Control, etc.).
+    Implements the Maker/Checker (4-eyes) principle per ISO 27001:2022 §9.1/9.3.
+
+    Reviewer (Maker) creates and submits; Approver (Checker) approves or rejects.
+    """
+
+    class ReviewType(models.TextChoices):
+        PERIODIC = "periodic", _("Periodic Review")
+        TRIGGERED = "triggered", _("Triggered Review")
+        AD_HOC = "ad_hoc", _("Ad Hoc")
+        AUDIT = "audit", _("Internal Audit")
+        MANAGEMENT = "management", _("Management Review")
+
+    class WorkflowState(models.TextChoices):
+        DRAFT = "draft", _("Draft")
+        SUBMITTED = "submitted", _("Submitted for Approval")
+        APPROVED = "approved", _("Approved")
+        REJECTED = "rejected", _("Rejected — Needs Revision")
+
+    class Outcome(models.TextChoices):
+        SATISFACTORY = "satisfactory", _("Satisfactory")
+        NEEDS_IMPROVEMENT = "needs_improvement", _("Needs Improvement")
+        UNSATISFACTORY = "unsatisfactory", _("Unsatisfactory")
+        CRITICAL = "critical", _("Critical — Immediate Action Required")
+
+    # Generic relation — links to any model instance
+    content_type = models.ForeignKey(
+        ContentType, on_delete=models.CASCADE, related_name="reviews"
+    )
+    object_id = models.UUIDField(db_index=True)
+    content_object = GenericForeignKey("content_type", "object_id")
+
+    review_type = models.CharField(
+        max_length=20, choices=ReviewType.choices, default=ReviewType.PERIODIC
+    )
+    review_date = models.DateField()
+
+    # Maker (reviewer who conducts and submits)
+    reviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="reviews_conducted",
+        help_text="Maker — person conducting the review",
+    )
+    # Checker (approver who validates)
+    approver = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="reviews_approved",
+        help_text="Checker — person approving the review",
+    )
+
+    workflow_state = models.CharField(
+        max_length=20,
+        choices=WorkflowState.choices,
+        default=WorkflowState.DRAFT,
+        db_index=True,
+    )
+    outcome = models.CharField(
+        max_length=30, choices=Outcome.choices, blank=True
+    )
+
+    # Content
+    findings = models.TextField(blank=True)
+    recommendations = models.TextField(blank=True)
+    actions_required = models.TextField(blank=True)
+    evidence = models.TextField(blank=True, help_text="Evidence references or links")
+
+    next_review_date = models.DateField(null=True, blank=True)
+
+    # Approval audit trail
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = _("Review")
+        verbose_name_plural = _("Reviews")
+        ordering = ["-review_date"]
+        indexes = [
+            models.Index(fields=["content_type", "object_id"]),
+        ]
+
+    def __str__(self):
+        return f"Review [{self.content_type}] on {self.review_date} — {self.workflow_state}"
+
+
 class WebhookDelivery(models.Model):
     """Record of a single outbound webhook delivery attempt."""
 

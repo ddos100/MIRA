@@ -2,6 +2,7 @@ import {
   AlertTriangle,
   BookOpen,
   Brain,
+  Bug,
   Building2,
   CheckSquare,
   ChevronDown,
@@ -15,6 +16,7 @@ import {
   Package,
   Settings,
   ShieldAlert,
+  Target,
   Users,
   XCircle,
   Zap,
@@ -57,6 +59,7 @@ const navSections: NavSection[] = [
       { label: "Organizations", href: "/organizations", icon: Building2 },
       { label: "Assets", href: "/assets", icon: Package },
       { label: "Third Parties", href: "/vendors", icon: Globe },
+      { label: "Goals", href: "/organization/goals", icon: Target },
     ],
   },
   {
@@ -101,6 +104,7 @@ const navSections: NavSection[] = [
           { label: "Heat Map", href: "/risks/heatmap" },
         ],
       },
+      { label: "Threats & Vulnerabilities", href: "/threats", icon: Bug },
     ],
   },
   {

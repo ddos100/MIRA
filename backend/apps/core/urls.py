@@ -9,6 +9,7 @@ from .views import (
     CustomFieldValueViewSet,
     CustomFieldViewSet,
     NotificationListView,
+    ReviewViewSet,
     StatusRuleViewSet,
     TagDetailView,
     TagListCreateView,
@@ -29,6 +30,7 @@ router.register(
 )
 router.register(r"status-rules", StatusRuleViewSet, basename="status-rule")
 router.register(r"automated-actions", AutomatedActionViewSet, basename="automated-action")
+router.register(r"reviews", ReviewViewSet, basename="review")
 
 urlpatterns = router.urls + [
     path("health/", health_check, name="health-check"),

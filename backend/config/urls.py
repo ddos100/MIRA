@@ -26,6 +26,8 @@ api_v1_patterns = [
     path("awareness/", include("apps.awareness.urls")),
     path("reports/", include("apps.reports.urls")),
     path("core/", include("apps.core.urls")),
+    path("goals/", include("apps.goals.urls")),
+    path("threats/", include("apps.threats.urls")),
     # OpenAPI schema
     path("schema/", SpectacularAPIView.as_view(), name="schema"),
     path("docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),

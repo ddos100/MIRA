@@ -8,6 +8,7 @@ from .models import (
     CustomField,
     CustomFieldValue,
     Notification,
+    Review,
     StatusRule,
     Tag,
     Webhook,
@@ -176,6 +177,49 @@ class AutomatedActionSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "last_triggered_at", "trigger_count", "created_at", "updated_at"]
+
+
+class ReviewSerializer(serializers.ModelSerializer):
+    reviewer_name = serializers.CharField(
+        source="reviewer.get_full_name", read_only=True
+    )
+    approver_name = serializers.CharField(
+        source="approver.get_full_name", read_only=True, default=None
+    )
+    content_type_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Review
+        fields = [
+            "id",
+            "content_type",
+            "content_type_label",
+            "object_id",
+            "review_type",
+            "review_date",
+            "reviewer",
+            "reviewer_name",
+            "approver",
+            "approver_name",
+            "workflow_state",
+            "outcome",
+            "findings",
+            "recommendations",
+            "actions_required",
+            "evidence",
+            "next_review_date",
+            "submitted_at",
+            "approved_at",
+            "rejection_reason",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "submitted_at", "approved_at", "created_at", "updated_at"]
+
+    def get_content_type_label(self, obj):
+        if obj.content_type_id:
+            return f"{obj.content_type.app_label}.{obj.content_type.model}"
+        return None
 
 
 class WebhookDeliverySerializer(serializers.ModelSerializer):

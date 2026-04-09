@@ -13,6 +13,7 @@ from .models import (
     CustomField,
     CustomFieldValue,
     Notification,
+    Review,
     StatusRule,
     Tag,
     Webhook,
@@ -26,6 +27,7 @@ from .serializers import (
     CustomFieldSerializer,
     CustomFieldValueSerializer,
     NotificationSerializer,
+    ReviewSerializer,
     StatusRuleSerializer,
     TagSerializer,
     WebhookDeliverySerializer,
@@ -296,6 +298,88 @@ class AutomatedActionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filterset_fields = ["status_rule", "action_type", "is_active"]
     ordering_fields = ["name", "created_at"]
+
+
+class ReviewViewSet(viewsets.ModelViewSet):
+    """
+    Generic reviews for any GRC object (Risk, Asset, Control, Policy, etc.).
+    Filter by ?content_type=<id>&object_id=<uuid>.
+    Implements Maker/Checker workflow: reviewer submits, approver approves/rejects.
+    """
+
+    queryset = Review.objects.select_related(
+        "content_type", "reviewer", "approver"
+    ).all()
+    serializer_class = ReviewSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ["content_type", "workflow_state", "review_type", "reviewer", "approver"]
+    ordering_fields = ["review_date", "created_at"]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        object_id = self.request.query_params.get("object_id")
+        if object_id:
+            qs = qs.filter(object_id=object_id)
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(
+            created_by=self.request.user,
+            reviewer=self.request.user,
+        )
+
+    @action(detail=True, methods=["post"], url_path="submit")
+    def submit(self, request, pk=None):
+        """Maker submits review for checker approval."""
+        review = self.get_object()
+        if review.workflow_state != Review.WorkflowState.DRAFT:
+            return Response(
+                {"error": "Only draft reviews can be submitted."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        review.workflow_state = Review.WorkflowState.SUBMITTED
+        review.submitted_at = timezone.now()
+        review.updated_by = request.user
+        review.save(update_fields=["workflow_state", "submitted_at", "updated_by", "updated_at"])
+        return Response(ReviewSerializer(review).data)
+
+    @action(detail=True, methods=["post"], url_path="approve")
+    def approve(self, request, pk=None):
+        """Checker approves the review."""
+        review = self.get_object()
+        if review.workflow_state != Review.WorkflowState.SUBMITTED:
+            return Response(
+                {"error": "Only submitted reviews can be approved."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        review.workflow_state = Review.WorkflowState.APPROVED
+        review.approver = request.user
+        review.approved_at = timezone.now()
+        review.updated_by = request.user
+        review.save(
+            update_fields=["workflow_state", "approver", "approved_at", "updated_by", "updated_at"]
+        )
+        return Response(ReviewSerializer(review).data)
+
+    @action(detail=True, methods=["post"], url_path="reject")
+    def reject(self, request, pk=None):
+        """Checker rejects the review with a reason."""
+        review = self.get_object()
+        if review.workflow_state != Review.WorkflowState.SUBMITTED:
+            return Response(
+                {"error": "Only submitted reviews can be rejected."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        review.workflow_state = Review.WorkflowState.REJECTED
+        review.rejection_reason = request.data.get("reason", "")
+        review.approver = request.user
+        review.updated_by = request.user
+        review.save(
+            update_fields=[
+                "workflow_state", "rejection_reason", "approver", "updated_by", "updated_at"
+            ]
+        )
+        return Response(ReviewSerializer(review).data)
 
 
 @api_view(["GET"])
