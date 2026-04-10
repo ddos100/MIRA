@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Wand2 } from "lucide-react";
+import { ShieldAlert, Bug, Wand2, Sparkles } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -17,6 +17,7 @@ import { useBusinessUnits } from "@/api/organizations";
 import { useUsers } from "@/api/auth";
 import { useAssets } from "@/api/assets";
 import { useProjects, useCreateProject } from "@/api/projects";
+import { useThreats, useVulnerabilities } from "@/api/threats";
 import type { Risk } from "@/types";
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
@@ -84,6 +85,8 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
   const [selectedCompliance, setSelectedCompliance] = useState<string[]>([]);
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
+  const [selectedThreats, setSelectedThreats] = useState<string[]>([]);
+  const [selectedVulnerabilities, setSelectedVulnerabilities] = useState<string[]>([]);
 
   // Reference data
   const { data: categories } = useRiskCategories();
@@ -94,6 +97,17 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
   const { data: requirementsData } = useRequirements({ page_size: 500 });
   const { data: assetsData } = useAssets({ page_size: 200 });
   const { data: projectsData } = useProjects({ page_size: 200 });
+
+  // Threats & vulnerabilities for suggestions / multi-select
+  const { data: allThreats = [] } = useThreats({ page_size: 500, ordering: "-risk_score" });
+  const { data: allVulnerabilities = [] } = useVulnerabilities({ page_size: 500, ordering: "-severity" });
+
+  // Derive asset names for the selected assets to show context in suggestion
+  const assetMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    (assetsData?.results ?? []).forEach((a) => { m[a.id] = a.name; });
+    return m;
+  }, [assetsData]);
 
   const businessUnits = businessUnitsData?.results ?? [];
   const users = usersData?.results ?? [];
@@ -141,6 +155,36 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
     value: p.id,
     label: p.title,
   }));
+  const threatOptions = allThreats.map((t) => ({
+    value: t.id,
+    label: `${t.name} (Risk: ${t.risk_score})`,
+  }));
+  const vulnerabilityOptions = allVulnerabilities.map((v) => ({
+    value: v.id,
+    label: `${v.name}${v.cvss_score != null ? ` (CVSS: ${v.cvss_score})` : ""}`,
+  }));
+
+  // Auto-suggest threats/vulnerabilities when assets are selected
+  const suggestedThreatIds = useMemo(() => {
+    if (selectedAssets.length === 0) return new Set<string>();
+    // Suggest top 5 threats by risk_score not already selected
+    return new Set(
+      allThreats
+        .filter((t) => !selectedThreats.includes(t.id))
+        .slice(0, 5)
+        .map((t) => t.id)
+    );
+  }, [selectedAssets, allThreats, selectedThreats]);
+
+  const suggestedVulnIds = useMemo(() => {
+    if (selectedAssets.length === 0) return new Set<string>();
+    return new Set(
+      allVulnerabilities
+        .filter((v) => !selectedVulnerabilities.includes(v.id))
+        .slice(0, 5)
+        .map((v) => v.id)
+    );
+  }, [selectedAssets, allVulnerabilities, selectedVulnerabilities]);
 
   const createRisk = useCreateRisk();
   const updateRisk = useUpdateRisk(risk?.id ?? "");
@@ -197,6 +241,8 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
       setSelectedCompliance(risk.compliance_requirements ?? []);
       setSelectedAssets(risk.assets ?? []);
       setSelectedProjects(risk.projects ?? []);
+      setSelectedThreats(risk.threats ?? []);
+      setSelectedVulnerabilities(risk.vulnerabilities ?? []);
     } else {
       reset({
         title: "",
@@ -220,6 +266,8 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
       setSelectedCompliance([]);
       setSelectedAssets([]);
       setSelectedProjects([]);
+      setSelectedThreats([]);
+      setSelectedVulnerabilities([]);
     }
   }, [risk, reset]);
 
@@ -260,6 +308,8 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
       compliance_requirements: selectedCompliance,
       assets: selectedAssets,
       projects: selectedProjects,
+      threats: selectedThreats,
+      vulnerabilities: selectedVulnerabilities,
     };
 
     if (isEditing) {
@@ -433,6 +483,75 @@ export default function RiskFormModal({ open, onClose, risk }: RiskFormModalProp
             onChange={setSelectedAssets}
             placeholder="Link affected assets…"
           />
+        </fieldset>
+
+        {/* ── Threats & Vulnerabilities ── */}
+        <fieldset className="rounded-md border border-border p-4 space-y-4">
+          <legend className="text-sm font-semibold text-foreground px-1">Threats &amp; Vulnerabilities</legend>
+
+          <MultiSelect
+            label="Linked Threats"
+            options={threatOptions}
+            value={selectedThreats}
+            onChange={setSelectedThreats}
+            placeholder="Select threats applicable to this risk…"
+          />
+
+          {selectedAssets.length > 0 && suggestedThreatIds.size > 0 && (
+            <div className="rounded-md bg-amber-50 border border-amber-200 p-3 space-y-2">
+              <p className="text-xs font-medium text-amber-800 flex items-center gap-1">
+                <Sparkles className="h-3.5 w-3.5" />
+                Suggested threats based on selected assets
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {allThreats
+                  .filter((t) => suggestedThreatIds.has(t.id))
+                  .map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setSelectedThreats((prev) => [...prev, t.id])}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-white border border-amber-300 text-amber-900 hover:bg-amber-100 transition-colors"
+                    >
+                      <ShieldAlert className="h-3 w-3 text-red-500" />
+                      {t.name}
+                    </button>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          <MultiSelect
+            label="Linked Vulnerabilities"
+            options={vulnerabilityOptions}
+            value={selectedVulnerabilities}
+            onChange={setSelectedVulnerabilities}
+            placeholder="Select vulnerabilities that could be exploited…"
+          />
+
+          {selectedAssets.length > 0 && suggestedVulnIds.size > 0 && (
+            <div className="rounded-md bg-blue-50 border border-blue-200 p-3 space-y-2">
+              <p className="text-xs font-medium text-blue-800 flex items-center gap-1">
+                <Sparkles className="h-3.5 w-3.5" />
+                Suggested vulnerabilities based on selected assets
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {allVulnerabilities
+                  .filter((v) => suggestedVulnIds.has(v.id))
+                  .map((v) => (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => setSelectedVulnerabilities((prev) => [...prev, v.id])}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-white border border-blue-300 text-blue-900 hover:bg-blue-100 transition-colors"
+                    >
+                      <Bug className="h-3 w-3 text-amber-500" />
+                      {v.name}
+                    </button>
+                  ))}
+              </div>
+            </div>
+          )}
         </fieldset>
 
         {/* ── Treatment Plan / Projects ── */}

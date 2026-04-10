@@ -76,6 +76,8 @@ class Risk(BaseModel):
 
     # Relationships
     assets = models.ManyToManyField("assets.Asset", blank=True, related_name="risks")
+    threats = models.ManyToManyField("threats.Threat", blank=True, related_name="risks")
+    vulnerabilities = models.ManyToManyField("threats.Vulnerability", blank=True, related_name="risks")
     third_parties = models.ManyToManyField(
         "third_parties.ThirdParty", blank=True, related_name="risks"
     )

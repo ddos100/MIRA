@@ -3,12 +3,15 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Building2, ClipboardList, Key, Lock, Plus, Trash2, User, Webhook, Zap } from "lucide-react";
+import { Building2, ClipboardList, Key, Lock, Plus, Trash2, User, Webhook, Zap, Bot, Mail, Globe, Bell, ToggleLeft, ToggleRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { apiClient } from "@/api/client";
 import { useAuthStore } from "@/store/authStore";
+import { useAllAutomatedActions, useDeleteAutomatedAction } from "@/api/automatedActions";
+import { useStatusRules } from "@/api/statusRules";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/utils/cn";
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
@@ -36,7 +39,7 @@ type PasswordFormValues = z.infer<typeof passwordSchema>;
 
 // ─── Tab types ────────────────────────────────────────────────────────────────
 
-type Tab = "profile" | "security" | "api-keys" | "audit-log" | "webhooks" | "organization" | "status-rules";
+type Tab = "profile" | "security" | "api-keys" | "audit-log" | "webhooks" | "organization" | "status-rules" | "automated-actions";
 
 // ─── Profile Tab ──────────────────────────────────────────────────────────────
 
@@ -826,6 +829,134 @@ function OrganizationTab() {
   );
 }
 
+// ─── Automated Actions Tab ────────────────────────────────────────────────────
+
+const ACTION_TYPE_ICONS: Record<string, React.ElementType> = {
+  send_email: Mail,
+  call_webhook: Globe,
+  create_notification: Bell,
+};
+
+function AutomatedActionsTab() {
+  const { data: actions = [], isLoading } = useAllAutomatedActions();
+  const { data: rules = [] } = useStatusRules();
+  const deleteAction = useDeleteAutomatedAction();
+  const qc = useQueryClient();
+
+  const ruleMap = Object.fromEntries(rules.map((r) => [r.id, r]));
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-16 bg-muted animate-pulse rounded-md" />
+        ))}
+      </div>
+    );
+  }
+
+  if (actions.length === 0) {
+    return (
+      <div className="text-center py-16 text-muted-foreground">
+        <Bot className="h-10 w-10 mx-auto mb-3 opacity-30" />
+        <p className="text-sm">No automated actions configured yet.</p>
+        <p className="text-xs mt-1">Add actions from the Status Engine rules.</p>
+      </div>
+    );
+  }
+
+  // Group by action_type
+  const grouped: Record<string, typeof actions> = {};
+  for (const action of actions) {
+    if (!grouped[action.action_type]) grouped[action.action_type] = [];
+    grouped[action.action_type].push(action);
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {actions.length} action{actions.length !== 1 ? "s" : ""} configured across all modules.
+        </p>
+      </div>
+
+      {Object.entries(grouped).map(([type, typeActions]) => {
+        const Icon = ACTION_TYPE_ICONS[type] ?? Bot;
+        const typeLabel = typeActions[0]?.action_type_display ?? type;
+        return (
+          <div key={type} className="space-y-2">
+            <div className="flex items-center gap-2 mb-2">
+              <Icon className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-sm font-semibold">{typeLabel}</h3>
+              <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
+                {typeActions.length}
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              {typeActions.map((action) => {
+                const rule = ruleMap[action.status_rule];
+                return (
+                  <div
+                    key={action.id}
+                    className="flex items-center justify-between gap-4 rounded-lg border border-border bg-card p-3"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium truncate">{action.name}</p>
+                        <Badge variant={action.is_active ? "open" : "closed"}>
+                          {action.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                      </div>
+                      {rule && (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Rule: {rule.name}
+                          {rule.content_type_label && (
+                            <span className="ml-1 opacity-60">({rule.content_type_label})</span>
+                          )}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                        <span>Triggered {action.trigger_count} time{action.trigger_count !== 1 ? "s" : ""}</span>
+                        {action.last_triggered_at && (
+                          <span>Last: {new Date(action.last_triggered_at).toLocaleDateString()}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => {
+                          apiClient.patch(`/core/automated-actions/${action.id}/`, {
+                            is_active: !action.is_active,
+                          }).then(() => qc.invalidateQueries({ queryKey: ["automated-actions"] }));
+                        }}
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                        title={action.is_active ? "Deactivate" : "Activate"}
+                      >
+                        {action.is_active
+                          ? <ToggleRight className="h-5 w-5 text-primary" />
+                          : <ToggleLeft className="h-5 w-5" />
+                        }
+                      </button>
+                      <button
+                        onClick={() => deleteAction.mutate({ id: action.id, ruleId: action.status_rule })}
+                        className="text-muted-foreground hover:text-destructive transition-colors"
+                        title="Delete action"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
@@ -836,6 +967,7 @@ const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: "audit-log", label: "Audit Log", icon: ClipboardList },
   { id: "organization", label: "Organisation", icon: Building2 },
   { id: "status-rules", label: "Status Engine", icon: Zap },
+  { id: "automated-actions", label: "Automated Actions", icon: Bot },
 ];
 
 export default function SettingsPage() {
@@ -850,6 +982,7 @@ export default function SettingsPage() {
       setTab(id);
     }
   }
+
 
   return (
     <div className="space-y-6">
@@ -883,6 +1016,7 @@ export default function SettingsPage() {
         {tab === "webhooks" && <WebhooksTab />}
         {tab === "audit-log" && <AuditLogTab />}
         {tab === "organization" && <OrganizationTab />}
+        {tab === "automated-actions" && <AutomatedActionsTab />}
       </div>
     </div>
   );

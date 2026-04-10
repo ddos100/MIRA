@@ -118,6 +118,10 @@ export interface Risk {
   asset_names?: string[];
   policies?: string[];
   compliance_requirements?: string[];
+  threats?: string[];
+  threat_names?: string[];
+  vulnerabilities?: string[];
+  vulnerability_names?: string[];
   // Reverse M2M
   controls?: string[];       // via Control.risks
   projects?: string[];       // via Project.risks

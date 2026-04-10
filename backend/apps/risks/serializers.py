@@ -4,6 +4,7 @@ from rest_framework import serializers
 
 from apps.controls.models import Control
 from apps.projects.models import Project
+from apps.threats.models import Threat, Vulnerability
 
 from .models import Risk, RiskCategory, RiskReview, RiskTreatmentPlan
 
@@ -22,6 +23,8 @@ class RiskSerializer(serializers.ModelSerializer):
     category_name = serializers.SerializerMethodField()
     asset_names = serializers.SerializerMethodField()
     project_names = serializers.SerializerMethodField()
+    threat_names = serializers.SerializerMethodField()
+    vulnerability_names = serializers.SerializerMethodField()
 
     # Reverse M2M: Control.risks → exposed on Risk as writable IDs
     controls = serializers.PrimaryKeyRelatedField(
@@ -34,6 +37,18 @@ class RiskSerializer(serializers.ModelSerializer):
     projects = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=Project.objects.all(),
+        required=False,
+    )
+
+    # Direct M2M: threats and vulnerabilities
+    threats = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Threat.objects.all(),
+        required=False,
+    )
+    vulnerabilities = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Vulnerability.objects.all(),
         required=False,
     )
 
@@ -63,6 +78,12 @@ class RiskSerializer(serializers.ModelSerializer):
 
     def get_project_names(self, obj):
         return list(obj.projects.values_list("title", flat=True))
+
+    def get_threat_names(self, obj):
+        return list(obj.threats.values_list("name", flat=True))
+
+    def get_vulnerability_names(self, obj):
+        return list(obj.vulnerabilities.values_list("name", flat=True))
 
     def _set_reverse_m2m(self, instance, controls, projects):
         """Sync reverse M2M relations that aren't direct model fields."""
