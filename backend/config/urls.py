@@ -1,12 +1,23 @@
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
+from django.http import JsonResponse
 from django.urls import include, path
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
+
+
+def api_root(request):
+    return JsonResponse({
+        "name": "MIRA GRC API",
+        "version": "v1",
+        "docs": "/api/v1/docs/",
+        "admin": "/admin/",
+    })
+
 
 api_v1_patterns = [
     path("auth/", include("apps.accounts.urls")),
@@ -35,6 +46,7 @@ api_v1_patterns = [
 ]
 
 urlpatterns = [
+    path("", api_root),
     path("admin/", admin.site.urls),
     path("api/v1/", include((api_v1_patterns, "v1"))),
     path("accounts/", include("allauth.urls")),
