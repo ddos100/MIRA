@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Pencil, Trash2, Search, Upload } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Upload, Settings2, Save } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useQueryClient } from "@tanstack/react-query";
 
+import { useMutation } from "@tanstack/react-query";
 import {
   useAssets,
   useDataAssets,
@@ -17,7 +18,9 @@ import {
   assetKeys,
   type Asset,
   type AssetStatus,
+  type DataFlow,
 } from "@/api/assets";
+import { apiClient } from "@/api/client";
 import { useBusinessUnits } from "@/api/organizations";
 import { CriticalityBadge } from "@/components/assets/CriticalityBadge";
 import { ClassificationBadge } from "@/components/assets/ClassificationBadge";
@@ -28,6 +31,7 @@ import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { ImportModal } from "@/components/common/ImportModal";
+import { Modal } from "@/components/ui/Modal";
 import { BulkUploadSection } from "@/components/common/BulkUploadSection";
 import { ModuleStatusRulesTab } from "@/components/common/ModuleStatusRulesTab";
 import { ModuleReviewsTab } from "@/components/common/ModuleReviewsTab";
@@ -274,83 +278,129 @@ function AssetFormModal({ open, onClose, asset }: AssetFormModalProps) {
 
 type Tab = "all" | "data_assets" | "data_flows" | "reviews" | "bulk_upload" | "status_rules";
 
-// ─── All Assets Tab ───────────────────────────────────────────────────────────
+// ─── Column & Filter Presets helpers ─────────────────────────────────────────
 
-interface AllAssetsTabProps {
-  onEdit: (asset: Asset) => void;
+const ALL_COLUMNS = [
+  { key: "name",          label: "Name" },
+  { key: "category",      label: "Category" },
+  { key: "owner",         label: "Owner" },
+  { key: "business_unit", label: "Business Unit" },
+  { key: "criticality",   label: "Criticality" },
+  { key: "confidentiality", label: "C (Conf.)" },
+  { key: "integrity",     label: "I (Integ.)" },
+  { key: "availability",  label: "A (Avail.)" },
+  { key: "status",        label: "Status" },
+  { key: "asset_value",   label: "Value" },
+  { key: "notes",         label: "Notes" },
+] as const;
+type ColKey = typeof ALL_COLUMNS[number]["key"];
+
+const DEFAULT_VISIBLE: ColKey[] = ["name","category","owner","criticality","confidentiality","integrity","availability","status","business_unit"];
+
+const LS_COLS_KEY = "mira_asset_visible_cols";
+const LS_PRESETS_KEY = "mira_asset_filter_presets";
+
+interface FilterState { search: string; category: string; status: string; criticality: string; }
+interface FilterPreset { name: string; filters: FilterState; }
+
+function loadVisibleCols(): ColKey[] {
+  try {
+    const v = localStorage.getItem(LS_COLS_KEY);
+    return v ? JSON.parse(v) : DEFAULT_VISIBLE;
+  } catch { return DEFAULT_VISIBLE; }
 }
 
-function AllAssetsTab({ onEdit }: AllAssetsTabProps) {
+function loadPresets(): FilterPreset[] {
+  try {
+    const v = localStorage.getItem(LS_PRESETS_KEY);
+    return v ? JSON.parse(v) : [];
+  } catch { return []; }
+}
+
+// ─── All Assets Tab ───────────────────────────────────────────────────────────
+
+function AllAssetsTab() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [criticalityFilter, setCriticalityFilter] = useState("");
+  const [visibleCols, setVisibleCols] = useState<ColKey[]>(loadVisibleCols);
+  const [showColPicker, setShowColPicker] = useState(false);
+  const [presets, setPresets] = useState<FilterPreset[]>(loadPresets);
+  const [presetName, setPresetName] = useState("");
+  const [showPresetSave, setShowPresetSave] = useState(false);
 
   const { data: categoriesData } = useAssetCategories();
   const deleteAsset = useDeleteAsset();
 
-  const params = {
+  const params = useMemo(() => ({
     search: search || undefined,
     category: categoryFilter || undefined,
     status: (statusFilter as AssetStatus) || undefined,
     criticality: criticalityFilter ? Number(criticalityFilter) : undefined,
-  };
+  }), [search, categoryFilter, statusFilter, criticalityFilter]);
 
   const { data, isLoading } = useAssets(params);
   const assets = data?.results ?? [];
 
   const categoryOptions = [
     { value: "", label: "All Categories" },
-    ...(categoriesData?.results?.map((c) => ({
-      value: c.id,
-      label: c.name,
-    })) ?? []),
+    ...(categoriesData?.results?.map((c) => ({ value: c.id, label: c.name })) ?? []),
   ];
+
+  function toggleCol(key: ColKey) {
+    const next = visibleCols.includes(key) ? visibleCols.filter(k => k !== key) : [...visibleCols, key];
+    setVisibleCols(next);
+    localStorage.setItem(LS_COLS_KEY, JSON.stringify(next));
+  }
+
+  function savePreset() {
+    if (!presetName.trim()) return;
+    const next = [...presets, { name: presetName.trim(), filters: { search, category: categoryFilter, status: statusFilter, criticality: criticalityFilter } }];
+    setPresets(next);
+    localStorage.setItem(LS_PRESETS_KEY, JSON.stringify(next));
+    setPresetName("");
+    setShowPresetSave(false);
+  }
+
+  function applyPreset(p: FilterPreset) {
+    setSearch(p.filters.search);
+    setCategoryFilter(p.filters.category);
+    setStatusFilter(p.filters.status);
+    setCriticalityFilter(p.filters.criticality);
+  }
+
+  function deletePreset(name: string) {
+    const next = presets.filter(p => p.name !== name);
+    setPresets(next);
+    localStorage.setItem(LS_PRESETS_KEY, JSON.stringify(next));
+  }
+
+  const colCount = visibleCols.length + 1; // +1 for Actions
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3">
+      {/* Filter row */}
+      <div className="flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search assets..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="flex h-9 w-full rounded-md border border-input bg-background pl-8 pr-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
+          <input type="text" placeholder="Search assets..." value={search} onChange={e => setSearch(e.target.value)}
+            className="flex h-9 w-full rounded-md border border-input bg-background pl-8 pr-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
         </div>
-
-        <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          {categoryOptions.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
+        <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}
+          className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          {categoryOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
         </select>
-
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+          className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <option value="">All Statuses</option>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
           <option value="retired">Retired</option>
         </select>
-
-        <select
-          value={criticalityFilter}
-          onChange={(e) => setCriticalityFilter(e.target.value)}
-          className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
+        <select value={criticalityFilter} onChange={e => setCriticalityFilter(e.target.value)}
+          className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <option value="">All Criticalities</option>
           <option value="1">1 – Very Low</option>
           <option value="2">2 – Low</option>
@@ -358,126 +408,103 @@ function AllAssetsTab({ onEdit }: AllAssetsTabProps) {
           <option value="4">4 – High</option>
           <option value="5">5 – Critical</option>
         </select>
+
+        {/* Presets */}
+        {presets.length > 0 && (
+          <select onChange={e => { const p = presets.find(x => x.name === e.target.value); if (p) applyPreset(p); e.target.value = ""; }}
+            className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <option value="">Load preset…</option>
+            {presets.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+          </select>
+        )}
+
+        <button onClick={() => setShowPresetSave(v => !v)} title="Save filter preset"
+          className="flex h-9 items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1 text-sm hover:bg-muted">
+          <Save className="h-3.5 w-3.5" /> Save
+        </button>
+        <button onClick={() => setShowColPicker(v => !v)} title="Choose visible columns"
+          className={cn("flex h-9 items-center gap-1.5 rounded-md border px-3 py-1 text-sm hover:bg-muted", showColPicker ? "border-primary bg-primary/5" : "border-input bg-background")}>
+          <Settings2 className="h-3.5 w-3.5" /> Columns
+        </button>
       </div>
+
+      {/* Save preset inline */}
+      {showPresetSave && (
+        <div className="flex items-center gap-2">
+          <input value={presetName} onChange={e => setPresetName(e.target.value)} placeholder="Preset name…"
+            className="h-8 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring w-48" />
+          <Button size="sm" onClick={savePreset} disabled={!presetName.trim()}>Save Preset</Button>
+          <Button size="sm" variant="outline" onClick={() => setShowPresetSave(false)}>Cancel</Button>
+          {presets.length > 0 && (
+            <div className="flex flex-wrap gap-1 ml-2">
+              {presets.map(p => (
+                <span key={p.name} className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs">
+                  {p.name}
+                  <button onClick={() => deletePreset(p.name)} className="hover:text-destructive">✕</button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Column picker */}
+      {showColPicker && (
+        <div className="flex flex-wrap gap-3 rounded-lg border bg-card p-4">
+          {ALL_COLUMNS.map(col => (
+            <label key={col.key} className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+              <input type="checkbox" checked={visibleCols.includes(col.key)} onChange={() => toggleCol(col.key)} className="rounded" />
+              {col.label}
+            </label>
+          ))}
+        </div>
+      )}
 
       {/* Table */}
       {isLoading ? (
-        <div className="flex justify-center py-8">
-          <LoadingSpinner />
-        </div>
+        <div className="flex justify-center py-8"><LoadingSpinner /></div>
       ) : (
-        <div className="overflow-hidden rounded-lg border bg-card">
+        <div className="overflow-hidden rounded-lg border bg-card overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/30">
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                  Name
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                  Category
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                  Owner
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                  Criticality
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                  C
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                  I
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                  A
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                  Business Unit
-                </th>
-                <th className="px-4 py-3 text-right font-medium text-muted-foreground">
-                  Actions
-                </th>
+                {ALL_COLUMNS.filter(c => visibleCols.includes(c.key)).map(col => (
+                  <th key={col.key} className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">{col.label}</th>
+                ))}
+                <th className="px-4 py-3 text-right font-medium text-muted-foreground">Actions</th>
               </tr>
             </thead>
             <tbody>
               {assets.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={10}
-                    className="px-4 py-10 text-center text-muted-foreground"
-                  >
-                    No assets found.
+                <tr><td colSpan={colCount} className="px-4 py-10 text-center text-muted-foreground">No assets found.</td></tr>
+              ) : assets.map(asset => (
+                <tr key={asset.id} className="cursor-pointer border-b transition-colors last:border-0 hover:bg-muted/20"
+                  onClick={() => navigate(`/assets/${asset.id}`)}>
+                  {visibleCols.includes("name") && <td className="px-4 py-3 font-medium">{asset.name}</td>}
+                  {visibleCols.includes("category") && <td className="px-4 py-3 text-muted-foreground">{asset.category_name ?? "—"}</td>}
+                  {visibleCols.includes("owner") && <td className="px-4 py-3 text-muted-foreground">{asset.owner_name ?? "—"}</td>}
+                  {visibleCols.includes("business_unit") && <td className="px-4 py-3 text-muted-foreground">{asset.business_unit_name ?? "—"}</td>}
+                  {visibleCols.includes("criticality") && <td className="px-4 py-3"><CriticalityBadge value={asset.criticality as 1|2|3|4|5} /></td>}
+                  {visibleCols.includes("confidentiality") && <td className="px-4 py-3"><CIABadge value={asset.confidentiality} /></td>}
+                  {visibleCols.includes("integrity") && <td className="px-4 py-3"><CIABadge value={asset.integrity} /></td>}
+                  {visibleCols.includes("availability") && <td className="px-4 py-3"><CIABadge value={asset.availability} /></td>}
+                  {visibleCols.includes("status") && <td className="px-4 py-3"><Badge variant={asset.status}>{asset.status}</Badge></td>}
+                  {visibleCols.includes("asset_value") && <td className="px-4 py-3 text-muted-foreground">{asset.asset_value ?? "—"}</td>}
+                  {visibleCols.includes("notes") && <td className="px-4 py-3 text-muted-foreground max-w-xs truncate">{asset.notes || "—"}</td>}
+                  <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => navigate(`/assets/${asset.id}`)}
+                        className="rounded p-1 hover:bg-muted text-muted-foreground hover:text-foreground" title="Edit">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={() => { if (window.confirm(`Delete asset "${asset.name}"?`)) deleteAsset.mutate(asset.id); }}
+                        className="rounded p-1 hover:bg-destructive/10 text-muted-foreground hover:text-destructive" title="Delete">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
-              ) : (
-                assets.map((asset) => (
-                  <tr
-                    key={asset.id}
-                    className="cursor-pointer border-b transition-colors last:border-0 hover:bg-muted/20"
-                    onClick={() => navigate(`/assets/${asset.id}`)}
-                  >
-                    <td className="px-4 py-3 font-medium">{asset.name}</td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {asset.category_name ?? "—"}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {asset.owner_name ?? "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <CriticalityBadge
-                        value={asset.criticality as 1 | 2 | 3 | 4 | 5}
-                      />
-                    </td>
-                    <td className="px-4 py-3">
-                      <CIABadge value={asset.confidentiality} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <CIABadge value={asset.integrity} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <CIABadge value={asset.availability} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant={asset.status}>{asset.status}</Badge>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {asset.business_unit_name ?? "—"}
-                    </td>
-                    <td
-                      className="px-4 py-3 text-right"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => onEdit(asset)}
-                          className="rounded p-1 hover:bg-muted text-muted-foreground hover:text-foreground"
-                          title="Edit"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (
-                              window.confirm(
-                                `Delete asset "${asset.name}"?`
-                              )
-                            ) {
-                              deleteAsset.mutate(asset.id);
-                            }
-                          }}
-                          className="rounded p-1 hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
+              ))}
             </tbody>
           </table>
         </div>
@@ -514,71 +541,265 @@ function BulkUploadTab({ onSuccess }: { onSuccess: () => void }) {
 
 function DataAssetsTab() {
   const { data, isLoading } = useDataAssets();
+  const { data: flowsData } = useDataFlows();
   const dataAssets = data?.results ?? [];
+  const allFlows = flowsData?.results ?? [];
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center py-8">
-        <LoadingSpinner />
-      </div>
-    );
-  }
+  // Group flows by asset id
+  const flowsByAsset = useMemo(() => {
+    const map: Record<string, typeof allFlows> = {};
+    for (const f of allFlows) {
+      for (const id of [f.source_asset, f.destination_asset]) {
+        if (!map[id]) map[id] = [];
+        if (!map[id].find(x => x.id === f.id)) map[id].push(f);
+      }
+    }
+    return map;
+  }, [allFlows]);
+
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  if (isLoading) return <div className="flex justify-center py-8"><LoadingSpinner /></div>;
 
   return (
-    <div className="overflow-hidden rounded-lg border bg-card">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b bg-muted/30">
-            <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-              Asset Name
-            </th>
-            <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-              Classification
-            </th>
-            <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-              Retention (days)
-            </th>
-            <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-              Processing Purpose
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {dataAssets.length === 0 ? (
-            <tr>
-              <td
-                colSpan={4}
-                className="px-4 py-10 text-center text-muted-foreground"
-              >
-                No data assets found.
-              </td>
+    <div className="space-y-2">
+      <p className="text-xs text-muted-foreground">
+        Showing assets with a Data Asset record. Click a row to see associated Data Flows.
+      </p>
+      <div className="overflow-hidden rounded-lg border bg-card">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b bg-muted/30">
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Asset Name</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Classification</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Retention (days)</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Legal Basis</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Processing Purpose</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Data Flows</th>
             </tr>
-          ) : (
-            dataAssets.map((da) => (
-              <tr
-                key={da.id}
-                className="border-b transition-colors last:border-0 hover:bg-muted/20"
-              >
-                <td className="px-4 py-3 font-medium">
-                  {da.asset_name ?? da.asset}
-                </td>
-                <td className="px-4 py-3">
-                  <ClassificationBadge value={da.classification} />
-                </td>
-                <td className="px-4 py-3 text-muted-foreground">
-                  {da.retention_period_days ?? "—"}
-                </td>
-                <td className="max-w-xs px-4 py-3 text-muted-foreground">
-                  <span className="line-clamp-2">
-                    {da.processing_purpose || "—"}
-                  </span>
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {dataAssets.length === 0 ? (
+              <tr><td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">No data assets found.</td></tr>
+            ) : dataAssets.map(da => {
+              const flows = flowsByAsset[da.asset] ?? [];
+              const isOpen = expandedId === da.id;
+              return (
+                <>
+                  <tr key={da.id} className="border-b hover:bg-muted/20 cursor-pointer"
+                    onClick={() => setExpandedId(isOpen ? null : da.id)}>
+                    <td className="px-4 py-3 font-medium">{da.asset_name ?? da.asset}</td>
+                    <td className="px-4 py-3"><ClassificationBadge value={da.classification} /></td>
+                    <td className="px-4 py-3 text-muted-foreground">{da.retention_period_days ?? "—"}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{da.legal_basis || "—"}</td>
+                    <td className="max-w-xs px-4 py-3 text-muted-foreground"><span className="line-clamp-2">{da.processing_purpose || "—"}</span></td>
+                    <td className="px-4 py-3">
+                      {flows.length > 0 ? (
+                        <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                          {flows.length} flow{flows.length !== 1 ? "s" : ""}
+                        </span>
+                      ) : <span className="text-muted-foreground">—</span>}
+                    </td>
+                  </tr>
+                  {isOpen && flows.length > 0 && (
+                    <tr key={`${da.id}-flows`} className="bg-muted/10 border-b">
+                      <td colSpan={6} className="px-6 py-3">
+                        <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Associated Data Flows</p>
+                        <div className="space-y-1">
+                          {flows.map(f => (
+                            <div key={f.id} className="flex items-center gap-2 text-xs">
+                              <span className="font-medium">{f.name}</span>
+                              <span className="text-muted-foreground">
+                                {f.source_asset_name} → {f.destination_asset_name}
+                              </span>
+                              {f.is_cross_border && <Badge variant="high">Cross-Border</Badge>}
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
+  );
+}
+
+// ─── Data Flow Mutations ──────────────────────────────────────────────────────
+
+function useCreateDataFlow() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<DataFlow>) => apiClient.post<DataFlow>("/assets/data-flows/", data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: assetKeys.dataFlows() }),
+  });
+}
+
+function useUpdateDataFlow(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<DataFlow>) => apiClient.patch<DataFlow>(`/assets/data-flows/${id}/`, data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: assetKeys.dataFlows() }),
+  });
+}
+
+function useDeleteDataFlow() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.delete(`/assets/data-flows/${id}/`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: assetKeys.dataFlows() }),
+  });
+}
+
+// ─── Data Flow Form Modal ─────────────────────────────────────────────────────
+
+const LEGAL_BASIS_OPTIONS = [
+  "Consent (Art. 6(1)(a))",
+  "Contract (Art. 6(1)(b))",
+  "Legal Obligation (Art. 6(1)(c))",
+  "Vital Interests (Art. 6(1)(d))",
+  "Public Task (Art. 6(1)(e))",
+  "Legitimate Interests (Art. 6(1)(f))",
+];
+
+const LIFECYCLE_OPTIONS = [
+  { value: "", label: "— None —" },
+  { value: "collection", label: "Collection" },
+  { value: "processing", label: "Processing" },
+  { value: "storage", label: "Storage" },
+  { value: "sharing", label: "Sharing" },
+  { value: "archival", label: "Archival" },
+  { value: "deletion", label: "Deletion" },
+];
+
+const dfSchema = z.object({
+  name: z.string().min(1, "Required"),
+  source_asset: z.string().min(1, "Required"),
+  destination_asset: z.string().min(1, "Required"),
+  data_types: z.string().optional(),
+  transfer_mechanism: z.string().optional(),
+  is_cross_border: z.boolean(),
+  notes: z.string().optional(),
+  legal_basis: z.string().optional(),
+  data_subject_categories: z.string().optional(),
+  personal_data_categories: z.string().optional(),
+  special_category_data: z.boolean(),
+  retention_period_days: z.coerce.number().nullable().optional(),
+  transfer_safeguards: z.string().optional(),
+  lifecycle_stage: z.string().optional(),
+  processing_activity: z.string().optional(),
+});
+type DfForm = z.infer<typeof dfSchema>;
+
+function DataFlowFormModal({ open, onClose, flow }: { open: boolean; onClose: () => void; flow?: DataFlow }) {
+  const { data: assetsData } = useAssets({ page_size: 500 });
+  const allAssets = assetsData?.results ?? [];
+  const createFlow = useCreateDataFlow();
+  const updateFlow = useUpdateDataFlow(flow?.id ?? "");
+
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<DfForm>({
+    resolver: zodResolver(dfSchema),
+    defaultValues: flow ? {
+      name: flow.name, source_asset: flow.source_asset, destination_asset: flow.destination_asset,
+      data_types: flow.data_types, transfer_mechanism: flow.transfer_mechanism,
+      is_cross_border: flow.is_cross_border, notes: flow.notes,
+      legal_basis: flow.legal_basis, data_subject_categories: flow.data_subject_categories,
+      personal_data_categories: flow.personal_data_categories,
+      special_category_data: flow.special_category_data,
+      retention_period_days: flow.retention_period_days,
+      transfer_safeguards: flow.transfer_safeguards, lifecycle_stage: flow.lifecycle_stage,
+      processing_activity: flow.processing_activity ?? "",
+    } : {
+      name: "", source_asset: "", destination_asset: "", data_types: "", transfer_mechanism: "",
+      is_cross_border: false, notes: "", legal_basis: "", data_subject_categories: "",
+      personal_data_categories: "", special_category_data: false, retention_period_days: null,
+      transfer_safeguards: "", lifecycle_stage: "", processing_activity: "",
+    },
+  });
+
+  async function onSubmit(values: DfForm) {
+    const payload = { ...values, processing_activity: values.processing_activity || null, retention_period_days: values.retention_period_days || null };
+    if (flow) await updateFlow.mutateAsync(payload); else await createFlow.mutateAsync(payload);
+    reset(); onClose();
+  }
+
+  const assetOptions = allAssets.map(a => ({ value: a.id, label: a.name }));
+
+  return (
+    <Modal open={open} onClose={onClose} title={flow ? "Edit Data Flow" : "New Data Flow"} size="xl">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        <Input label="Name *" error={errors.name?.message} {...register("name")} />
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm font-medium block mb-1">Source Asset *</label>
+            <select {...register("source_asset")} className={cn("w-full border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring", errors.source_asset && "border-destructive")}>
+              <option value="">Select…</option>
+              {assetOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-sm font-medium block mb-1">Destination Asset *</label>
+            <select {...register("destination_asset")} className={cn("w-full border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring", errors.destination_asset && "border-destructive")}>
+              <option value="">Select…</option>
+              {assetOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Textarea label="Data Types" rows={2} {...register("data_types")} />
+          <Textarea label="Transfer Mechanism" rows={2} {...register("transfer_mechanism")} />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm font-medium block mb-1">Lifecycle Stage</label>
+            <select {...register("lifecycle_stage")} className="w-full border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring">
+              {LIFECYCLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          <div className="flex items-center gap-2 mt-6">
+            <input type="checkbox" id="df-cross-border" {...register("is_cross_border")} />
+            <label htmlFor="df-cross-border" className="text-sm font-medium">Cross-Border Transfer</label>
+          </div>
+        </div>
+
+        {/* GDPR section */}
+        <fieldset className="border rounded-lg p-4 space-y-4">
+          <legend className="text-xs font-semibold uppercase tracking-wide text-muted-foreground px-1">GDPR / Data Lifecycle</legend>
+          <div>
+            <label className="text-sm font-medium block mb-1">Legal Basis (GDPR Art. 6)</label>
+            <select {...register("legal_basis")} className="w-full border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring">
+              <option value="">— Not specified —</option>
+              {LEGAL_BASIS_OPTIONS.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Textarea label="Data Subject Categories" rows={2} placeholder="e.g. Employees, Customers" {...register("data_subject_categories")} />
+            <Textarea label="Personal Data Categories" rows={2} placeholder="e.g. Name, Email, Location" {...register("personal_data_categories")} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium block mb-1">Retention Period (days)</label>
+              <input type="number" {...register("retention_period_days")} min={0} className="w-full border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring" />
+            </div>
+            <div className="flex items-center gap-2 mt-6">
+              <input type="checkbox" id="df-special" {...register("special_category_data")} />
+              <label htmlFor="df-special" className="text-sm font-medium">Special Category Data (Art. 9)</label>
+            </div>
+          </div>
+          <Textarea label="Transfer Safeguards" rows={2} placeholder="SCC, Adequacy Decision, BCR…" {...register("transfer_safeguards")} />
+        </fieldset>
+
+        <Textarea label="Notes" rows={2} {...register("notes")} />
+        <div className="flex justify-end gap-3 pt-2">
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="submit" isLoading={isSubmitting}>{flow ? "Save" : "Create Flow"}</Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -587,69 +808,66 @@ function DataAssetsTab() {
 function DataFlowsTab() {
   const { data, isLoading } = useDataFlows();
   const dataFlows = data?.results ?? [];
+  const deleteFlow = useDeleteDataFlow();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editFlow, setEditFlow] = useState<DataFlow | undefined>();
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center py-8">
-        <LoadingSpinner />
-      </div>
-    );
-  }
+  if (isLoading) return <div className="flex justify-center py-8"><LoadingSpinner /></div>;
 
   return (
-    <div className="overflow-hidden rounded-lg border bg-card">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b bg-muted/30">
-            <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-              Name
-            </th>
-            <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-              Source Asset
-            </th>
-            <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-              Destination Asset
-            </th>
-            <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-              Cross-Border
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {dataFlows.length === 0 ? (
-            <tr>
-              <td
-                colSpan={4}
-                className="px-4 py-10 text-center text-muted-foreground"
-              >
-                No data flows found.
-              </td>
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button onClick={() => { setEditFlow(undefined); setModalOpen(true); }}>
+          <Plus className="h-4 w-4" /> New Data Flow
+        </Button>
+      </div>
+      <div className="overflow-hidden rounded-lg border bg-card">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b bg-muted/30">
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Name</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Source → Destination</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Legal Basis</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Stage</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Flags</th>
+              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Actions</th>
             </tr>
-          ) : (
-            dataFlows.map((df) => (
-              <tr
-                key={df.id}
-                className="border-b transition-colors last:border-0 hover:bg-muted/20"
-              >
+          </thead>
+          <tbody>
+            {dataFlows.length === 0 ? (
+              <tr><td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">No data flows found.</td></tr>
+            ) : dataFlows.map(df => (
+              <tr key={df.id} className="border-b transition-colors last:border-0 hover:bg-muted/20">
                 <td className="px-4 py-3 font-medium">{df.name}</td>
-                <td className="px-4 py-3 text-muted-foreground">
-                  {df.source_asset_name ?? df.source_asset}
+                <td className="px-4 py-3 text-muted-foreground text-xs">
+                  {df.source_asset_name} → {df.destination_asset_name}
                 </td>
-                <td className="px-4 py-3 text-muted-foreground">
-                  {df.destination_asset_name ?? df.destination_asset}
-                </td>
+                <td className="px-4 py-3 text-muted-foreground text-xs max-w-[180px] truncate">{df.legal_basis || "—"}</td>
                 <td className="px-4 py-3">
-                  {df.is_cross_border ? (
-                    <Badge variant="high">Cross-Border</Badge>
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
-                  )}
+                  {df.lifecycle_stage ? (
+                    <span className="capitalize text-xs bg-muted rounded px-2 py-0.5">{df.lifecycle_stage_display ?? df.lifecycle_stage}</span>
+                  ) : "—"}
+                </td>
+                <td className="px-4 py-3 flex flex-wrap gap-1">
+                  {df.is_cross_border && <Badge variant="high">Cross-Border</Badge>}
+                  {df.special_category_data && <Badge variant="critical">Special Cat.</Badge>}
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <div className="flex justify-end gap-1">
+                    <button onClick={() => { setEditFlow(df); setModalOpen(true); }} className="p-1.5 rounded hover:bg-accent text-muted-foreground">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button onClick={() => { if (confirm("Delete flow?")) deleteFlow.mutate(df.id); }} className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <DataFlowFormModal open={modalOpen} onClose={() => { setModalOpen(false); setEditFlow(undefined); }} flow={editFlow} />
     </div>
   );
 }
@@ -663,20 +881,11 @@ export default function AssetListPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | undefined>();
 
-  const handleEdit = (asset: Asset) => {
-    setEditingAsset(asset);
-    setShowModal(true);
-  };
-
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setEditingAsset(undefined);
-  };
+  const handleCloseModal = () => { setShowModal(false); setEditingAsset(undefined); };
 
   const { data: contentTypes = [] } = useContentTypes();
   const assetContentTypeId = contentTypes.find((ct) => ct.label === "assets.asset")?.id;
 
-  // Flat list of all assets for the Reviews tab object selector
   const { data: allAssetsData } = useAssets({ page_size: 500 });
   const assetObjects = (allAssetsData?.results ?? []).map((a) => ({ id: a.id, label: a.name }));
 
@@ -695,19 +904,15 @@ export default function AssetListPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Asset Inventory</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage organizational assets, data assets, and data flows.
-          </p>
+          <p className="text-sm text-muted-foreground">Manage organizational assets, data assets, and data flows.</p>
         </div>
         {activeTab === "all" && (
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => setImportOpen(true)}>
-              <Upload className="h-4 w-4" />
-              Import CSV
+              <Upload className="h-4 w-4" /> Import CSV
             </Button>
             <Button onClick={() => { setEditingAsset(undefined); setShowModal(true); }}>
-              <Plus className="h-4 w-4" />
-              New Asset
+              <Plus className="h-4 w-4" /> New Asset
             </Button>
           </div>
         )}
@@ -715,43 +920,29 @@ export default function AssetListPage() {
 
       {/* Tab Bar */}
       <div className="flex gap-1 border-b">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={cn(
-              "px-4 py-2 text-sm font-medium transition-colors",
-              activeTab === tab.key
-                ? "border-b-2 border-primary text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
+        {tabs.map(tab => (
+          <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+            className={cn("px-4 py-2 text-sm font-medium transition-colors",
+              activeTab === tab.key ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground")}>
             {tab.label}
           </button>
         ))}
       </div>
 
-      {/* Tab Content */}
-      {activeTab === "all" && <AllAssetsTab onEdit={handleEdit} />}
+      {activeTab === "all" && <AllAssetsTab />}
       {activeTab === "data_assets" && <DataAssetsTab />}
       {activeTab === "data_flows" && <DataFlowsTab />}
       {activeTab === "reviews" && (
         <ModuleReviewsTab contentTypeId={assetContentTypeId} moduleLabel="Asset" objects={assetObjects} />
       )}
       {activeTab === "bulk_upload" && (
-        <BulkUploadTab
-          onSuccess={() => queryClient.invalidateQueries({ queryKey: assetKeys.lists() })}
-        />
+        <BulkUploadTab onSuccess={() => queryClient.invalidateQueries({ queryKey: assetKeys.lists() })} />
       )}
       {activeTab === "status_rules" && (
         <ModuleStatusRulesTab contentTypeLabel="assets.asset" moduleLabel="Asset" />
       )}
 
-      <AssetFormModal
-        open={showModal}
-        onClose={handleCloseModal}
-        asset={editingAsset}
-      />
+      <AssetFormModal open={showModal} onClose={handleCloseModal} asset={editingAsset} />
 
       <ImportModal
         open={importOpen}

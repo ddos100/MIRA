@@ -108,6 +108,12 @@ class DataFlowSerializer(serializers.ModelSerializer):
     destination_asset_name = serializers.CharField(
         source="destination_asset.name", read_only=True
     )
+    processing_activity_name = serializers.CharField(
+        source="processing_activity.name", read_only=True, default=""
+    )
+    lifecycle_stage_display = serializers.CharField(
+        source="get_lifecycle_stage_display", read_only=True
+    )
 
     class Meta:
         model = DataFlow
@@ -122,6 +128,17 @@ class DataFlowSerializer(serializers.ModelSerializer):
             "transfer_mechanism",
             "is_cross_border",
             "notes",
+            # GDPR fields
+            "legal_basis",
+            "data_subject_categories",
+            "personal_data_categories",
+            "special_category_data",
+            "retention_period_days",
+            "transfer_safeguards",
+            "lifecycle_stage",
+            "lifecycle_stage_display",
+            "processing_activity",
+            "processing_activity_name",
             "created_at",
             "updated_at",
             "created_by",

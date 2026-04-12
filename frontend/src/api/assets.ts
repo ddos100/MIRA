@@ -62,6 +62,17 @@ export interface DataFlow {
   transfer_mechanism: string;
   is_cross_border: boolean;
   notes: string;
+  // GDPR fields
+  legal_basis: string;
+  data_subject_categories: string;
+  personal_data_categories: string;
+  special_category_data: boolean;
+  retention_period_days: number | null;
+  transfer_safeguards: string;
+  lifecycle_stage: string;
+  lifecycle_stage_display?: string;
+  processing_activity: string | null;
+  processing_activity_name?: string;
   created_at: string;
   updated_at: string;
 }

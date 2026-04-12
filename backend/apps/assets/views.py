@@ -78,12 +78,12 @@ class DataFlowViewSet(viewsets.ModelViewSet):
     """CRUD for DataFlow with filtering by source/destination asset."""
 
     queryset = DataFlow.objects.select_related(
-        "source_asset", "destination_asset"
+        "source_asset", "destination_asset", "processing_activity"
     ).all()
     serializer_class = DataFlowSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ["source_asset", "destination_asset", "is_cross_border"]
+    filterset_fields = ["source_asset", "destination_asset", "is_cross_border", "lifecycle_stage"]
     search_fields = ["name", "data_types", "transfer_mechanism"]
     ordering_fields = ["created_at", "updated_at", "name"]
     ordering = ["name"]

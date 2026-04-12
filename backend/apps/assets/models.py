@@ -178,6 +178,14 @@ class DataAsset(BaseModel):
 class DataFlow(BaseModel):
     """Represents data movement between two assets."""
 
+    class LifecycleStage(models.TextChoices):
+        COLLECTION = "collection", _("Collection")
+        PROCESSING = "processing", _("Processing")
+        STORAGE = "storage", _("Storage")
+        SHARING = "sharing", _("Sharing")
+        ARCHIVAL = "archival", _("Archival")
+        DELETION = "deletion", _("Deletion")
+
     name = models.CharField(max_length=255, db_index=True)
     source_asset = models.ForeignKey(
         Asset,
@@ -207,6 +215,53 @@ class DataFlow(BaseModel):
         verbose_name=_("Is Cross-Border"),
     )
     notes = models.TextField(blank=True)
+
+    # ── GDPR / Data lifecycle fields ───────────────────────────────────────
+    legal_basis = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name=_("Legal Basis (GDPR Art. 6)"),
+        help_text=_("e.g. Consent, Contract, Legal Obligation, Legitimate Interests"),
+    )
+    data_subject_categories = models.TextField(
+        blank=True,
+        verbose_name=_("Data Subject Categories"),
+        help_text=_("Categories of individuals whose data is processed"),
+    )
+    personal_data_categories = models.TextField(
+        blank=True,
+        verbose_name=_("Personal Data Categories"),
+        help_text=_("Types of personal data in this flow"),
+    )
+    special_category_data = models.BooleanField(
+        default=False,
+        verbose_name=_("Contains Special Category Data (Art. 9)"),
+    )
+    retention_period_days = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name=_("Retention Period (days)"),
+    )
+    transfer_safeguards = models.TextField(
+        blank=True,
+        verbose_name=_("Transfer Safeguards"),
+        help_text=_("Standard Contractual Clauses, Adequacy Decision, BCR, etc."),
+    )
+    lifecycle_stage = models.CharField(
+        max_length=20,
+        choices=LifecycleStage.choices,
+        blank=True,
+        db_index=True,
+        verbose_name=_("Lifecycle Stage"),
+    )
+    processing_activity = models.ForeignKey(
+        "privacy.ProcessingActivity",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="data_flows",
+        verbose_name=_("RoPA Processing Activity"),
+    )
 
     class Meta:
         verbose_name = _("Data Flow")
