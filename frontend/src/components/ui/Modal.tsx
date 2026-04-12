@@ -58,17 +58,21 @@ export function Modal({
       aria-modal="true"
       aria-labelledby="modal-title"
     >
-      {/* Backdrop */}
+      {/* Backdrop — no backdrop-blur to avoid compositing layer that
+          interferes with portaled dropdowns painted above z-50 */}
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/50"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Dialog panel */}
+      {/* Dialog panel — no z-10 here; the parent z-50 is sufficient.
+          Adding z-10 would create a new stacking context that could
+          cause portaled children (MultiSelect dropdowns) to render
+          unexpectedly relative to this panel. */}
       <div
         className={cn(
-          "relative z-10 w-full rounded-lg bg-background shadow-lg border border-border",
+          "relative w-full rounded-lg bg-background shadow-lg border border-border",
           "flex flex-col max-h-[90vh]",
           sizeClasses[size]
         )}
