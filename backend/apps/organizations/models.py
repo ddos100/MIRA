@@ -135,6 +135,8 @@ class Scope(BaseModel):
     """
     Versioned ISMS/GRC Scope document (ISO 27001 §4.3).
     Supports a Maker/Checker approval workflow and configurable review periodicity.
+    Each approval is recorded in ScopeApprovalHistory; a new review date is
+    automatically computed from review_periodicity_days on each approval.
     """
 
     class Status(models.TextChoices):
@@ -148,6 +150,16 @@ class Scope(BaseModel):
         APPROVED = "approved", _("Approved")
         REJECTED = "rejected", _("Rejected")
 
+    # Review periodicity options (days)
+    PERIODICITY_CHOICES = [
+        (30,  _("Monthly (30 days)")),
+        (60,  _("Bi-Monthly (60 days)")),
+        (90,  _("Quarterly (90 days)")),
+        (180, _("Semi-Annual (180 days)")),
+        (365, _("Annual (365 days)")),
+        (730, _("Bi-Annual (730 days)")),
+    ]
+
     title = models.CharField(max_length=255, default="ISMS Scope")
     content = models.TextField(blank=True, help_text="Scope document content (Markdown supported)")
     version = models.CharField(max_length=20, default="1.0")
@@ -159,26 +171,32 @@ class Scope(BaseModel):
     )
     effective_date = models.DateField(null=True, blank=True)
     review_periodicity_days = models.PositiveIntegerField(
-        default=365, help_text="How many days between reviews"
+        default=365,
+        choices=PERIODICITY_CHOICES,
+        help_text="How many days between reviews (mandatory)",
     )
-    next_review_date = models.DateField(null=True, blank=True)
+    next_review_date = models.DateField(
+        null=True, blank=True,
+        help_text="Auto-computed on approval; must be set for every review cycle",
+    )
 
-    # Maker / Checker
+    # Maker — the person who prepares and submits the scope document
     reviewer = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
-        related_name="scope_reviews",
-        verbose_name=_("Reviewer (Maker)"),
+        related_name="scope_maker_docs",
+        verbose_name=_("Maker (Reviewer)"),
     )
+    # Checker — the person who approves or rejects the scope document
     approver = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
-        related_name="scope_approvals",
-        verbose_name=_("Approver (Checker)"),
+        related_name="scope_checker_docs",
+        verbose_name=_("Checker (Approver)"),
     )
     submitted_at = models.DateTimeField(null=True, blank=True)
     approved_at = models.DateTimeField(null=True, blank=True)
@@ -195,19 +213,67 @@ class Scope(BaseModel):
     def submit_for_approval(self, user):
         self.workflow_state = self.WorkflowState.SUBMITTED
         self.submitted_at = timezone.now()
-        self.save(update_fields=["workflow_state", "submitted_at", "updated_at"])
+        self.reviewer = user
+        self.save(update_fields=["workflow_state", "submitted_at", "reviewer", "updated_at"])
 
     def approve(self, user):
+        from datetime import timedelta
+        now = timezone.now()
         self.workflow_state = self.WorkflowState.APPROVED
         self.status = self.Status.APPROVED
         self.approver = user
-        self.approved_at = timezone.now()
-        self.save(update_fields=["workflow_state", "status", "approver", "approved_at", "updated_at"])
+        self.approved_at = now
+        # Auto-compute next review date from approval date
+        self.next_review_date = (now + timedelta(days=self.review_periodicity_days)).date()
+        self.save(update_fields=[
+            "workflow_state", "status", "approver", "approved_at",
+            "next_review_date", "updated_at",
+        ])
+        # Record approval history
+        ScopeApprovalHistory.objects.create(
+            scope=self,
+            approved_by=user,
+            version=self.version,
+            next_review_date=self.next_review_date,
+        )
 
     def reject(self, user, reason=""):
         self.workflow_state = self.WorkflowState.REJECTED
         self.rejection_reason = reason
         self.save(update_fields=["workflow_state", "rejection_reason", "updated_at"])
+
+
+class ScopeApprovalHistory(models.Model):
+    """
+    Immutable record of each Scope approval event.
+    Created automatically by Scope.approve().
+    """
+
+    scope = models.ForeignKey(
+        Scope,
+        on_delete=models.CASCADE,
+        related_name="approval_history",
+        verbose_name=_("Scope"),
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name="scope_approval_history",
+        verbose_name=_("Approved By"),
+    )
+    version = models.CharField(max_length=20)
+    approved_at = models.DateTimeField(auto_now_add=True)
+    next_review_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = _("Scope Approval Record")
+        verbose_name_plural = _("Scope Approval Records")
+        ordering = ["-approved_at"]
+
+    def __str__(self):
+        return f"{self.scope} — approved by {self.approved_by} at {self.approved_at:%Y-%m-%d}"
 
 
 class OrganizationalIssue(BaseModel):
@@ -275,3 +341,107 @@ class OrganizationalIssue(BaseModel):
 
     def __str__(self):
         return f"{self.title} ({self.get_issue_type_display()} / {self.get_category_display()})"
+
+
+class RiskOpportunity(BaseModel):
+    """
+    Organizational-level Risks and Opportunities — ISO 27001:2022 §6.1.
+    Distinct from operational risks (apps.risks.Risk); these are strategic
+    considerations arising from the context of the organization (§4.1/§4.2).
+    """
+
+    class ItemType(models.TextChoices):
+        RISK = "risk", _("Risk")
+        OPPORTUNITY = "opportunity", _("Opportunity")
+
+    class Likelihood(models.IntegerChoices):
+        RARE = 1, _("1 – Rare")
+        UNLIKELY = 2, _("2 – Unlikely")
+        POSSIBLE = 3, _("3 – Possible")
+        LIKELY = 4, _("4 – Likely")
+        ALMOST_CERTAIN = 5, _("5 – Almost Certain")
+
+    class Impact(models.IntegerChoices):
+        NEGLIGIBLE = 1, _("1 – Negligible")
+        MINOR = 2, _("2 – Minor")
+        MODERATE = 3, _("3 – Moderate")
+        MAJOR = 4, _("4 – Major")
+        CATASTROPHIC = 5, _("5 – Catastrophic")
+
+    class Treatment(models.TextChoices):
+        ACCEPT = "accept", _("Accept")
+        MITIGATE = "mitigate", _("Mitigate")
+        TRANSFER = "transfer", _("Transfer")
+        AVOID = "avoid", _("Avoid")
+        EXPLOIT = "exploit", _("Exploit (Opportunity)")
+        SHARE = "share", _("Share (Opportunity)")
+        ENHANCE = "enhance", _("Enhance (Opportunity)")
+
+    class Status(models.TextChoices):
+        OPEN = "open", _("Open")
+        IN_TREATMENT = "in_treatment", _("In Treatment")
+        MONITORED = "monitored", _("Monitored")
+        CLOSED = "closed", _("Closed")
+
+    class ResidualLevel(models.TextChoices):
+        LOW = "low", _("Low")
+        MEDIUM = "medium", _("Medium")
+        HIGH = "high", _("High")
+        CRITICAL = "critical", _("Critical")
+
+    title = models.CharField(max_length=255, db_index=True)
+    description = models.TextField(blank=True)
+    item_type = models.CharField(
+        max_length=20, choices=ItemType.choices, default=ItemType.RISK, db_index=True
+    )
+
+    # Context linkage (ISO §4.1/4.2 → §6.1)
+    linked_issue = models.ForeignKey(
+        OrganizationalIssue,
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="risk_opportunities",
+        verbose_name=_("Source Issue (§4.1/§4.2)"),
+    )
+
+    likelihood = models.PositiveSmallIntegerField(
+        choices=Likelihood.choices, default=Likelihood.POSSIBLE
+    )
+    impact = models.PositiveSmallIntegerField(
+        choices=Impact.choices, default=Impact.MODERATE
+    )
+
+    @property
+    def risk_score(self) -> int:
+        return self.likelihood * self.impact
+
+    treatment = models.CharField(
+        max_length=20, choices=Treatment.choices, default=Treatment.MITIGATE, db_index=True
+    )
+    treatment_plan = models.TextField(blank=True, help_text="Actions to address this risk/opportunity")
+
+    residual_level = models.CharField(
+        max_length=20, choices=ResidualLevel.choices, blank=True, db_index=True,
+        verbose_name=_("Residual Level after Treatment"),
+    )
+
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.OPEN, db_index=True
+    )
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="owned_risk_opportunities",
+        verbose_name=_("Owner"),
+    )
+    due_date = models.DateField(null=True, blank=True)
+    review_notes = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = _("Risk / Opportunity")
+        verbose_name_plural = _("Risks & Opportunities")
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.get_item_type_display()}: {self.title} (score {self.risk_score})"

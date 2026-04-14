@@ -11,19 +11,22 @@ from rest_framework.response import Response
 
 from apps.core.mixins import CsvExportMixin, CsvImportMixin
 
-from .models import BusinessProcess, BusinessUnit, OrgSettings, OrganizationalIssue, Scope
+from .models import (
+    BusinessProcess, BusinessUnit, OrgSettings,
+    OrganizationalIssue, RiskOpportunity,
+    Scope,
+)
 from .serializers import (
     BusinessProcessSerializer,
     BusinessUnitSerializer,
     OrgSettingsSerializer,
     OrganizationalIssueSerializer,
+    RiskOpportunitySerializer,
     ScopeSerializer,
 )
 
 
 class BusinessUnitViewSet(viewsets.ModelViewSet):
-    """CRUD for BusinessUnit. Supports search and is_active filtering."""
-
     queryset = BusinessUnit.objects.all()
     serializer_class = BusinessUnitSerializer
     permission_classes = [IsAuthenticated]
@@ -37,14 +40,9 @@ class BusinessUnitViewSet(viewsets.ModelViewSet):
 @api_view(["GET", "PATCH"])
 @permission_classes([IsAuthenticated])
 def org_settings(request):
-    """
-    GET  /organizations/settings/  – return the singleton OrgSettings.
-    PATCH /organizations/settings/ – partially update it.
-    """
     settings_obj = OrgSettings.get()
     if request.method == "GET":
         return Response(OrgSettingsSerializer(settings_obj).data)
-
     serializer = OrgSettingsSerializer(settings_obj, data=request.data, partial=True)
     serializer.is_valid(raise_exception=True)
     serializer.save()
@@ -52,8 +50,6 @@ def org_settings(request):
 
 
 class BusinessProcessViewSet(viewsets.ModelViewSet):
-    """CRUD for BusinessProcess. Supports filtering by unit, owner, and criticality."""
-
     queryset = BusinessProcess.objects.select_related("business_unit", "owner").all()
     serializer_class = BusinessProcessSerializer
     permission_classes = [IsAuthenticated]
@@ -67,10 +63,9 @@ class BusinessProcessViewSet(viewsets.ModelViewSet):
 class ScopeViewSet(viewsets.ModelViewSet):
     """
     CRUD for versioned Scope documents with Maker/Checker workflow.
-    Custom actions: submit, approve, reject.
+    Actions: submit, approve, reject.
     """
-
-    queryset = Scope.objects.select_related("reviewer", "approver").all()
+    queryset = Scope.objects.select_related("reviewer", "approver").prefetch_related("approval_history__approved_by").all()
     serializer_class = ScopeSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -116,7 +111,6 @@ class ScopeViewSet(viewsets.ModelViewSet):
 
 class OrganizationalIssueViewSet(CsvImportMixin, CsvExportMixin, viewsets.ModelViewSet):
     """CRUD for Organizational Issues (ISO 27001 §4.1/4.2)."""
-
     queryset = OrganizationalIssue.objects.select_related("owner").prefetch_related("linked_risks").all()
     serializer_class = OrganizationalIssueSerializer
     permission_classes = [IsAuthenticated]
@@ -125,13 +119,27 @@ class OrganizationalIssueViewSet(CsvImportMixin, CsvExportMixin, viewsets.ModelV
     search_fields = ["title", "description"]
     ordering_fields = ["created_at", "updated_at", "title", "due_date"]
     ordering = ["-created_at"]
+    csv_import_fields = ["title", "description", "issue_type", "category", "impact_level", "status", "due_date", "resolution_notes"]
+    csv_export_fields = ["id", "title", "description", "issue_type", "category", "impact_level", "status", "due_date", "resolution_notes", "created_at"]
+    csv_filename = "organizational_issues"
+
+
+class RiskOpportunityViewSet(CsvImportMixin, CsvExportMixin, viewsets.ModelViewSet):
+    """CRUD for Risks & Opportunities (ISO 27001:2022 §6.1)."""
+    queryset = RiskOpportunity.objects.select_related("owner", "linked_issue").all()
+    serializer_class = RiskOpportunitySerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ["item_type", "status", "treatment", "residual_level", "owner", "linked_issue"]
+    search_fields = ["title", "description", "treatment_plan"]
+    ordering_fields = ["created_at", "updated_at", "title", "due_date", "likelihood", "impact"]
+    ordering = ["-created_at"]
     csv_import_fields = [
-        "title", "description", "issue_type", "category",
-        "impact_level", "status", "due_date", "resolution_notes",
+        "title", "description", "item_type", "likelihood", "impact",
+        "treatment", "treatment_plan", "residual_level", "status", "due_date",
     ]
     csv_export_fields = [
-        "id", "title", "description", "issue_type", "category",
-        "impact_level", "status", "due_date", "resolution_notes",
-        "created_at",
+        "id", "title", "description", "item_type",
+        "likelihood", "impact", "treatment", "residual_level", "status", "due_date", "created_at",
     ]
-    csv_filename = "organizational_issues"
+    csv_filename = "risks_opportunities"

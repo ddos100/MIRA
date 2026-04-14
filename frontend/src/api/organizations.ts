@@ -5,8 +5,19 @@ const UNIT_EP = "/organizations/business-units/";
 const PROCESS_EP = "/organizations/business-processes/";
 const SCOPE_EP = "/organizations/scope/";
 const ISSUES_EP = "/organizations/issues/";
+const RISK_OPP_EP = "/organizations/risk-opportunities/";
 
-// ─── Scope types ──────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export interface ScopeApprovalRecord {
+  id: string;
+  version: string;
+  approved_by: string | null;
+  approved_by_name: string;
+  approved_at: string;
+  next_review_date: string | null;
+  notes: string;
+}
 
 export interface Scope {
   id: string;
@@ -19,6 +30,7 @@ export interface Scope {
   workflow_state_display: string;
   effective_date: string | null;
   review_periodicity_days: number;
+  review_periodicity_display: string;
   next_review_date: string | null;
   reviewer: string | null;
   reviewer_name: string;
@@ -27,6 +39,7 @@ export interface Scope {
   submitted_at: string | null;
   approved_at: string | null;
   rejection_reason: string;
+  approval_history: ScopeApprovalRecord[];
   created_at: string;
   updated_at: string;
 }
@@ -53,12 +66,59 @@ export interface OrganizationalIssue {
   updated_at: string;
 }
 
+export interface RiskOpportunity {
+  id: string;
+  title: string;
+  description: string;
+  item_type: "risk" | "opportunity";
+  item_type_display: string;
+  linked_issue: string | null;
+  linked_issue_title: string;
+  likelihood: 1 | 2 | 3 | 4 | 5;
+  likelihood_display: string;
+  impact: 1 | 2 | 3 | 4 | 5;
+  impact_display: string;
+  risk_score: number;
+  treatment: "accept" | "mitigate" | "transfer" | "avoid" | "exploit" | "share" | "enhance";
+  treatment_display: string;
+  treatment_plan: string;
+  residual_level: "low" | "medium" | "high" | "critical" | "";
+  residual_level_display: string;
+  status: "open" | "in_treatment" | "monitored" | "closed";
+  status_display: string;
+  owner: string | null;
+  owner_name: string;
+  due_date: string | null;
+  review_notes: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// ─── Query keys ───────────────────────────────────────────────────────────────
+
 export const orgKeys = {
   units: () => ["business-units"] as const,
   unitList: (p: object) => [...orgKeys.units(), p] as const,
   processes: () => ["business-processes"] as const,
   processList: (p: object) => [...orgKeys.processes(), p] as const,
 };
+
+export const scopeKeys = {
+  all: ["scope"] as const,
+  list: (p?: object) => [...scopeKeys.all, p ?? {}] as const,
+};
+
+export const issueKeys = {
+  all: ["org-issues"] as const,
+  list: (p?: object) => [...issueKeys.all, p ?? {}] as const,
+};
+
+export const riskOppKeys = {
+  all: ["risk-opportunities"] as const,
+  list: (p?: object) => [...riskOppKeys.all, p ?? {}] as const,
+};
+
+// ─── Business Units ───────────────────────────────────────────────────────────
 
 export function useBusinessUnits(params?: Record<string, unknown>) {
   return useQuery({
@@ -85,8 +145,7 @@ export function useCreateBusinessUnit() {
 export function useUpdateBusinessUnit(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Record<string, unknown>) =>
-      apiClient.patch(`${UNIT_EP}${id}/`, data).then(r => r.data),
+    mutationFn: (data: Record<string, unknown>) => apiClient.patch(`${UNIT_EP}${id}/`, data).then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: orgKeys.units() }),
   });
 }
@@ -110,8 +169,7 @@ export function useCreateBusinessProcess() {
 export function useUpdateBusinessProcess(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Record<string, unknown>) =>
-      apiClient.patch(`${PROCESS_EP}${id}/`, data).then(r => r.data),
+    mutationFn: (data: Record<string, unknown>) => apiClient.patch(`${PROCESS_EP}${id}/`, data).then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: orgKeys.processes() }),
   });
 }
@@ -124,17 +182,14 @@ export function useDeleteBusinessProcess() {
   });
 }
 
-// ─── Scope hooks ──────────────────────────────────────────────────────────────
-
-export const scopeKeys = {
-  all: ["scope"] as const,
-  list: (p?: object) => [...scopeKeys.all, p ?? {}] as const,
-};
+// ─── Scope ────────────────────────────────────────────────────────────────────
 
 export function useScopes(params?: Record<string, unknown>) {
   return useQuery({
     queryKey: scopeKeys.list(params),
-    queryFn: () => apiClient.get<{ results: Scope[] }>(SCOPE_EP, { params: { page_size: 50, ...params } }).then(r => r.data.results ?? []),
+    queryFn: () =>
+      apiClient.get<{ results: Scope[] }>(SCOPE_EP, { params: { page_size: 50, ...params } })
+        .then(r => r.data.results ?? []),
   });
 }
 
@@ -171,24 +226,22 @@ export function useScopeAction(id: string, action: "submit" | "approve" | "rejec
   });
 }
 
-// ─── Issues hooks ─────────────────────────────────────────────────────────────
-
-export const issueKeys = {
-  all: ["org-issues"] as const,
-  list: (p?: object) => [...issueKeys.all, p ?? {}] as const,
-};
+// ─── Organizational Issues ────────────────────────────────────────────────────
 
 export function useOrgIssues(params?: Record<string, unknown>) {
   return useQuery({
     queryKey: issueKeys.list(params),
-    queryFn: () => apiClient.get<{ results: OrganizationalIssue[] }>(ISSUES_EP, { params: { page_size: 200, ...params } }).then(r => r.data.results ?? []),
+    queryFn: () =>
+      apiClient.get<{ results: OrganizationalIssue[] }>(ISSUES_EP, { params: { page_size: 200, ...params } })
+        .then(r => r.data.results ?? []),
   });
 }
 
 export function useCreateOrgIssue() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Partial<OrganizationalIssue>) => apiClient.post<OrganizationalIssue>(ISSUES_EP, data).then(r => r.data),
+    mutationFn: (data: Partial<OrganizationalIssue>) =>
+      apiClient.post<OrganizationalIssue>(ISSUES_EP, data).then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: issueKeys.all }),
   });
 }
@@ -196,7 +249,8 @@ export function useCreateOrgIssue() {
 export function useUpdateOrgIssue(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Partial<OrganizationalIssue>) => apiClient.patch<OrganizationalIssue>(`${ISSUES_EP}${id}/`, data).then(r => r.data),
+    mutationFn: (data: Partial<OrganizationalIssue>) =>
+      apiClient.patch<OrganizationalIssue>(`${ISSUES_EP}${id}/`, data).then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: issueKeys.all }),
   });
 }
@@ -206,5 +260,42 @@ export function useDeleteOrgIssue() {
   return useMutation({
     mutationFn: (id: string) => apiClient.delete(`${ISSUES_EP}${id}/`),
     onSuccess: () => qc.invalidateQueries({ queryKey: issueKeys.all }),
+  });
+}
+
+// ─── Risks & Opportunities ────────────────────────────────────────────────────
+
+export function useRiskOpportunities(params?: Record<string, unknown>) {
+  return useQuery({
+    queryKey: riskOppKeys.list(params),
+    queryFn: () =>
+      apiClient.get<{ results: RiskOpportunity[] }>(RISK_OPP_EP, { params: { page_size: 200, ...params } })
+        .then(r => r.data.results ?? []),
+  });
+}
+
+export function useCreateRiskOpportunity() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<RiskOpportunity>) =>
+      apiClient.post<RiskOpportunity>(RISK_OPP_EP, data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: riskOppKeys.all }),
+  });
+}
+
+export function useUpdateRiskOpportunity(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<RiskOpportunity>) =>
+      apiClient.patch<RiskOpportunity>(`${RISK_OPP_EP}${id}/`, data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: riskOppKeys.all }),
+  });
+}
+
+export function useDeleteRiskOpportunity() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.delete(`${RISK_OPP_EP}${id}/`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: riskOppKeys.all }),
   });
 }
