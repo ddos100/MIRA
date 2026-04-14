@@ -1,19 +1,16 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Pencil, Trash2, Search, Upload, Settings2, Save } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Upload, Settings2, Save, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useQueryClient } from "@tanstack/react-query";
-
 import { useMutation } from "@tanstack/react-query";
 import {
   useAssets,
   useDataAssets,
   useDataFlows,
   useAssetCategories,
-  useCreateAsset,
-  useUpdateAsset,
   useDeleteAsset,
   assetKeys,
   type Asset,
@@ -22,12 +19,13 @@ import {
 } from "@/api/assets";
 import { apiClient } from "@/api/client";
 import { useBusinessUnits } from "@/api/organizations";
+import { useUsers } from "@/api/auth";
 import { CriticalityBadge } from "@/components/assets/CriticalityBadge";
 import { ClassificationBadge } from "@/components/assets/ClassificationBadge";
+import { AssetFormModal } from "@/components/assets/AssetFormModal";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { ImportModal } from "@/components/common/ImportModal";
@@ -38,14 +36,7 @@ import { ModuleReviewsTab } from "@/components/common/ModuleReviewsTab";
 import { useContentTypes } from "@/api/automatedActions";
 import { cn } from "@/utils/cn";
 
-// ─── Asset Form Modal ─────────────────────────────────────────────────────────
-
-const CIA_OPTIONS = [
-  { value: "low", label: "Low" },
-  { value: "medium", label: "Medium" },
-  { value: "high", label: "High" },
-  { value: "critical", label: "Critical" },
-];
+// ─── CIA Badge ────────────────────────────────────────────────────────────────
 
 const CIA_COLORS: Record<string, string> = {
   low: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
@@ -57,220 +48,9 @@ const CIA_COLORS: Record<string, string> = {
 function CIABadge({ value }: { value?: string }) {
   if (!value) return <span className="text-muted-foreground">—</span>;
   return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium capitalize",
-        CIA_COLORS[value] ?? "bg-muted text-muted-foreground"
-      )}
-    >
+    <span className={cn("inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium capitalize", CIA_COLORS[value] ?? "bg-muted text-muted-foreground")}>
       {value}
     </span>
-  );
-}
-
-const assetSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  description: z.string().optional(),
-  category: z.string().optional(),
-  business_unit: z.string().optional(),
-  criticality: z.coerce.number().min(1).max(5),
-  confidentiality: z.enum(["low", "medium", "high", "critical"]),
-  integrity: z.enum(["low", "medium", "high", "critical"]),
-  availability: z.enum(["low", "medium", "high", "critical"]),
-  status: z.enum(["active", "inactive", "retired"]),
-  notes: z.string().optional(),
-});
-
-type AssetForm = z.infer<typeof assetSchema>;
-
-interface AssetFormModalProps {
-  open: boolean;
-  onClose: () => void;
-  asset?: Asset;
-}
-
-function AssetFormModal({ open, onClose, asset }: AssetFormModalProps) {
-  const { data: categoriesData } = useAssetCategories();
-  const { data: businessUnitsData } = useBusinessUnits({ page_size: 200 });
-  const createAsset = useCreateAsset();
-  const updateAsset = useUpdateAsset(asset?.id ?? "");
-
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<AssetForm>({
-    resolver: zodResolver(assetSchema),
-    defaultValues: {
-      name: asset?.name ?? "",
-      description: asset?.description ?? "",
-      category: asset?.category ?? "",
-      business_unit: asset?.business_unit ?? "",
-      criticality: asset?.criticality ?? 3,
-      confidentiality: asset?.confidentiality ?? "medium",
-      integrity: asset?.integrity ?? "medium",
-      availability: asset?.availability ?? "medium",
-      status: (asset?.status as AssetStatus) ?? "active",
-      notes: asset?.notes ?? "",
-    },
-  });
-
-  const categoryOptions =
-    categoriesData?.results?.map((c) => ({
-      value: c.id,
-      label: c.name,
-    })) ?? [];
-
-  const businessUnitOptions = [
-    { value: "", label: "No Business Unit" },
-    ...(businessUnitsData?.results ?? []).map((bu: { id: string; name: string }) => ({
-      value: bu.id,
-      label: bu.name,
-    })),
-  ];
-
-  const onSubmit = (values: AssetForm) => {
-    const payload = {
-      ...values,
-      category: values.category || null,
-      business_unit: values.business_unit || null,
-      criticality: values.criticality as 1 | 2 | 3 | 4 | 5,
-    };
-
-    if (asset) {
-      updateAsset.mutate(payload, { onSuccess: () => { reset(); onClose(); } });
-    } else {
-      createAsset.mutate(payload, { onSuccess: () => { reset(); onClose(); } });
-    }
-  };
-
-  if (!open) return null;
-
-  const isPending = createAsset.isPending || updateAsset.isPending;
-  const isError = createAsset.isError || updateAsset.isError;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-lg rounded-lg bg-background shadow-xl">
-        <div className="flex items-center justify-between border-b px-6 py-4">
-          <h2 className="text-lg font-semibold">
-            {asset ? "Edit Asset" : "New Asset"}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            ✕
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 p-6">
-          <Input
-            label="Asset Name"
-            {...register("name")}
-            error={errors.name?.message}
-            placeholder="e.g. Customer Database"
-          />
-
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-foreground">
-              Description
-            </label>
-            <Textarea
-              {...register("description")}
-              placeholder="Optional description"
-              rows={2}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Select
-              label="Category"
-              options={[{ value: "", label: "No Category" }, ...categoryOptions]}
-              {...register("category")}
-            />
-            <Select
-              label="Business Unit"
-              options={businessUnitOptions}
-              {...register("business_unit")}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Select
-              label="Criticality"
-              options={[
-                { value: "1", label: "1 – Very Low" },
-                { value: "2", label: "2 – Low" },
-                { value: "3", label: "3 – Medium" },
-                { value: "4", label: "4 – High" },
-                { value: "5", label: "5 – Critical" },
-              ]}
-              {...register("criticality")}
-            />
-
-            <Select
-              label="Status"
-              options={[
-                { value: "active", label: "Active" },
-                { value: "inactive", label: "Inactive" },
-                { value: "retired", label: "Retired" },
-              ]}
-              {...register("status")}
-            />
-          </div>
-
-          {/* CIA Triad */}
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              CIA Impact Ratings
-            </p>
-            <div className="grid grid-cols-3 gap-3">
-              <Select
-                label="Confidentiality"
-                options={CIA_OPTIONS}
-                {...register("confidentiality")}
-              />
-              <Select
-                label="Integrity"
-                options={CIA_OPTIONS}
-                {...register("integrity")}
-              />
-              <Select
-                label="Availability"
-                options={CIA_OPTIONS}
-                {...register("availability")}
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-foreground">Notes</label>
-            <Textarea
-              {...register("notes")}
-              placeholder="Additional notes"
-              rows={2}
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" isLoading={isPending}>
-              {asset ? "Save Changes" : "Create Asset"}
-            </Button>
-          </div>
-
-          {isError && (
-            <p className="text-sm text-destructive">
-              Failed to save asset. Please try again.
-            </p>
-          )}
-        </form>
-      </div>
-    </div>
   );
 }
 
@@ -281,17 +61,21 @@ type Tab = "all" | "data_assets" | "data_flows" | "reviews" | "bulk_upload" | "s
 // ─── Column & Filter Presets helpers ─────────────────────────────────────────
 
 const ALL_COLUMNS = [
-  { key: "name",          label: "Name" },
-  { key: "category",      label: "Category" },
-  { key: "owner",         label: "Owner" },
-  { key: "business_unit", label: "Business Unit" },
-  { key: "criticality",   label: "Criticality" },
-  { key: "confidentiality", label: "C (Conf.)" },
-  { key: "integrity",     label: "I (Integ.)" },
-  { key: "availability",  label: "A (Avail.)" },
-  { key: "status",        label: "Status" },
-  { key: "asset_value",   label: "Value" },
-  { key: "notes",         label: "Notes" },
+  { key: "name",            label: "Name" },
+  { key: "description",     label: "Description" },
+  { key: "category",        label: "Category" },
+  { key: "owner",           label: "Owner" },
+  { key: "business_unit",   label: "Business Unit" },
+  { key: "criticality",     label: "Criticality" },
+  { key: "confidentiality", label: "Confidentiality (C)" },
+  { key: "integrity",       label: "Integrity (I)" },
+  { key: "availability",    label: "Availability (A)" },
+  { key: "status",          label: "Status" },
+  { key: "asset_value",     label: "Asset Value" },
+  { key: "tags",            label: "Tags" },
+  { key: "notes",           label: "Notes" },
+  { key: "created_at",      label: "Created" },
+  { key: "updated_at",      label: "Updated" },
 ] as const;
 type ColKey = typeof ALL_COLUMNS[number]["key"];
 
@@ -300,7 +84,7 @@ const DEFAULT_VISIBLE: ColKey[] = ["name","category","owner","criticality","conf
 const LS_COLS_KEY = "mira_asset_visible_cols";
 const LS_PRESETS_KEY = "mira_asset_filter_presets";
 
-interface FilterState { search: string; category: string; status: string; criticality: string; }
+interface FilterState { search: string; category: string; status: string; criticality: string; owner: string; business_unit: string; }
 interface FilterPreset { name: string; filters: FilterState; }
 
 function loadVisibleCols(): ColKey[] {
@@ -325,13 +109,19 @@ function AllAssetsTab() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [criticalityFilter, setCriticalityFilter] = useState("");
+  const [ownerFilter, setOwnerFilter] = useState("");
+  const [businessUnitFilter, setBusinessUnitFilter] = useState("");
   const [visibleCols, setVisibleCols] = useState<ColKey[]>(loadVisibleCols);
   const [showColPicker, setShowColPicker] = useState(false);
   const [presets, setPresets] = useState<FilterPreset[]>(loadPresets);
   const [presetName, setPresetName] = useState("");
   const [showPresetSave, setShowPresetSave] = useState(false);
+  const [editAsset, setEditAsset] = useState<Asset | undefined>();
+  const [editOpen, setEditOpen] = useState(false);
 
   const { data: categoriesData } = useAssetCategories();
+  const { data: businessUnitsData } = useBusinessUnits({ page_size: 200 });
+  const { data: usersData } = useUsers({ page_size: 200 });
   const deleteAsset = useDeleteAsset();
 
   const params = useMemo(() => ({
@@ -339,7 +129,9 @@ function AllAssetsTab() {
     category: categoryFilter || undefined,
     status: (statusFilter as AssetStatus) || undefined,
     criticality: criticalityFilter ? Number(criticalityFilter) : undefined,
-  }), [search, categoryFilter, statusFilter, criticalityFilter]);
+    owner: ownerFilter || undefined,
+    business_unit: businessUnitFilter || undefined,
+  }), [search, categoryFilter, statusFilter, criticalityFilter, ownerFilter, businessUnitFilter]);
 
   const { data, isLoading } = useAssets(params);
   const assets = data?.results ?? [];
@@ -347,6 +139,17 @@ function AllAssetsTab() {
   const categoryOptions = [
     { value: "", label: "All Categories" },
     ...(categoriesData?.results?.map((c) => ({ value: c.id, label: c.name })) ?? []),
+  ];
+  const buOptions = [
+    { value: "", label: "All Business Units" },
+    ...(businessUnitsData?.results ?? []).map((bu: { id: string; name: string }) => ({ value: bu.id, label: bu.name })),
+  ];
+  const ownerOptions = [
+    { value: "", label: "All Owners" },
+    ...(usersData?.results ?? []).map((u: { id: string; first_name?: string; last_name?: string; email: string }) => ({
+      value: u.id,
+      label: u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email,
+    })),
   ];
 
   function toggleCol(key: ColKey) {
@@ -357,7 +160,7 @@ function AllAssetsTab() {
 
   function savePreset() {
     if (!presetName.trim()) return;
-    const next = [...presets, { name: presetName.trim(), filters: { search, category: categoryFilter, status: statusFilter, criticality: criticalityFilter } }];
+    const next = [...presets, { name: presetName.trim(), filters: { search, category: categoryFilter, status: statusFilter, criticality: criticalityFilter, owner: ownerFilter, business_unit: businessUnitFilter } }];
     setPresets(next);
     localStorage.setItem(LS_PRESETS_KEY, JSON.stringify(next));
     setPresetName("");
@@ -369,6 +172,8 @@ function AllAssetsTab() {
     setCategoryFilter(p.filters.category);
     setStatusFilter(p.filters.status);
     setCriticalityFilter(p.filters.criticality);
+    setOwnerFilter(p.filters.owner ?? "");
+    setBusinessUnitFilter(p.filters.business_unit ?? "");
   }
 
   function deletePreset(name: string) {
@@ -377,30 +182,34 @@ function AllAssetsTab() {
     localStorage.setItem(LS_PRESETS_KEY, JSON.stringify(next));
   }
 
-  const colCount = visibleCols.length + 1; // +1 for Actions
+  function clearFilters() {
+    setSearch(""); setCategoryFilter(""); setStatusFilter("");
+    setCriticalityFilter(""); setOwnerFilter(""); setBusinessUnitFilter("");
+  }
+
+  const hasActiveFilters = !!(search || categoryFilter || statusFilter || criticalityFilter || ownerFilter || businessUnitFilter);
+  const colCount = visibleCols.length + 1;
+  const sel = "flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
   return (
     <div className="space-y-4">
-      {/* Filter row */}
-      <div className="flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 min-w-[200px]">
+      {/* Filter row — row 1 */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="relative flex-1 min-w-[180px]">
           <Search className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
-          <input type="text" placeholder="Search assets..." value={search} onChange={e => setSearch(e.target.value)}
+          <input type="text" placeholder="Search assets…" value={search} onChange={e => setSearch(e.target.value)}
             className="flex h-9 w-full rounded-md border border-input bg-background pl-8 pr-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
         </div>
-        <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}
-          className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className={sel}>
           {categoryOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
         </select>
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-          className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={sel}>
           <option value="">All Statuses</option>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
           <option value="retired">Retired</option>
         </select>
-        <select value={criticalityFilter} onChange={e => setCriticalityFilter(e.target.value)}
-          className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <select value={criticalityFilter} onChange={e => setCriticalityFilter(e.target.value)} className={sel}>
           <option value="">All Criticalities</option>
           <option value="1">1 – Very Low</option>
           <option value="2">2 – Low</option>
@@ -408,16 +217,26 @@ function AllAssetsTab() {
           <option value="4">4 – High</option>
           <option value="5">5 – Critical</option>
         </select>
+        <select value={ownerFilter} onChange={e => setOwnerFilter(e.target.value)} className={sel}>
+          {ownerOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+        <select value={businessUnitFilter} onChange={e => setBusinessUnitFilter(e.target.value)} className={sel}>
+          {buOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
 
-        {/* Presets */}
+        {hasActiveFilters && (
+          <button onClick={clearFilters} title="Clear all filters"
+            className="flex h-9 items-center gap-1 rounded-md border border-input bg-background px-2 py-1 text-sm text-muted-foreground hover:bg-muted hover:text-foreground">
+            <X className="h-3.5 w-3.5" /> Clear
+          </button>
+        )}
+
         {presets.length > 0 && (
-          <select onChange={e => { const p = presets.find(x => x.name === e.target.value); if (p) applyPreset(p); e.target.value = ""; }}
-            className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <select onChange={e => { const p = presets.find(x => x.name === e.target.value); if (p) applyPreset(p); e.target.value = ""; }} className={sel}>
             <option value="">Load preset…</option>
             {presets.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
           </select>
         )}
-
         <button onClick={() => setShowPresetSave(v => !v)} title="Save filter preset"
           className="flex h-9 items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1 text-sm hover:bg-muted">
           <Save className="h-3.5 w-3.5" /> Save
@@ -430,7 +249,7 @@ function AllAssetsTab() {
 
       {/* Save preset inline */}
       {showPresetSave && (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <input value={presetName} onChange={e => setPresetName(e.target.value)} placeholder="Preset name…"
             className="h-8 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring w-48" />
           <Button size="sm" onClick={savePreset} disabled={!presetName.trim()}>Save Preset</Button>
@@ -440,7 +259,7 @@ function AllAssetsTab() {
               {presets.map(p => (
                 <span key={p.name} className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs">
                   {p.name}
-                  <button onClick={() => deletePreset(p.name)} className="hover:text-destructive">✕</button>
+                  <button onClick={() => deletePreset(p.name)} className="hover:text-destructive"><X className="h-3 w-3" /></button>
                 </span>
               ))}
             </div>
@@ -451,6 +270,7 @@ function AllAssetsTab() {
       {/* Column picker */}
       {showColPicker && (
         <div className="flex flex-wrap gap-3 rounded-lg border bg-card p-4">
+          <p className="w-full text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Visible Columns</p>
           {ALL_COLUMNS.map(col => (
             <label key={col.key} className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
               <input type="checkbox" checked={visibleCols.includes(col.key)} onChange={() => toggleCol(col.key)} className="rounded" />
@@ -480,20 +300,30 @@ function AllAssetsTab() {
               ) : assets.map(asset => (
                 <tr key={asset.id} className="cursor-pointer border-b transition-colors last:border-0 hover:bg-muted/20"
                   onClick={() => navigate(`/assets/${asset.id}`)}>
-                  {visibleCols.includes("name") && <td className="px-4 py-3 font-medium">{asset.name}</td>}
-                  {visibleCols.includes("category") && <td className="px-4 py-3 text-muted-foreground">{asset.category_name ?? "—"}</td>}
-                  {visibleCols.includes("owner") && <td className="px-4 py-3 text-muted-foreground">{asset.owner_name ?? "—"}</td>}
-                  {visibleCols.includes("business_unit") && <td className="px-4 py-3 text-muted-foreground">{asset.business_unit_name ?? "—"}</td>}
+                  {visibleCols.includes("name") && <td className="px-4 py-3 font-medium whitespace-nowrap">{asset.name}</td>}
+                  {visibleCols.includes("description") && <td className="px-4 py-3 text-muted-foreground max-w-xs truncate">{asset.description || "—"}</td>}
+                  {visibleCols.includes("category") && <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{asset.category_name ?? "—"}</td>}
+                  {visibleCols.includes("owner") && <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{asset.owner_name ?? "—"}</td>}
+                  {visibleCols.includes("business_unit") && <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{asset.business_unit_name ?? "—"}</td>}
                   {visibleCols.includes("criticality") && <td className="px-4 py-3"><CriticalityBadge value={asset.criticality as 1|2|3|4|5} /></td>}
                   {visibleCols.includes("confidentiality") && <td className="px-4 py-3"><CIABadge value={asset.confidentiality} /></td>}
                   {visibleCols.includes("integrity") && <td className="px-4 py-3"><CIABadge value={asset.integrity} /></td>}
                   {visibleCols.includes("availability") && <td className="px-4 py-3"><CIABadge value={asset.availability} /></td>}
                   {visibleCols.includes("status") && <td className="px-4 py-3"><Badge variant={asset.status}>{asset.status}</Badge></td>}
-                  {visibleCols.includes("asset_value") && <td className="px-4 py-3 text-muted-foreground">{asset.asset_value ?? "—"}</td>}
+                  {visibleCols.includes("asset_value") && <td className="px-4 py-3 text-muted-foreground">{asset.asset_value ? `$${Number(asset.asset_value).toLocaleString()}` : "—"}</td>}
+                  {visibleCols.includes("tags") && <td className="px-4 py-3">
+                    {asset.tags?.length ? (
+                      <div className="flex flex-wrap gap-1">
+                        {asset.tags.map(t => <span key={t} className="rounded bg-muted px-1.5 py-0.5 text-xs">{t}</span>)}
+                      </div>
+                    ) : <span className="text-muted-foreground">—</span>}
+                  </td>}
                   {visibleCols.includes("notes") && <td className="px-4 py-3 text-muted-foreground max-w-xs truncate">{asset.notes || "—"}</td>}
+                  {visibleCols.includes("created_at") && <td className="px-4 py-3 text-muted-foreground whitespace-nowrap text-xs">{new Date(asset.created_at).toLocaleDateString()}</td>}
+                  {visibleCols.includes("updated_at") && <td className="px-4 py-3 text-muted-foreground whitespace-nowrap text-xs">{new Date(asset.updated_at).toLocaleDateString()}</td>}
                   <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => navigate(`/assets/${asset.id}`)}
+                      <button onClick={() => { setEditAsset(asset); setEditOpen(true); }}
                         className="rounded p-1 hover:bg-muted text-muted-foreground hover:text-foreground" title="Edit">
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
@@ -509,6 +339,8 @@ function AllAssetsTab() {
           </table>
         </div>
       )}
+
+      <AssetFormModal open={editOpen} onClose={() => { setEditOpen(false); setEditAsset(undefined); }} asset={editAsset} />
     </div>
   );
 }
@@ -879,9 +711,8 @@ export default function AssetListPage() {
   const [activeTab, setActiveTab] = useState<Tab>("all");
   const [showModal, setShowModal] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const [editingAsset, setEditingAsset] = useState<Asset | undefined>();
 
-  const handleCloseModal = () => { setShowModal(false); setEditingAsset(undefined); };
+  const handleCloseModal = () => setShowModal(false);
 
   const { data: contentTypes = [] } = useContentTypes();
   const assetContentTypeId = contentTypes.find((ct) => ct.label === "assets.asset")?.id;
@@ -911,7 +742,7 @@ export default function AssetListPage() {
             <Button variant="outline" onClick={() => setImportOpen(true)}>
               <Upload className="h-4 w-4" /> Import CSV
             </Button>
-            <Button onClick={() => { setEditingAsset(undefined); setShowModal(true); }}>
+            <Button onClick={() => setShowModal(true)}>
               <Plus className="h-4 w-4" /> New Asset
             </Button>
           </div>
@@ -942,7 +773,7 @@ export default function AssetListPage() {
         <ModuleStatusRulesTab contentTypeLabel="assets.asset" moduleLabel="Asset" />
       )}
 
-      <AssetFormModal open={showModal} onClose={handleCloseModal} asset={editingAsset} />
+      <AssetFormModal open={showModal} onClose={handleCloseModal} asset={undefined} />
 
       <ImportModal
         open={importOpen}

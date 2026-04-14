@@ -89,6 +89,8 @@ export interface AssetParams {
   category?: string;
   status?: AssetStatus | "";
   criticality?: number | "";
+  owner?: string;
+  business_unit?: string;
   page?: number;
   page_size?: number;
 }
