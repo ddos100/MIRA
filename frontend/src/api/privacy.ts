@@ -36,6 +36,14 @@ export interface ProcessingActivity {
 export type DPIAStatus = "draft" | "in_review" | "approved" | "rejected";
 export type ResidualRiskLevel = "low" | "medium" | "high" | "very_high";
 
+export interface PrivacyRiskSummary {
+  id: string;
+  title: string;
+  status: string;
+  residual_score: number;
+  category_name: string | null;
+}
+
 export interface DPIA {
   id: string;
   processing_activity: string;
@@ -54,6 +62,8 @@ export interface DPIA {
   dpo_opinion: string;
   approved_at: string | null;
   review_date: string | null;
+  privacy_risks: string[];
+  privacy_risks_detail?: PrivacyRiskSummary[];
   created_at: string;
   updated_at: string;
 }

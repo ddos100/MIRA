@@ -94,6 +94,12 @@ class DPIA(BaseModel):
     dpo_opinion = models.TextField(blank=True)
     approved_at = models.DateField(null=True, blank=True)
     review_date = models.DateField(null=True, blank=True)
+    privacy_risks = models.ManyToManyField(
+        "risks.Risk",
+        related_name="dpias",
+        blank=True,
+        verbose_name=_("Privacy Risks"),
+    )
 
     class Meta:
         verbose_name = _("DPIA")

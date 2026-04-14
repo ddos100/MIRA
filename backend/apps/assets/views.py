@@ -162,7 +162,7 @@ class DataLifecycleRequirementViewSet(viewsets.ModelViewSet):
     ordering = ["framework", "requirement_key"]
 
     def _maybe_create_privacy_risk(self, requirement):
-        """Auto-create a Risk when a requirement is rated not_met."""
+        """Auto-create a Risk when a requirement is rated not_met and replicate to DPIAs."""
         from apps.risks.models import Risk
         if requirement.rating == DataLifecycleRequirement.Rating.NOT_MET and not requirement.privacy_risk_id:
             stage = requirement.stage_record
@@ -185,12 +185,27 @@ class DataLifecycleRequirementViewSet(viewsets.ModelViewSet):
             )
             requirement.privacy_risk = risk
             requirement.save(update_fields=["privacy_risk"])
+
+            # Replicate to DPIAs linked via the data flow's processing activity
+            self._link_risk_to_dpias(risk, stage)
+
         elif requirement.rating != DataLifecycleRequirement.Rating.NOT_MET and requirement.privacy_risk_id:
             # If re-rated away from not_met, close the risk
             risk = requirement.privacy_risk
             from apps.risks.models import Risk as RiskModel
             risk.status = RiskModel.Status.CLOSED
             risk.save(update_fields=["status"])
+
+    @staticmethod
+    def _link_risk_to_dpias(risk, stage):
+        """Add the risk to all DPIAs associated with the data flow's processing activity."""
+        processing_activity_id = stage.data_flow.processing_activity_id
+        if not processing_activity_id:
+            return
+        from apps.privacy.models import DPIA
+        dpias = DPIA.objects.filter(processing_activity_id=processing_activity_id)
+        for dpia in dpias:
+            dpia.privacy_risks.add(risk)
 
     def perform_update(self, serializer):
         requirement = serializer.save()
