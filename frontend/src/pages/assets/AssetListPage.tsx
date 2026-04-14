@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Plus, Pencil, Trash2, Search, Upload, Settings2, Save, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -635,70 +635,296 @@ function DataFlowFormModal({ open, onClose, flow }: { open: boolean; onClose: ()
   );
 }
 
+// ─── Flow Columns & Presets ───────────────────────────────────────────────────
+
+const ALL_FLOW_COLUMNS = [
+  { key: "name",                     label: "Name" },
+  { key: "source",                   label: "Source Asset" },
+  { key: "destination",              label: "Destination Asset" },
+  { key: "data_types",               label: "Data Types" },
+  { key: "transfer_mechanism",       label: "Transfer Mechanism" },
+  { key: "legal_basis",              label: "Legal Basis (GDPR)" },
+  { key: "lifecycle_stage",          label: "Lifecycle Stage" },
+  { key: "is_cross_border",          label: "Cross-Border" },
+  { key: "special_category_data",    label: "Special Category" },
+  { key: "data_subject_categories",  label: "Data Subject Categories" },
+  { key: "personal_data_categories", label: "Personal Data Categories" },
+  { key: "retention_period_days",    label: "Retention (days)" },
+  { key: "transfer_safeguards",      label: "Transfer Safeguards" },
+  { key: "processing_activity",      label: "Processing Activity" },
+  { key: "notes",                    label: "Notes" },
+  { key: "created_at",               label: "Created" },
+  { key: "updated_at",               label: "Updated" },
+] as const;
+type FlowColKey = typeof ALL_FLOW_COLUMNS[number]["key"];
+
+const DEFAULT_FLOW_COLS: FlowColKey[] = [
+  "name", "source", "destination", "data_types", "legal_basis",
+  "lifecycle_stage", "is_cross_border", "special_category_data",
+];
+
+const LS_FLOW_COLS_KEY    = "mira_flow_visible_cols";
+const LS_FLOW_PRESETS_KEY = "mira_flow_filter_presets";
+
+interface FlowFilterState {
+  search: string; source_asset: string; destination_asset: string;
+  lifecycle_stage: string; is_cross_border: string; special_category_data: string;
+}
+interface FlowFilterPreset { name: string; filters: FlowFilterState; }
+
+function loadFlowVisibleCols(): FlowColKey[] {
+  try { const v = localStorage.getItem(LS_FLOW_COLS_KEY); return v ? JSON.parse(v) : DEFAULT_FLOW_COLS; }
+  catch { return DEFAULT_FLOW_COLS; }
+}
+function loadFlowPresets(): FlowFilterPreset[] {
+  try { const v = localStorage.getItem(LS_FLOW_PRESETS_KEY); return v ? JSON.parse(v) : []; }
+  catch { return []; }
+}
+
 // ─── Data Flows Tab ───────────────────────────────────────────────────────────
 
 function DataFlowsTab() {
-  const { data, isLoading } = useDataFlows();
-  const dataFlows = data?.results ?? [];
-  const deleteFlow = useDeleteDataFlow();
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editFlow, setEditFlow] = useState<DataFlow | undefined>();
+  const navigate = useNavigate();
+  const [search,           setSearch]           = useState("");
+  const [sourceFilter,     setSourceFilter]     = useState("");
+  const [destFilter,       setDestFilter]       = useState("");
+  const [stageFilter,      setStageFilter]      = useState("");
+  const [crossBorderFilter,setCrossBorderFilter]= useState("");
+  const [specialCatFilter, setSpecialCatFilter] = useState("");
+  const [visibleCols,      setVisibleCols]      = useState<FlowColKey[]>(loadFlowVisibleCols);
+  const [showColPicker,    setShowColPicker]    = useState(false);
+  const [presets,          setPresets]          = useState<FlowFilterPreset[]>(loadFlowPresets);
+  const [presetName,       setPresetName]       = useState("");
+  const [showPresetSave,   setShowPresetSave]   = useState(false);
+  const [modalOpen,        setModalOpen]        = useState(false);
+  const [editFlow,         setEditFlow]         = useState<DataFlow | undefined>();
 
-  if (isLoading) return <div className="flex justify-center py-8"><LoadingSpinner /></div>;
+  const deleteFlow = useDeleteDataFlow();
+  const { data: assetsData } = useAssets({ page_size: 500 });
+  const allAssets = assetsData?.results ?? [];
+
+  const apiParams = useMemo(() => ({
+    search:            search || undefined,
+    source_asset:      sourceFilter || undefined,
+    destination_asset: destFilter || undefined,
+    lifecycle_stage:   stageFilter || undefined,
+    is_cross_border:   crossBorderFilter !== "" ? (crossBorderFilter === "true") : undefined,
+  }), [search, sourceFilter, destFilter, stageFilter, crossBorderFilter]);
+
+  const { data, isLoading } = useDataFlows(apiParams as Record<string, unknown>);
+
+  // Client-side filter for special_category_data (not a backend filterset field)
+  const dataFlows = useMemo(() => {
+    const all = data?.results ?? [];
+    if (!specialCatFilter) return all;
+    return all.filter(df =>
+      specialCatFilter === "true" ? df.special_category_data : !df.special_category_data
+    );
+  }, [data, specialCatFilter]);
+
+  const assetOptions = [
+    ...allAssets.map(a => ({ value: a.id, label: a.name })),
+  ];
+
+  function toggleCol(key: FlowColKey) {
+    const next = visibleCols.includes(key)
+      ? visibleCols.filter(k => k !== key)
+      : [...visibleCols, key];
+    setVisibleCols(next);
+    localStorage.setItem(LS_FLOW_COLS_KEY, JSON.stringify(next));
+  }
+
+  function savePreset() {
+    if (!presetName.trim()) return;
+    const next = [...presets, {
+      name: presetName.trim(),
+      filters: { search, source_asset: sourceFilter, destination_asset: destFilter, lifecycle_stage: stageFilter, is_cross_border: crossBorderFilter, special_category_data: specialCatFilter },
+    }];
+    setPresets(next);
+    localStorage.setItem(LS_FLOW_PRESETS_KEY, JSON.stringify(next));
+    setPresetName(""); setShowPresetSave(false);
+  }
+
+  function applyPreset(p: FlowFilterPreset) {
+    setSearch(p.filters.search ?? "");
+    setSourceFilter(p.filters.source_asset ?? "");
+    setDestFilter(p.filters.destination_asset ?? "");
+    setStageFilter(p.filters.lifecycle_stage ?? "");
+    setCrossBorderFilter(p.filters.is_cross_border ?? "");
+    setSpecialCatFilter(p.filters.special_category_data ?? "");
+  }
+
+  function deletePreset(name: string) {
+    const next = presets.filter(p => p.name !== name);
+    setPresets(next);
+    localStorage.setItem(LS_FLOW_PRESETS_KEY, JSON.stringify(next));
+  }
+
+  function clearFilters() {
+    setSearch(""); setSourceFilter(""); setDestFilter("");
+    setStageFilter(""); setCrossBorderFilter(""); setSpecialCatFilter("");
+  }
+
+  const hasActiveFilters = !!(search || sourceFilter || destFilter || stageFilter || crossBorderFilter || specialCatFilter);
+  const colCount = visibleCols.length + 1;
+  const sel = "flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      {/* Filter + action row */}
+      <div className="flex flex-wrap gap-2 items-center justify-between">
+        <div className="flex flex-wrap gap-2 items-center flex-1">
+          <div className="relative min-w-[180px]">
+            <Search className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
+            <input type="text" placeholder="Search flows…" value={search} onChange={e => setSearch(e.target.value)}
+              className="flex h-9 w-full rounded-md border border-input bg-background pl-8 pr-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+          </div>
+          <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)} className={sel}>
+            <option value="">All Sources</option>
+            {assetOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <select value={destFilter} onChange={e => setDestFilter(e.target.value)} className={sel}>
+            <option value="">All Destinations</option>
+            {assetOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <select value={stageFilter} onChange={e => setStageFilter(e.target.value)} className={sel}>
+            {LIFECYCLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label || "All Stages"}</option>)}
+          </select>
+          <select value={crossBorderFilter} onChange={e => setCrossBorderFilter(e.target.value)} className={sel}>
+            <option value="">All Transfers</option>
+            <option value="true">Cross-Border</option>
+            <option value="false">Domestic Only</option>
+          </select>
+          <select value={specialCatFilter} onChange={e => setSpecialCatFilter(e.target.value)} className={sel}>
+            <option value="">All Data</option>
+            <option value="true">Special Category</option>
+            <option value="false">Standard Data</option>
+          </select>
+
+          {hasActiveFilters && (
+            <button onClick={clearFilters} title="Clear filters"
+              className="flex h-9 items-center gap-1 rounded-md border border-input bg-background px-2 py-1 text-sm text-muted-foreground hover:bg-muted hover:text-foreground">
+              <X className="h-3.5 w-3.5" /> Clear
+            </button>
+          )}
+
+          {presets.length > 0 && (
+            <select onChange={e => { const p = presets.find(x => x.name === e.target.value); if (p) applyPreset(p); e.target.value = ""; }} className={sel}>
+              <option value="">Load preset…</option>
+              {presets.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+            </select>
+          )}
+          <button onClick={() => setShowPresetSave(v => !v)}
+            className="flex h-9 items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1 text-sm hover:bg-muted">
+            <Save className="h-3.5 w-3.5" /> Save
+          </button>
+          <button onClick={() => setShowColPicker(v => !v)}
+            className={cn("flex h-9 items-center gap-1.5 rounded-md border px-3 py-1 text-sm hover:bg-muted", showColPicker ? "border-primary bg-primary/5" : "border-input bg-background")}>
+            <Settings2 className="h-3.5 w-3.5" /> Columns
+          </button>
+        </div>
         <Button onClick={() => { setEditFlow(undefined); setModalOpen(true); }}>
           <Plus className="h-4 w-4" /> New Data Flow
         </Button>
       </div>
-      <div className="overflow-hidden rounded-lg border bg-card">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b bg-muted/30">
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Name</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Source → Destination</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Legal Basis</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Stage</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Flags</th>
-              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {dataFlows.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">No data flows found.</td></tr>
-            ) : dataFlows.map(df => (
-              <tr key={df.id} className="border-b transition-colors last:border-0 hover:bg-muted/20">
-                <td className="px-4 py-3 font-medium">{df.name}</td>
-                <td className="px-4 py-3 text-muted-foreground text-xs">
-                  {df.source_asset_name} → {df.destination_asset_name}
-                </td>
-                <td className="px-4 py-3 text-muted-foreground text-xs max-w-[180px] truncate">{df.legal_basis || "—"}</td>
-                <td className="px-4 py-3">
-                  {df.lifecycle_stage ? (
-                    <span className="capitalize text-xs bg-muted rounded px-2 py-0.5">{df.lifecycle_stage_display ?? df.lifecycle_stage}</span>
-                  ) : "—"}
-                </td>
-                <td className="px-4 py-3 flex flex-wrap gap-1">
-                  {df.is_cross_border && <Badge variant="high">Cross-Border</Badge>}
-                  {df.special_category_data && <Badge variant="critical">Special Cat.</Badge>}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <div className="flex justify-end gap-1">
-                    <button onClick={() => { setEditFlow(df); setModalOpen(true); }} className="p-1.5 rounded hover:bg-accent text-muted-foreground">
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button onClick={() => { if (confirm("Delete flow?")) deleteFlow.mutate(df.id); }} className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </td>
+
+      {/* Save preset inline */}
+      {showPresetSave && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <input value={presetName} onChange={e => setPresetName(e.target.value)} placeholder="Preset name…"
+            className="h-8 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring w-48" />
+          <Button size="sm" onClick={savePreset} disabled={!presetName.trim()}>Save Preset</Button>
+          <Button size="sm" variant="outline" onClick={() => setShowPresetSave(false)}>Cancel</Button>
+          {presets.length > 0 && (
+            <div className="flex flex-wrap gap-1 ml-2">
+              {presets.map(p => (
+                <span key={p.name} className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs">
+                  {p.name}
+                  <button onClick={() => deletePreset(p.name)} className="hover:text-destructive"><X className="h-3 w-3" /></button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Column picker */}
+      {showColPicker && (
+        <div className="flex flex-wrap gap-3 rounded-lg border bg-card p-4">
+          <p className="w-full text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Visible Columns</p>
+          {ALL_FLOW_COLUMNS.map(col => (
+            <label key={col.key} className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+              <input type="checkbox" checked={visibleCols.includes(col.key)} onChange={() => toggleCol(col.key)} className="rounded" />
+              {col.label}
+            </label>
+          ))}
+        </div>
+      )}
+
+      {/* Table */}
+      {isLoading ? (
+        <div className="flex justify-center py-8"><LoadingSpinner /></div>
+      ) : (
+        <div className="overflow-hidden rounded-lg border bg-card overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-muted/30">
+                {ALL_FLOW_COLUMNS.filter(c => visibleCols.includes(c.key)).map(col => (
+                  <th key={col.key} className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">{col.label}</th>
+                ))}
+                <th className="px-4 py-3 text-right font-medium text-muted-foreground">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {dataFlows.length === 0 ? (
+                <tr><td colSpan={colCount} className="px-4 py-10 text-center text-muted-foreground">No data flows found.</td></tr>
+              ) : dataFlows.map(df => (
+                <tr key={df.id} className="cursor-pointer border-b transition-colors last:border-0 hover:bg-muted/20"
+                  onClick={() => navigate(`/assets/flows/${df.id}`)}>
+                  {visibleCols.includes("name") && <td className="px-4 py-3 font-medium whitespace-nowrap">{df.name}</td>}
+                  {visibleCols.includes("source") && <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{df.source_asset_name ?? "—"}</td>}
+                  {visibleCols.includes("destination") && <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{df.destination_asset_name ?? "—"}</td>}
+                  {visibleCols.includes("data_types") && <td className="px-4 py-3 text-muted-foreground max-w-[200px] truncate">{df.data_types || "—"}</td>}
+                  {visibleCols.includes("transfer_mechanism") && <td className="px-4 py-3 text-muted-foreground max-w-[180px] truncate">{df.transfer_mechanism || "—"}</td>}
+                  {visibleCols.includes("legal_basis") && <td className="px-4 py-3 text-muted-foreground text-xs max-w-[180px] truncate">{df.legal_basis || "—"}</td>}
+                  {visibleCols.includes("lifecycle_stage") && <td className="px-4 py-3">
+                    {df.lifecycle_stage
+                      ? <span className="capitalize text-xs bg-muted rounded px-2 py-0.5">{df.lifecycle_stage_display ?? df.lifecycle_stage}</span>
+                      : "—"}
+                  </td>}
+                  {visibleCols.includes("is_cross_border") && <td className="px-4 py-3">
+                    {df.is_cross_border ? <Badge variant="high">Yes</Badge> : <span className="text-muted-foreground text-xs">No</span>}
+                  </td>}
+                  {visibleCols.includes("special_category_data") && <td className="px-4 py-3">
+                    {df.special_category_data ? <Badge variant="critical">Yes</Badge> : <span className="text-muted-foreground text-xs">No</span>}
+                  </td>}
+                  {visibleCols.includes("data_subject_categories") && <td className="px-4 py-3 text-muted-foreground text-xs max-w-[180px] truncate">{df.data_subject_categories || "—"}</td>}
+                  {visibleCols.includes("personal_data_categories") && <td className="px-4 py-3 text-muted-foreground text-xs max-w-[180px] truncate">{df.personal_data_categories || "—"}</td>}
+                  {visibleCols.includes("retention_period_days") && <td className="px-4 py-3 text-muted-foreground">{df.retention_period_days ?? "—"}</td>}
+                  {visibleCols.includes("transfer_safeguards") && <td className="px-4 py-3 text-muted-foreground text-xs max-w-[180px] truncate">{df.transfer_safeguards || "—"}</td>}
+                  {visibleCols.includes("processing_activity") && <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{df.processing_activity_name ?? "—"}</td>}
+                  {visibleCols.includes("notes") && <td className="px-4 py-3 text-muted-foreground max-w-xs truncate">{df.notes || "—"}</td>}
+                  {visibleCols.includes("created_at") && <td className="px-4 py-3 text-muted-foreground whitespace-nowrap text-xs">{new Date(df.created_at).toLocaleDateString()}</td>}
+                  {visibleCols.includes("updated_at") && <td className="px-4 py-3 text-muted-foreground whitespace-nowrap text-xs">{new Date(df.updated_at).toLocaleDateString()}</td>}
+                  <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => { setEditFlow(df); setModalOpen(true); }}
+                        className="rounded p-1 hover:bg-muted text-muted-foreground hover:text-foreground" title="Edit">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={() => { if (confirm("Delete flow?")) deleteFlow.mutate(df.id); }}
+                        className="rounded p-1 hover:bg-destructive/10 text-muted-foreground hover:text-destructive" title="Delete">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       <DataFlowFormModal open={modalOpen} onClose={() => { setModalOpen(false); setEditFlow(undefined); }} flow={editFlow} />
     </div>
   );
@@ -708,7 +934,8 @@ function DataFlowsTab() {
 
 export default function AssetListPage() {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<Tab>("all");
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<Tab>((searchParams.get("tab") as Tab) ?? "all");
   const [showModal, setShowModal] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
 
