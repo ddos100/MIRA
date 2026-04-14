@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Plus, Pencil, Trash2, Search, Upload, Settings2, Save, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Upload, Settings2, Save, X, ExternalLink } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -8,7 +8,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useMutation } from "@tanstack/react-query";
 import {
   useAssets,
-  useDataAssets,
   useDataFlows,
   useAssetCategories,
   useDeleteAsset,
@@ -21,7 +20,6 @@ import { apiClient } from "@/api/client";
 import { useBusinessUnits } from "@/api/organizations";
 import { useUsers } from "@/api/auth";
 import { CriticalityBadge } from "@/components/assets/CriticalityBadge";
-import { ClassificationBadge } from "@/components/assets/ClassificationBadge";
 import { AssetFormModal } from "@/components/assets/AssetFormModal";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -372,12 +370,20 @@ function BulkUploadTab({ onSuccess }: { onSuccess: () => void }) {
 // ─── Data Assets Tab ──────────────────────────────────────────────────────────
 
 function DataAssetsTab() {
-  const { data, isLoading } = useDataAssets();
-  const { data: flowsData } = useDataFlows();
-  const dataAssets = data?.results ?? [];
+  const navigate = useNavigate();
+  const { data: assetsData, isLoading: assetsLoading } = useAssets({ page_size: 500 });
+  const { data: flowsData, isLoading: flowsLoading } = useDataFlows();
+
+  // Auto-filter: any asset whose category name contains "data"
+  const dataAssets = useMemo(() => {
+    return (assetsData?.results ?? []).filter(
+      a => a.category_name?.toLowerCase().includes("data")
+    );
+  }, [assetsData]);
+
   const allFlows = flowsData?.results ?? [];
 
-  // Group flows by asset id
+  // Group flows by asset id (source or destination)
   const flowsByAsset = useMemo(() => {
     const map: Record<string, typeof allFlows> = {};
     for (const f of allFlows) {
@@ -391,72 +397,166 @@ function DataAssetsTab() {
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  if (isLoading) return <div className="flex justify-center py-8"><LoadingSpinner /></div>;
+  if (assetsLoading || flowsLoading) return <div className="flex justify-center py-8"><LoadingSpinner /></div>;
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        Showing assets with a Data Asset record. Click a row to see associated Data Flows.
+        Assets are listed here automatically when their category contains "Data" (e.g. Data Asset, Database, Data Store).
+        Click a row to expand details and associated Data Flows.
       </p>
-      <div className="overflow-hidden rounded-lg border bg-card">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b bg-muted/30">
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Asset Name</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Classification</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Retention (days)</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Legal Basis</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Processing Purpose</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Data Flows</th>
-            </tr>
-          </thead>
-          <tbody>
-            {dataAssets.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">No data assets found.</td></tr>
-            ) : dataAssets.map(da => {
-              const flows = flowsByAsset[da.asset] ?? [];
-              const isOpen = expandedId === da.id;
-              return (
-                <>
-                  <tr key={da.id} className="border-b hover:bg-muted/20 cursor-pointer"
-                    onClick={() => setExpandedId(isOpen ? null : da.id)}>
-                    <td className="px-4 py-3 font-medium">{da.asset_name ?? da.asset}</td>
-                    <td className="px-4 py-3"><ClassificationBadge value={da.classification} /></td>
-                    <td className="px-4 py-3 text-muted-foreground">{da.retention_period_days ?? "—"}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{da.legal_basis || "—"}</td>
-                    <td className="max-w-xs px-4 py-3 text-muted-foreground"><span className="line-clamp-2">{da.processing_purpose || "—"}</span></td>
-                    <td className="px-4 py-3">
-                      {flows.length > 0 ? (
-                        <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                          {flows.length} flow{flows.length !== 1 ? "s" : ""}
-                        </span>
-                      ) : <span className="text-muted-foreground">—</span>}
-                    </td>
-                  </tr>
-                  {isOpen && flows.length > 0 && (
-                    <tr key={`${da.id}-flows`} className="bg-muted/10 border-b">
-                      <td colSpan={6} className="px-6 py-3">
-                        <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Associated Data Flows</p>
-                        <div className="space-y-1">
-                          {flows.map(f => (
-                            <div key={f.id} className="flex items-center gap-2 text-xs">
-                              <span className="font-medium">{f.name}</span>
-                              <span className="text-muted-foreground">
-                                {f.source_asset_name} → {f.destination_asset_name}
-                              </span>
-                              {f.is_cross_border && <Badge variant="high">Cross-Border</Badge>}
-                            </div>
-                          ))}
+
+      {dataAssets.length === 0 ? (
+        <div className="rounded-lg border bg-card px-6 py-12 text-center">
+          <p className="text-muted-foreground text-sm">No data-type assets found.</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Create an asset with a category name containing "Data" and it will appear here automatically.
+          </p>
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-lg border bg-card overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-muted/30">
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Asset Name</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Category</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Owner</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Business Unit</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Criticality</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">C / I / A</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Data Flows</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dataAssets.map(asset => {
+                const flows = flowsByAsset[asset.id] ?? [];
+                const isOpen = expandedId === asset.id;
+                return (
+                  <>
+                    <tr key={asset.id}
+                      className="border-b hover:bg-muted/20 cursor-pointer"
+                      onClick={() => setExpandedId(isOpen ? null : asset.id)}>
+                      <td className="px-4 py-3 font-medium whitespace-nowrap">{asset.name}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{asset.category_name ?? "—"}</td>
+                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{asset.owner_name ?? "—"}</td>
+                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{asset.business_unit_name ?? "—"}</td>
+                      <td className="px-4 py-3"><CriticalityBadge value={asset.criticality as 1|2|3|4|5} /></td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-1">
+                          <CIABadge value={asset.confidentiality} />
+                          <CIABadge value={asset.integrity} />
+                          <CIABadge value={asset.availability} />
                         </div>
                       </td>
+                      <td className="px-4 py-3"><Badge variant={asset.status}>{asset.status}</Badge></td>
+                      <td className="px-4 py-3">
+                        {flows.length > 0 ? (
+                          <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                            {flows.length} flow{flows.length !== 1 ? "s" : ""}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">None</span>
+                        )}
+                      </td>
                     </tr>
-                  )}
-                </>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+
+                    {isOpen && (
+                      <tr key={`${asset.id}-detail`} className="bg-muted/10 border-b">
+                        <td colSpan={8} className="px-6 py-4">
+                          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+
+                            {/* Asset Details */}
+                            <div>
+                              <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Asset Details</p>
+                              <dl className="space-y-1.5 text-sm">
+                                {asset.description && (
+                                  <div>
+                                    <dt className="text-xs text-muted-foreground">Description</dt>
+                                    <dd>{asset.description}</dd>
+                                  </div>
+                                )}
+                                {asset.asset_value && (
+                                  <div>
+                                    <dt className="text-xs text-muted-foreground">Asset Value</dt>
+                                    <dd>${Number(asset.asset_value).toLocaleString()}</dd>
+                                  </div>
+                                )}
+                                {asset.tags?.length > 0 && (
+                                  <div>
+                                    <dt className="text-xs text-muted-foreground mb-1">Tags</dt>
+                                    <dd className="flex flex-wrap gap-1">
+                                      {asset.tags.map(t => (
+                                        <span key={t} className="rounded bg-muted px-1.5 py-0.5 text-xs">{t}</span>
+                                      ))}
+                                    </dd>
+                                  </div>
+                                )}
+                                {asset.notes && (
+                                  <div>
+                                    <dt className="text-xs text-muted-foreground">Notes</dt>
+                                    <dd className="text-muted-foreground">{asset.notes}</dd>
+                                  </div>
+                                )}
+                              </dl>
+                              <button
+                                onClick={e => { e.stopPropagation(); navigate(`/assets/${asset.id}`); }}
+                                className="mt-3 flex items-center gap-1 text-xs text-primary hover:underline">
+                                <ExternalLink className="h-3 w-3" /> Open full asset record
+                              </button>
+                            </div>
+
+                            {/* Associated Data Flows */}
+                            <div>
+                              <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
+                                Associated Data Flows
+                              </p>
+                              {flows.length === 0 ? (
+                                <p className="text-xs text-muted-foreground">No data flows linked to this asset.</p>
+                              ) : (
+                                <div className="space-y-2">
+                                  {flows.map(f => (
+                                    <button key={f.id}
+                                      onClick={e => { e.stopPropagation(); navigate(`/assets/flows/${f.id}`); }}
+                                      className="w-full text-left rounded border bg-background p-3 hover:bg-muted/40 transition-colors">
+                                      <div className="flex items-start justify-between gap-2">
+                                        <span className="font-medium text-sm">{f.name}</span>
+                                        <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground mt-0.5" />
+                                      </div>
+                                      <p className="text-xs text-muted-foreground mt-0.5">
+                                        {f.source_asset_name} → {f.destination_asset_name}
+                                      </p>
+                                      <div className="flex flex-wrap gap-1 mt-1.5">
+                                        {f.lifecycle_stage && (
+                                          <span className="capitalize text-xs bg-muted rounded px-1.5 py-0.5">
+                                            {f.lifecycle_stage_display ?? f.lifecycle_stage}
+                                          </span>
+                                        )}
+                                        {f.is_cross_border && <Badge variant="high">Cross-Border</Badge>}
+                                        {f.special_category_data && <Badge variant="critical">Special Cat.</Badge>}
+                                        {f.legal_basis && (
+                                          <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                                            {f.legal_basis}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
