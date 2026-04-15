@@ -152,9 +152,60 @@ class DataFlowViewSet(viewsets.ModelViewSet):
         if updated:
             pa.save(update_fields=updated)
 
+    @staticmethod
+    def _create_ropa(data_flow):
+        """
+        Auto-create a new ProcessingActivity (RoPA entry) from a DataFlow.
+        Called when a DataFlow is saved with no processing_activity set.
+        Returns the newly created ProcessingActivity.
+        """
+        from apps.privacy.models import ProcessingActivity
+
+        _basis_map = {
+            "consent":              "consent",
+            "contract":             "contract",
+            "legal obligation":     "legal_obligation",
+            "vital interests":      "vital_interests",
+            "public task":          "public_task",
+            "legitimate interests": "legitimate_interests",
+        }
+        legal_basis = "legitimate_interests"
+        if data_flow.legal_basis:
+            for key, value in _basis_map.items():
+                if key in data_flow.legal_basis.lower():
+                    legal_basis = value
+                    break
+
+        return ProcessingActivity.objects.create(
+            name=f"Processing Activity – {data_flow.name}",
+            description=(
+                f"Auto-generated RoPA entry from data flow '{data_flow.name}'.\n"
+                f"Source: {getattr(data_flow.source_asset, 'name', '')} → "
+                f"Destination: {getattr(data_flow.destination_asset, 'name', '')}"
+            ),
+            purpose=data_flow.data_types or f"Data processing for {data_flow.name}",
+            legal_basis=legal_basis,
+            data_subjects=data_flow.data_subject_categories or "",
+            personal_data_categories=data_flow.personal_data_categories or "",
+            special_category_data=data_flow.special_category_data,
+            retention_period=(
+                f"{data_flow.retention_period_days} days"
+                if data_flow.retention_period_days else ""
+            ),
+            cross_border_transfer=data_flow.is_cross_border,
+            transfer_safeguards=data_flow.transfer_safeguards or "",
+            is_active=True,
+        )
+
     def perform_create(self, serializer):
         data_flow = serializer.save()
-        self._sync_to_processing_activity(data_flow)
+        if not data_flow.processing_activity_id:
+            # No RoPA linked → create one automatically and attach it
+            pa = self._create_ropa(data_flow)
+            data_flow.processing_activity = pa
+            data_flow.save(update_fields=["processing_activity"])
+        else:
+            self._sync_to_processing_activity(data_flow)
 
     def perform_update(self, serializer):
         data_flow = serializer.save()
@@ -263,14 +314,30 @@ class DataLifecycleRequirementViewSet(viewsets.ModelViewSet):
     @staticmethod
     def _link_risk_to_dpias(risk, stage):
         """
-        Add the risk to all DPIAs linked via the data flow's processing activity,
-        then re-derive residual_risk_level from the worst risk score.
+        Add the risk to all DPIAs linked via the data flow's processing activity.
+        If no DPIA exists, auto-create one. Then re-derive residual_risk_level
+        from the worst risk score.
         """
         processing_activity_id = stage.data_flow.processing_activity_id
         if not processing_activity_id:
             return
         from apps.privacy.models import DPIA
-        dpias = DPIA.objects.filter(processing_activity_id=processing_activity_id)
+        dpias = list(DPIA.objects.filter(processing_activity_id=processing_activity_id))
+        if not dpias:
+            # Auto-create a new DPIA for this processing activity
+            pa = stage.data_flow.processing_activity
+            dpia = DPIA.objects.create(
+                processing_activity=pa,
+                title=f"DPIA \u2013 {pa.name}",
+                description=(
+                    f"Auto-generated DPIA for processing activity '{pa.name}'.\n"
+                    f"Created because a privacy compliance requirement was rated Not Met "
+                    f"for data flow '{stage.data_flow.name}'."
+                ),
+                risk_description=risk.description,
+                status="draft",
+            )
+            dpias = [dpia]
         for dpia in dpias:
             dpia.privacy_risks.add(risk)
             # Derive residual_risk_level from the worst (max) risk score
