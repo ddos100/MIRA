@@ -237,6 +237,72 @@ class DataLifecycleStageViewSet(viewsets.ModelViewSet):
     ordering_fields = ["stage", "compliance_status", "created_at"]
     ordering = ["stage"]
 
+    @staticmethod
+    def _sync_stage_to_processing_activity(stage):
+        """
+        Additive, non-destructive sync of DataLifecycleStage fields into the
+        linked ProcessingActivity (RoPA).  All text fields are merged/appended
+        (never overwritten); booleans are OR-ed; retention is extended to the
+        maximum value seen across all stages.  This ensures every lifecycle
+        stage contributes its data to the RoPA entry.
+        """
+        import re
+        # Prefer the stage's own PA link; fall back to the DataFlow's PA.
+        pa = stage.processing_activity or stage.data_flow.processing_activity
+        if not pa:
+            return
+
+        updated = []
+
+        def _merge(existing: str, new: str) -> str:
+            """Append new text only if it is not already present."""
+            if not new:
+                return existing
+            if not existing:
+                return new
+            if new in existing:
+                return existing
+            return f"{existing}; {new}"
+
+        if stage.personal_data_categories:
+            merged = _merge(pa.personal_data_categories, stage.personal_data_categories)
+            if merged != pa.personal_data_categories:
+                pa.personal_data_categories = merged
+                updated.append("personal_data_categories")
+
+        if stage.data_subject_categories:
+            merged = _merge(pa.data_subjects, stage.data_subject_categories)
+            if merged != pa.data_subjects:
+                pa.data_subjects = merged
+                updated.append("data_subjects")
+
+        if stage.is_cross_border and not pa.cross_border_transfer:
+            pa.cross_border_transfer = True
+            updated.append("cross_border_transfer")
+
+        if stage.special_category_data and not pa.special_category_data:
+            pa.special_category_data = True
+            updated.append("special_category_data")
+
+        if stage.transfer_safeguards:
+            merged = _merge(pa.transfer_safeguards, stage.transfer_safeguards)
+            if merged != pa.transfer_safeguards:
+                pa.transfer_safeguards = merged
+                updated.append("transfer_safeguards")
+
+        if stage.retention_period_days:
+            current_days = 0
+            if pa.retention_period:
+                m = re.search(r"\d+", pa.retention_period)
+                if m:
+                    current_days = int(m.group())
+            if stage.retention_period_days > current_days:
+                pa.retention_period = f"{stage.retention_period_days} days"
+                updated.append("retention_period")
+
+        if updated:
+            pa.save(update_fields=updated)
+
     def perform_create(self, serializer):
         stage_record = serializer.save()
         # Auto-populate requirements from template
@@ -251,6 +317,13 @@ class DataLifecycleStageViewSet(viewsets.ModelViewSet):
             )
             for item in template
         ])
+        # Sync this stage's fields additively into the linked RoPA
+        self._sync_stage_to_processing_activity(stage_record)
+
+    def perform_update(self, serializer):
+        stage_record = serializer.save()
+        # Re-sync on every update so edits are reflected in the RoPA
+        self._sync_stage_to_processing_activity(stage_record)
 
     @action(detail=True, methods=["get"])
     def requirements(self, request, pk=None):

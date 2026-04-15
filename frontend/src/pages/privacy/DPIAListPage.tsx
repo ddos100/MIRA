@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Plus, Pencil, ShieldAlert, ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Plus, Pencil, ShieldAlert, ChevronDown, ChevronRight, AlertTriangle, ExternalLink } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -82,6 +83,7 @@ function riskStatusBadge(status: string) {
 }
 
 function PrivacyRisksPanel({ risks }: { risks: PrivacyRiskSummary[] }) {
+  const navigate = useNavigate();
   if (risks.length === 0) {
     return (
       <p className="text-xs text-muted-foreground italic">No privacy risks linked to this DPIA yet.</p>
@@ -90,10 +92,15 @@ function PrivacyRisksPanel({ risks }: { risks: PrivacyRiskSummary[] }) {
   return (
     <div className="space-y-2">
       {risks.map(r => (
-        <div key={r.id} className="flex items-start gap-3 rounded border bg-background px-3 py-2">
+        <div
+          key={r.id}
+          className="flex items-start gap-3 rounded border bg-background px-3 py-2 cursor-pointer hover:bg-muted/30 transition-colors group"
+          onClick={() => navigate(`/risks/${r.id}`)}
+          title="View risk details"
+        >
           <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-orange-500" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{r.title}</p>
+            <p className="text-sm font-medium truncate group-hover:text-primary">{r.title}</p>
             {r.category_name && (
               <p className="text-xs text-muted-foreground">{r.category_name}</p>
             )}
@@ -103,6 +110,7 @@ function PrivacyRisksPanel({ risks }: { risks: PrivacyRiskSummary[] }) {
               Score {r.residual_score}
             </span>
             {riskStatusBadge(r.status)}
+            <ExternalLink className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
         </div>
       ))}
