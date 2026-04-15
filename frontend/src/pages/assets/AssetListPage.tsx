@@ -622,7 +622,6 @@ const dfSchema = z.object({
   special_category_data: z.boolean(),
   retention_period_days: z.coerce.number().nullable().optional(),
   transfer_safeguards: z.string().optional(),
-  lifecycle_stage: z.string().optional(),
   processing_activity: z.string().optional(),
 });
 type DfForm = z.infer<typeof dfSchema>;
@@ -643,13 +642,13 @@ function DataFlowFormModal({ open, onClose, flow }: { open: boolean; onClose: ()
       personal_data_categories: flow.personal_data_categories,
       special_category_data: flow.special_category_data,
       retention_period_days: flow.retention_period_days,
-      transfer_safeguards: flow.transfer_safeguards, lifecycle_stage: flow.lifecycle_stage,
+      transfer_safeguards: flow.transfer_safeguards,
       processing_activity: flow.processing_activity ?? "",
     } : {
       name: "", source_asset: "", destination_asset: "", data_types: "", transfer_mechanism: "",
       is_cross_border: false, notes: "", legal_basis: "", data_subject_categories: "",
       personal_data_categories: "", special_category_data: false, retention_period_days: null,
-      transfer_safeguards: "", lifecycle_stage: "", processing_activity: "",
+      transfer_safeguards: "", processing_activity: "",
     },
   });
 
@@ -685,17 +684,9 @@ function DataFlowFormModal({ open, onClose, flow }: { open: boolean; onClose: ()
           <Textarea label="Data Types" rows={2} {...register("data_types")} />
           <Textarea label="Transfer Mechanism" rows={2} {...register("transfer_mechanism")} />
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-sm font-medium block mb-1">Lifecycle Stage</label>
-            <select {...register("lifecycle_stage")} className="w-full border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring">
-              {LIFECYCLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-          </div>
-          <div className="flex items-center gap-2 mt-6">
-            <input type="checkbox" id="df-cross-border" {...register("is_cross_border")} />
-            <label htmlFor="df-cross-border" className="text-sm font-medium">Cross-Border Transfer</label>
-          </div>
+        <div className="flex items-center gap-2">
+          <input type="checkbox" id="df-cross-border" {...register("is_cross_border")} />
+          <label htmlFor="df-cross-border" className="text-sm font-medium">Cross-Border Transfer</label>
         </div>
 
         {/* GDPR section */}
@@ -744,7 +735,6 @@ const ALL_FLOW_COLUMNS = [
   { key: "data_types",               label: "Data Types" },
   { key: "transfer_mechanism",       label: "Transfer Mechanism" },
   { key: "legal_basis",              label: "Legal Basis (GDPR)" },
-  { key: "lifecycle_stage",          label: "Lifecycle Stage" },
   { key: "is_cross_border",          label: "Cross-Border" },
   { key: "special_category_data",    label: "Special Category" },
   { key: "data_subject_categories",  label: "Data Subject Categories" },
@@ -760,7 +750,7 @@ type FlowColKey = typeof ALL_FLOW_COLUMNS[number]["key"];
 
 const DEFAULT_FLOW_COLS: FlowColKey[] = [
   "name", "source", "destination", "data_types", "legal_basis",
-  "lifecycle_stage", "is_cross_border", "special_category_data",
+  "is_cross_border", "special_category_data",
 ];
 
 const LS_FLOW_COLS_KEY    = "mira_flow_visible_cols";
@@ -768,7 +758,7 @@ const LS_FLOW_PRESETS_KEY = "mira_flow_filter_presets";
 
 interface FlowFilterState {
   search: string; source_asset: string; destination_asset: string;
-  lifecycle_stage: string; is_cross_border: string; special_category_data: string;
+  is_cross_border: string; special_category_data: string;
 }
 interface FlowFilterPreset { name: string; filters: FlowFilterState; }
 
@@ -788,7 +778,6 @@ function DataFlowsTab() {
   const [search,           setSearch]           = useState("");
   const [sourceFilter,     setSourceFilter]     = useState("");
   const [destFilter,       setDestFilter]       = useState("");
-  const [stageFilter,      setStageFilter]      = useState("");
   const [crossBorderFilter,setCrossBorderFilter]= useState("");
   const [specialCatFilter, setSpecialCatFilter] = useState("");
   const [visibleCols,      setVisibleCols]      = useState<FlowColKey[]>(loadFlowVisibleCols);
@@ -807,9 +796,8 @@ function DataFlowsTab() {
     search:            search || undefined,
     source_asset:      sourceFilter || undefined,
     destination_asset: destFilter || undefined,
-    lifecycle_stage:   stageFilter || undefined,
     is_cross_border:   crossBorderFilter !== "" ? (crossBorderFilter === "true") : undefined,
-  }), [search, sourceFilter, destFilter, stageFilter, crossBorderFilter]);
+  }), [search, sourceFilter, destFilter, crossBorderFilter]);
 
   const { data, isLoading } = useDataFlows(apiParams as Record<string, unknown>);
 
@@ -838,7 +826,7 @@ function DataFlowsTab() {
     if (!presetName.trim()) return;
     const next = [...presets, {
       name: presetName.trim(),
-      filters: { search, source_asset: sourceFilter, destination_asset: destFilter, lifecycle_stage: stageFilter, is_cross_border: crossBorderFilter, special_category_data: specialCatFilter },
+      filters: { search, source_asset: sourceFilter, destination_asset: destFilter, is_cross_border: crossBorderFilter, special_category_data: specialCatFilter },
     }];
     setPresets(next);
     localStorage.setItem(LS_FLOW_PRESETS_KEY, JSON.stringify(next));
@@ -849,7 +837,6 @@ function DataFlowsTab() {
     setSearch(p.filters.search ?? "");
     setSourceFilter(p.filters.source_asset ?? "");
     setDestFilter(p.filters.destination_asset ?? "");
-    setStageFilter(p.filters.lifecycle_stage ?? "");
     setCrossBorderFilter(p.filters.is_cross_border ?? "");
     setSpecialCatFilter(p.filters.special_category_data ?? "");
   }
@@ -862,10 +849,10 @@ function DataFlowsTab() {
 
   function clearFilters() {
     setSearch(""); setSourceFilter(""); setDestFilter("");
-    setStageFilter(""); setCrossBorderFilter(""); setSpecialCatFilter("");
+    setCrossBorderFilter(""); setSpecialCatFilter("");
   }
 
-  const hasActiveFilters = !!(search || sourceFilter || destFilter || stageFilter || crossBorderFilter || specialCatFilter);
+  const hasActiveFilters = !!(search || sourceFilter || destFilter || crossBorderFilter || specialCatFilter);
   const colCount = visibleCols.length + 1;
   const sel = "flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
@@ -886,9 +873,6 @@ function DataFlowsTab() {
           <select value={destFilter} onChange={e => setDestFilter(e.target.value)} className={sel}>
             <option value="">All Destinations</option>
             {assetOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-          <select value={stageFilter} onChange={e => setStageFilter(e.target.value)} className={sel}>
-            {LIFECYCLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label || "All Stages"}</option>)}
           </select>
           <select value={crossBorderFilter} onChange={e => setCrossBorderFilter(e.target.value)} className={sel}>
             <option value="">All Transfers</option>
@@ -987,11 +971,6 @@ function DataFlowsTab() {
                   {visibleCols.includes("data_types") && <td className="px-4 py-3 text-muted-foreground max-w-[200px] truncate">{df.data_types || "—"}</td>}
                   {visibleCols.includes("transfer_mechanism") && <td className="px-4 py-3 text-muted-foreground max-w-[180px] truncate">{df.transfer_mechanism || "—"}</td>}
                   {visibleCols.includes("legal_basis") && <td className="px-4 py-3 text-muted-foreground text-xs max-w-[180px] truncate">{df.legal_basis || "—"}</td>}
-                  {visibleCols.includes("lifecycle_stage") && <td className="px-4 py-3">
-                    {df.lifecycle_stage
-                      ? <span className="capitalize text-xs bg-muted rounded px-2 py-0.5">{df.lifecycle_stage_display ?? df.lifecycle_stage}</span>
-                      : "—"}
-                  </td>}
                   {visibleCols.includes("is_cross_border") && <td className="px-4 py-3">
                     {df.is_cross_border ? <Badge variant="high">Yes</Badge> : <span className="text-muted-foreground text-xs">No</span>}
                   </td>}

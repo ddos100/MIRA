@@ -494,8 +494,7 @@ export default function DataFlowDetailPage() {
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">Flow Details</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-2 text-sm">
           {flow.legal_basis && <div><span className="text-muted-foreground">Legal Basis: </span>{flow.legal_basis}</div>}
-          {flow.lifecycle_stage && <div><span className="text-muted-foreground">Primary Stage: </span>{flow.lifecycle_stage_display ?? flow.lifecycle_stage}</div>}
-          {flow.processing_activity_name && (
+{flow.processing_activity_name && (
             <div><span className="text-muted-foreground">RoPA Activity: </span>{flow.processing_activity_name}</div>
           )}
           {flow.retention_period_days != null && (

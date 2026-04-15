@@ -14,7 +14,7 @@ import {
   type ProcessingActivityParams,
   type LegalBasis,
 } from "@/api/privacy";
-import { useDataFlows, type DataFlow } from "@/api/assets";
+import { useDataFlows, useDataFlowLifecycleStages, type DataFlow } from "@/api/assets";
 import { useUsers, type UserDetail } from "@/api/auth";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -180,6 +180,39 @@ function ProcessingActivityFormModal({ open, onClose, activity }: { open: boolea
   );
 }
 
+// ─── Per-flow lifecycle stages (shown inside each flow card) ─────────────────
+
+function FlowLifecycleStages({ flowId }: { flowId: string }) {
+  const { data: stages, isLoading } = useDataFlowLifecycleStages(flowId);
+  if (isLoading) return <span className="text-xs text-muted-foreground">Loading stages…</span>;
+  if (!stages || stages.length === 0) return null;
+
+  const statusColor: Record<string, string> = {
+    met:     "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    partial: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
+    not_met: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+    pending: "bg-muted text-muted-foreground",
+    na:      "bg-muted text-muted-foreground",
+  };
+
+  return (
+    <div className="flex flex-wrap gap-1 mt-1.5">
+      {stages.map(s => (
+        <span
+          key={s.id}
+          title={`${s.stage_display} — ${s.compliance_status_display}`}
+          className={cn(
+            "inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium capitalize",
+            statusColor[s.compliance_status] ?? statusColor.pending,
+          )}
+        >
+          {s.stage_display ?? s.stage}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 // ─── Linked DataFlows panel (loaded lazily per expanded row) ─────────────────
 
 function LinkedDataFlows({ activityId }: { activityId: string }) {
@@ -204,16 +237,17 @@ function LinkedDataFlows({ activityId }: { activityId: string }) {
             {f.source_asset_name} → {f.destination_asset_name}
           </p>
           <div className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
-            {f.data_types           && <span><span className="font-medium">Data Types:</span> {f.data_types}</span>}
-            {f.legal_basis          && <span><span className="font-medium">Legal Basis:</span> {f.legal_basis}</span>}
+            {f.data_types              && <span><span className="font-medium">Data Types:</span> {f.data_types}</span>}
+            {f.legal_basis             && <span><span className="font-medium">Legal Basis:</span> {f.legal_basis}</span>}
             {f.data_subject_categories && <span><span className="font-medium">Data Subjects:</span> {f.data_subject_categories}</span>}
             {f.personal_data_categories && <span><span className="font-medium">Personal Data:</span> {f.personal_data_categories}</span>}
             {f.retention_period_days != null && <span><span className="font-medium">Retention:</span> {f.retention_period_days} days</span>}
-            {f.transfer_mechanism   && <span><span className="font-medium">Mechanism:</span> {f.transfer_mechanism}</span>}
+            {f.transfer_mechanism      && <span><span className="font-medium">Mechanism:</span> {f.transfer_mechanism}</span>}
           </div>
-          <div className="flex flex-wrap gap-1 mt-1.5">
-            {f.lifecycle_stage      && <span className="capitalize text-xs bg-muted rounded px-1.5 py-0.5">{f.lifecycle_stage_display ?? f.lifecycle_stage}</span>}
-            {f.is_cross_border      && <Badge variant="high">Cross-Border</Badge>}
+          {/* All lifecycle stages with compliance status colours */}
+          <FlowLifecycleStages flowId={f.id} />
+          <div className="flex flex-wrap gap-1 mt-1">
+            {f.is_cross_border       && <Badge variant="high">Cross-Border</Badge>}
             {f.special_category_data && <Badge variant="critical">Special Cat.</Badge>}
           </div>
         </button>
