@@ -4,10 +4,47 @@ from .models import DPIA, DataSubjectRequest, ProcessingActivity
 
 
 class ProcessingActivitySerializer(serializers.ModelSerializer):
+    owner_detail = serializers.SerializerMethodField(read_only=True)
+    third_party_recipients_detail = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = ProcessingActivity
-        fields = "__all__"
+        fields = [
+            "id",
+            "name",
+            "description",
+            "controller",
+            "processor",
+            "purpose",
+            "legal_basis",
+            "data_subjects",
+            "personal_data_categories",
+            "special_category_data",
+            "retention_period",
+            "third_party_recipients",
+            "third_party_recipients_detail",
+            "cross_border_transfer",
+            "transfer_safeguards",
+            "owner",
+            "owner_detail",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
         read_only_fields = ["id", "created_at", "updated_at"]
+
+    def get_owner_detail(self, obj):
+        if obj.owner_id:
+            u = obj.owner
+            full_name = f"{u.first_name} {u.last_name}".strip() or u.email
+            return {"id": str(u.id), "full_name": full_name, "email": u.email}
+        return None
+
+    def get_third_party_recipients_detail(self, obj):
+        return [
+            {"id": str(tp.id), "name": tp.name}
+            for tp in obj.third_party_recipients.all()
+        ]
 
 
 class DPIASerializer(serializers.ModelSerializer):

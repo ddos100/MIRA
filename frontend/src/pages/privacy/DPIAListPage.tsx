@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Plus, Pencil, ShieldAlert, ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -16,6 +16,7 @@ import {
   type ResidualRiskLevel,
   type PrivacyRiskSummary,
 } from "@/api/privacy";
+import { useUsers, type UserDetail } from "@/api/auth";
 import { cn } from "@/utils/cn";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -112,65 +113,65 @@ function PrivacyRisksPanel({ risks }: { risks: PrivacyRiskSummary[] }) {
 // ─── Zod Schema ────────────────────────────────────────────────────────────────
 
 const dpiaSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  processing_activity: z.string().min(1, "Processing activity is required"),
-  description: z.string(),
-  necessity_assessment: z.string(),
+  title:                      z.string().min(1, "Title is required"),
+  processing_activity:        z.string().min(1, "Processing activity is required"),
+  description:                z.string(),
+  assessor:                   z.string().nullable(),
+  status:                     z.enum(["draft", "in_review", "approved", "rejected"]),
+  necessity_assessment:       z.string(),
   proportionality_assessment: z.string(),
-  risk_description: z.string(),
-  mitigation_measures: z.string(),
-  residual_risk_level: z.enum(["low", "medium", "high", "very_high"]).nullable(),
-  dpo_consultation_required: z.boolean(),
-  review_date: z.string().nullable(),
+  risk_description:           z.string(),
+  mitigation_measures:        z.string(),
+  residual_risk_level:        z.enum(["low", "medium", "high", "very_high"]).nullable(),
+  dpo_consultation_required:  z.boolean(),
+  dpo_opinion:                z.string(),
+  approved_at:                z.string().nullable(),
+  review_date:                z.string().nullable(),
 });
 
 type DPIAFormValues = z.infer<typeof dpiaSchema>;
 
 // ─── Form Modal ────────────────────────────────────────────────────────────────
 
-interface DPIAFormModalProps {
-  open: boolean;
-  onClose: () => void;
-  dpia?: DPIA;
-}
-
-function DPIAFormModal({ open, onClose, dpia }: DPIAFormModalProps) {
+function DPIAFormModal({ open, onClose, dpia }: { open: boolean; onClose: () => void; dpia?: DPIA }) {
   const create = useCreateDPIA();
   const update = useUpdateDPIA(dpia?.id ?? "");
   const { data: activitiesData } = useProcessingActivities({ page_size: 100 });
+  const { data: usersData }      = useUsers({ page_size: 200 });
   const activities = activitiesData?.results ?? [];
+  const users      = usersData?.results ?? [];
+
+  const sel = "mt-1 flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<DPIAFormValues>({
     resolver: zodResolver(dpiaSchema),
-    defaultValues: dpia
-      ? {
-          title: dpia.title,
-          processing_activity: dpia.processing_activity,
-          description: dpia.description ?? "",
-          necessity_assessment: dpia.necessity_assessment ?? "",
-          proportionality_assessment: dpia.proportionality_assessment ?? "",
-          risk_description: dpia.risk_description ?? "",
-          mitigation_measures: dpia.mitigation_measures ?? "",
-          residual_risk_level: dpia.residual_risk_level ?? null,
-          dpo_consultation_required: dpia.dpo_consultation_required ?? false,
-          review_date: dpia.review_date ?? null,
-        }
-      : {
-          title: "",
-          processing_activity: "",
-          description: "",
-          necessity_assessment: "",
-          proportionality_assessment: "",
-          risk_description: "",
-          mitigation_measures: "",
-          residual_risk_level: null,
-          dpo_consultation_required: false,
-          review_date: null,
-        },
+    defaultValues: dpia ? {
+      title:                      dpia.title,
+      processing_activity:        dpia.processing_activity,
+      description:                dpia.description ?? "",
+      assessor:                   dpia.assessor ?? null,
+      status:                     dpia.status,
+      necessity_assessment:       dpia.necessity_assessment ?? "",
+      proportionality_assessment: dpia.proportionality_assessment ?? "",
+      risk_description:           dpia.risk_description ?? "",
+      mitigation_measures:        dpia.mitigation_measures ?? "",
+      residual_risk_level:        dpia.residual_risk_level ?? null,
+      dpo_consultation_required:  dpia.dpo_consultation_required ?? false,
+      dpo_opinion:                dpia.dpo_opinion ?? "",
+      approved_at:                dpia.approved_at ?? null,
+      review_date:                dpia.review_date ?? null,
+    } : {
+      title: "", processing_activity: "", description: "",
+      assessor: null, status: "draft",
+      necessity_assessment: "", proportionality_assessment: "",
+      risk_description: "", mitigation_measures: "",
+      residual_risk_level: null, dpo_consultation_required: false,
+      dpo_opinion: "", approved_at: null, review_date: null,
+    },
   });
 
   const isEditing = !!dpia;
-  const mutation = isEditing ? update : create;
+  const mutation  = isEditing ? update : create;
 
   function onSubmit(values: DPIAFormValues) {
     mutation.mutate(values as Partial<DPIA>, {
@@ -183,37 +184,55 @@ function DPIAFormModal({ open, onClose, dpia }: DPIAFormModalProps) {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <Input label="Title *" {...register("title")} error={errors.title?.message} />
 
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm font-medium text-foreground">Processing Activity *</label>
+            <select className={sel} {...register("processing_activity")}>
+              <option value="">— Select Activity —</option>
+              {activities.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+            {errors.processing_activity && (
+              <p className="text-xs text-destructive mt-1">{errors.processing_activity.message}</p>
+            )}
+          </div>
+          <div>
+            <label className="text-sm font-medium text-foreground">Assessor</label>
+            <select className={sel} {...register("assessor")}>
+              <option value="">— None —</option>
+              {users.map((u: UserDetail) => (
+                <option key={u.id} value={u.id}>
+                  {u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         <div>
-          <label className="text-sm font-medium text-foreground">Processing Activity *</label>
-          <select
-            className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            {...register("processing_activity")}
-          >
-            <option value="">— Select Activity —</option>
-            {activities.map((a) => (
-              <option key={a.id} value={a.id}>{a.name}</option>
+          <label className="text-sm font-medium text-foreground">Status</label>
+          <select className={sel} {...register("status")}>
+            {(Object.entries(statusLabels) as [DPIAStatus, string][]).map(([val, label]) => (
+              <option key={val} value={val}>{label}</option>
             ))}
           </select>
-          {errors.processing_activity && (
-            <p className="text-xs text-destructive mt-1">{errors.processing_activity.message}</p>
-          )}
         </div>
 
         <Textarea label="Description" rows={2} {...register("description")} />
-        <Textarea label="Necessity Assessment" rows={3} {...register("necessity_assessment")} />
-        <Textarea label="Proportionality Assessment" rows={3} {...register("proportionality_assessment")} />
-        <Textarea label="Risk Description" rows={3} {...register("risk_description")} />
-        <Textarea label="Mitigation Measures" rows={3} {...register("mitigation_measures")} />
+
+        <fieldset className="border rounded-lg p-4 space-y-3">
+          <legend className="text-xs font-semibold uppercase tracking-wide text-muted-foreground px-1">Assessment</legend>
+          <Textarea label="Necessity Assessment" rows={3} {...register("necessity_assessment")} />
+          <Textarea label="Proportionality Assessment" rows={3} {...register("proportionality_assessment")} />
+          <Textarea label="Risk Description" rows={3} {...register("risk_description")} />
+          <Textarea label="Mitigation Measures" rows={3} {...register("mitigation_measures")} />
+        </fieldset>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="text-sm font-medium text-foreground">Residual Risk Level</label>
-            <select
-              className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              {...register("residual_risk_level")}
-            >
+            <select className={sel} {...register("residual_risk_level")}>
               <option value="">— Not Assessed —</option>
-              {(["low", "medium", "high", "very_high"] as ResidualRiskLevel[]).map((r) => (
+              {(["low", "medium", "high", "very_high"] as ResidualRiskLevel[]).map(r => (
                 <option key={r} value={r}>{riskLabels[r]}</option>
               ))}
             </select>
@@ -221,10 +240,15 @@ function DPIAFormModal({ open, onClose, dpia }: DPIAFormModalProps) {
           <Input label="Review Date" type="date" {...register("review_date")} />
         </div>
 
-        <label className="flex items-center gap-2 text-sm cursor-pointer">
-          <input type="checkbox" {...register("dpo_consultation_required")} className="rounded border-input" />
-          DPO Consultation Required
-        </label>
+        <fieldset className="border rounded-lg p-4 space-y-3">
+          <legend className="text-xs font-semibold uppercase tracking-wide text-muted-foreground px-1">DPO</legend>
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" {...register("dpo_consultation_required")} className="rounded border-input" />
+            DPO Consultation Required
+          </label>
+          <Textarea label="DPO Opinion" rows={3} {...register("dpo_opinion")} />
+          <Input label="Approved At" type="date" {...register("approved_at")} />
+        </fieldset>
 
         {mutation.isError && (
           <p className="text-sm text-destructive">Failed to save DPIA. Please try again.</p>
@@ -381,12 +405,55 @@ export default function DPIAListPage() {
                       </tr>
 
                       {isOpen && (
-                        <tr key={`${d.id}-risks`} className="bg-muted/10 border-b">
+                        <tr key={`${d.id}-detail`} className="bg-muted/10 border-b">
                           <td colSpan={9} className="px-6 py-4">
-                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                              Privacy Risks — auto-replicated from lifecycle compliance assessments
-                            </p>
-                            <PrivacyRisksPanel risks={risks} />
+                            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+
+                              {/* Full DPIA detail fields */}
+                              <div className="space-y-3">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                  DPIA Details
+                                </p>
+                                <dl className="space-y-2 text-sm">
+                                  {d.description && (
+                                    <div><dt className="text-xs text-muted-foreground">Description</dt><dd>{d.description}</dd></div>
+                                  )}
+                                  {d.necessity_assessment && (
+                                    <div><dt className="text-xs text-muted-foreground">Necessity Assessment</dt><dd className="whitespace-pre-wrap">{d.necessity_assessment}</dd></div>
+                                  )}
+                                  {d.proportionality_assessment && (
+                                    <div><dt className="text-xs text-muted-foreground">Proportionality Assessment</dt><dd className="whitespace-pre-wrap">{d.proportionality_assessment}</dd></div>
+                                  )}
+                                  {d.risk_description && (
+                                    <div><dt className="text-xs text-muted-foreground">Risk Description</dt><dd className="whitespace-pre-wrap">{d.risk_description}</dd></div>
+                                  )}
+                                  {d.mitigation_measures && (
+                                    <div><dt className="text-xs text-muted-foreground">Mitigation Measures</dt><dd className="whitespace-pre-wrap">{d.mitigation_measures}</dd></div>
+                                  )}
+                                  {d.dpo_consultation_required && (
+                                    <div>
+                                      <dt className="text-xs text-muted-foreground">DPO Consultation</dt>
+                                      <dd className="flex flex-col gap-1">
+                                        <span className="inline-flex items-center gap-1 text-xs text-orange-700"><AlertTriangle className="h-3 w-3" /> Required</span>
+                                        {d.dpo_opinion && <span className="text-muted-foreground">{d.dpo_opinion}</span>}
+                                      </dd>
+                                    </div>
+                                  )}
+                                  {d.approved_at && (
+                                    <div><dt className="text-xs text-muted-foreground">Approved</dt><dd>{format(parseISO(d.approved_at), "MMM d, yyyy")}</dd></div>
+                                  )}
+                                </dl>
+                              </div>
+
+                              {/* Privacy Risks panel */}
+                              <div>
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                                  Privacy Risks — auto-replicated from lifecycle assessments
+                                </p>
+                                <PrivacyRisksPanel risks={risks} />
+                              </div>
+
+                            </div>
                           </td>
                         </tr>
                       )}

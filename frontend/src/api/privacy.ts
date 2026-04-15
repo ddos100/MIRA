@@ -24,6 +24,7 @@ export interface ProcessingActivity {
   special_category_data: boolean;
   retention_period: string;
   third_party_recipients: string[];
+  third_party_recipients_detail?: { id: string; name: string }[];
   cross_border_transfer: boolean;
   transfer_safeguards: string;
   owner: string | null;

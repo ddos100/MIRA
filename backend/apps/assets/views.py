@@ -91,10 +91,74 @@ class DataFlowViewSet(viewsets.ModelViewSet):
     serializer_class = DataFlowSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ["source_asset", "destination_asset", "is_cross_border", "lifecycle_stage"]
+    filterset_fields = ["source_asset", "destination_asset", "is_cross_border", "lifecycle_stage", "processing_activity"]
     search_fields = ["name", "data_types", "transfer_mechanism"]
     ordering_fields = ["created_at", "updated_at", "name"]
     ordering = ["name"]
+
+    # ── Legal-basis mapping: GDPR free-text → PA enum ────────────────────────
+    _LEGAL_BASIS_MAP = {
+        "consent":              "consent",
+        "contract":             "contract",
+        "legal obligation":     "legal_obligation",
+        "vital interests":      "vital_interests",
+        "public task":          "public_task",
+        "legitimate interests": "legitimate_interests",
+    }
+
+    def _sync_to_processing_activity(self, data_flow):
+        """
+        One-way, non-destructive sync: push DataFlow fields into the linked
+        ProcessingActivity only when the PA field is currently blank/false.
+        This keeps the RoPA up-to-date automatically as data flows are added.
+        """
+        if not data_flow.processing_activity_id:
+            return
+        pa = data_flow.processing_activity
+        updated = []
+
+        if data_flow.personal_data_categories and not pa.personal_data_categories:
+            pa.personal_data_categories = data_flow.personal_data_categories
+            updated.append("personal_data_categories")
+
+        if data_flow.data_subject_categories and not pa.data_subjects:
+            pa.data_subjects = data_flow.data_subject_categories
+            updated.append("data_subjects")
+
+        if data_flow.is_cross_border and not pa.cross_border_transfer:
+            pa.cross_border_transfer = True
+            updated.append("cross_border_transfer")
+
+        if data_flow.special_category_data and not pa.special_category_data:
+            pa.special_category_data = True
+            updated.append("special_category_data")
+
+        if data_flow.transfer_safeguards and not pa.transfer_safeguards:
+            pa.transfer_safeguards = data_flow.transfer_safeguards
+            updated.append("transfer_safeguards")
+
+        if data_flow.retention_period_days and not pa.retention_period:
+            pa.retention_period = f"{data_flow.retention_period_days} days"
+            updated.append("retention_period")
+
+        if data_flow.legal_basis:
+            lb_lower = data_flow.legal_basis.lower()
+            for key, value in self._LEGAL_BASIS_MAP.items():
+                if key in lb_lower:
+                    pa.legal_basis = value
+                    updated.append("legal_basis")
+                    break
+
+        if updated:
+            pa.save(update_fields=updated)
+
+    def perform_create(self, serializer):
+        data_flow = serializer.save()
+        self._sync_to_processing_activity(data_flow)
+
+    def perform_update(self, serializer):
+        data_flow = serializer.save()
+        self._sync_to_processing_activity(data_flow)
 
 
 def _get_or_create_privacy_risk_category():
@@ -198,7 +262,10 @@ class DataLifecycleRequirementViewSet(viewsets.ModelViewSet):
 
     @staticmethod
     def _link_risk_to_dpias(risk, stage):
-        """Add the risk to all DPIAs associated with the data flow's processing activity."""
+        """
+        Add the risk to all DPIAs linked via the data flow's processing activity,
+        then re-derive residual_risk_level from the worst risk score.
+        """
         processing_activity_id = stage.data_flow.processing_activity_id
         if not processing_activity_id:
             return
@@ -206,6 +273,21 @@ class DataLifecycleRequirementViewSet(viewsets.ModelViewSet):
         dpias = DPIA.objects.filter(processing_activity_id=processing_activity_id)
         for dpia in dpias:
             dpia.privacy_risks.add(risk)
+            # Derive residual_risk_level from the worst (max) risk score
+            max_score = max(
+                (r.residual_score for r in dpia.privacy_risks.all()),
+                default=0,
+            )
+            level = (
+                "very_high" if max_score >= 16 else
+                "high"      if max_score >= 9  else
+                "medium"    if max_score >= 4  else
+                "low"       if max_score >= 1  else
+                None
+            )
+            if level is not None and dpia.residual_risk_level != level:
+                dpia.residual_risk_level = level
+                dpia.save(update_fields=["residual_risk_level"])
 
     def perform_update(self, serializer):
         requirement = serializer.save()

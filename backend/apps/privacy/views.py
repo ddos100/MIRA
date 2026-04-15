@@ -9,7 +9,7 @@ from .serializers import (
 
 
 class ProcessingActivityViewSet(viewsets.ModelViewSet):
-    queryset = ProcessingActivity.objects.all()
+    queryset = ProcessingActivity.objects.select_related("owner").prefetch_related("third_party_recipients").all()
     serializer_class = ProcessingActivitySerializer
     permission_classes = [permissions.IsAuthenticated]
     filterset_fields = [
