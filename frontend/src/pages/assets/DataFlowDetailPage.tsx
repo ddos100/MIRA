@@ -3,7 +3,9 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   ArrowLeft, Plus, Pencil, Trash2, CheckCircle2, AlertCircle,
   Clock, MinusCircle, ShieldAlert, ExternalLink, ChevronDown, ChevronRight,
+  Send, ThumbsUp, ThumbsDown, History, Lock,
 } from "lucide-react";
+import { format } from "date-fns";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -15,6 +17,10 @@ import {
   useUpdateLifecycleStage,
   useDeleteLifecycleStage,
   useUpdateLifecycleRequirement,
+  useSubmitRequirementForApproval,
+  useApproveRequirement,
+  useRejectRequirement,
+  useRequirementAuditLogs,
   type DataLifecycleStage,
   type DataLifecycleRequirement,
   type ComplianceRating,
@@ -269,81 +275,319 @@ function StageFormModal({
   );
 }
 
-// ─── Compliance Requirement Row ───────────────────────────────────────────────
+// ─── Requirement Edit Modal ───────────────────────────────────────────────────
 
-function RequirementRow({ req }: { req: DataLifecycleRequirement }) {
+function RequirementEditModal({
+  req, open, onClose,
+}: { req: DataLifecycleRequirement; open: boolean; onClose: () => void }) {
   const update = useUpdateLifecycleRequirement(req.id);
-  const [notes, setNotes] = useState(req.notes);
-  const [editingNotes, setEditingNotes] = useState(false);
+  const [rating, setRating]   = useState<ComplianceRating>(req.rating);
+  const [notes,  setNotes]    = useState(req.notes);
 
-  function setRating(rating: ComplianceRating) {
-    update.mutate({ rating, notes });
-  }
+  // Re-sync local state when a different req is opened
+  const [lastId, setLastId] = useState(req.id);
+  if (req.id !== lastId) { setRating(req.rating); setNotes(req.notes); setLastId(req.id); }
 
-  function saveNotes() {
-    update.mutate({ rating: req.rating, notes });
-    setEditingNotes(false);
-  }
-
-  const RATINGS: { value: ComplianceRating; label: string }[] = [
-    { value: "met",     label: "Met" },
-    { value: "partial", label: "Partial" },
-    { value: "not_met", label: "Not Met" },
-    { value: "na",      label: "N/A" },
+  const RATINGS: { value: ComplianceRating; label: string; cls: string }[] = [
+    { value: "met",     label: "Met",      cls: "bg-green-600 border-green-600 text-white" },
+    { value: "partial", label: "Partial",  cls: "bg-yellow-500 border-yellow-500 text-white" },
+    { value: "not_met", label: "Not Met",  cls: "bg-red-600 border-red-600 text-white" },
+    { value: "na",      label: "N/A",      cls: "bg-muted border-muted text-muted-foreground" },
   ];
 
+  function handleSave() {
+    update.mutate({ rating, notes }, { onSuccess: onClose });
+  }
+
   return (
-    <div className={cn("rounded-lg border p-3 transition-colors", req.rating === "not_met" ? "border-red-200 bg-red-50/50 dark:bg-red-900/10" : "")}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1">
+    <Modal open={open} onClose={onClose} title="Edit Compliance Requirement">
+      <div className="space-y-4">
+        {/* Requirement info (read-only) */}
+        <div className="rounded-lg bg-muted/40 p-3 space-y-1">
           <div className="flex items-center gap-2 flex-wrap">
             <span className={cn("inline-flex items-center rounded px-1.5 py-0.5 text-xs font-bold",
               req.framework === "gdpr" ? "bg-blue-100 text-blue-800" : "bg-orange-100 text-orange-800")}>
               {req.framework.toUpperCase()}
             </span>
-            <span className="text-xs bg-muted rounded px-1.5 py-0.5 font-mono">{req.article_reference}</span>
-            <span className="text-sm font-medium">{req.requirement_label}</span>
-            {req.privacy_risk && (
-              <Link to={`/risks`} className="inline-flex items-center gap-1 text-xs text-red-600 hover:underline">
-                <ShieldAlert className="h-3 w-3" /> Privacy Risk
-              </Link>
-            )}
+            <span className="text-xs font-mono bg-background border rounded px-1.5 py-0.5">{req.article_reference}</span>
           </div>
-          {editingNotes ? (
-            <div className="mt-2 flex gap-2">
-              <input value={notes} onChange={e => setNotes(e.target.value)}
-                className="flex-1 h-8 rounded border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                placeholder="Add notes…" />
-              <Button size="sm" onClick={saveNotes} isLoading={update.isPending}>Save</Button>
-              <Button size="sm" variant="outline" onClick={() => setEditingNotes(false)}>Cancel</Button>
-            </div>
-          ) : (
-            <button onClick={() => setEditingNotes(true)}
-              className="mt-1 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
-              <Pencil className="h-3 w-3" />
-              {notes || "Add notes…"}
-            </button>
-          )}
+          <p className="text-sm font-medium">{req.requirement_label}</p>
         </div>
-        <div className="flex items-center gap-1 shrink-0">
-          {RATINGS.map(r => (
-            <button key={r.value} onClick={() => setRating(r.value)}
-              disabled={update.isPending}
-              className={cn(
-                "rounded px-2 py-1 text-xs font-medium transition-colors border",
-                req.rating === r.value
-                  ? r.value === "met"     ? "bg-green-600 text-white border-green-600"
-                  : r.value === "partial" ? "bg-yellow-500 text-white border-yellow-500"
-                  : r.value === "not_met" ? "bg-red-600 text-white border-red-600"
-                  : "bg-muted text-muted-foreground border-muted"
-                  : "bg-background text-muted-foreground border-input hover:bg-muted"
-              )}>
-              {r.label}
-            </button>
-          ))}
+
+        {/* Rating selector */}
+        <div>
+          <label className="text-sm font-medium block mb-2">Rating</label>
+          <div className="flex gap-2 flex-wrap">
+            {RATINGS.map(r => (
+              <button
+                key={r.value}
+                type="button"
+                onClick={() => setRating(r.value)}
+                className={cn(
+                  "rounded px-3 py-1.5 text-sm font-medium border transition-colors",
+                  rating === r.value ? r.cls : "bg-background text-muted-foreground border-input hover:bg-muted"
+                )}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Notes */}
+        <div>
+          <label className="text-sm font-medium block mb-1">Notes</label>
+          <textarea
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            rows={3}
+            placeholder="Add compliance notes…"
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+          />
+        </div>
+
+        {update.isError && (
+          <p className="text-sm text-destructive">Failed to save. Please try again.</p>
+        )}
+
+        <div className="flex justify-end gap-3 pt-1">
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSave} isLoading={update.isPending}>Save Changes</Button>
         </div>
       </div>
-    </div>
+    </Modal>
+  );
+}
+
+// ─── Audit Trail Panel ────────────────────────────────────────────────────────
+
+function AuditTrailPanel({ reqId }: { reqId: string }) {
+  const { data: logs, isLoading } = useRequirementAuditLogs(reqId);
+
+  const actionColor: Record<string, string> = {
+    rated:     "bg-blue-100 text-blue-800",
+    submitted: "bg-yellow-100 text-yellow-800",
+    approved:  "bg-green-100 text-green-800",
+    rejected:  "bg-red-100 text-red-800",
+  };
+
+  if (isLoading) return <div className="py-4 flex justify-center"><LoadingSpinner /></div>;
+  if (!logs || logs.length === 0)
+    return <p className="text-xs text-muted-foreground italic py-2">No audit history yet.</p>;
+
+  return (
+    <ol className="relative border-l border-muted ml-2 space-y-3 py-1">
+      {logs.map(log => (
+        <li key={log.id} className="pl-4 relative">
+          <span className="absolute -left-1.5 top-1 h-3 w-3 rounded-full bg-muted border border-border" />
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={cn("inline-flex items-center rounded px-1.5 py-0.5 text-xs font-semibold", actionColor[log.action] ?? "bg-muted text-muted-foreground")}>
+              {log.action_display}
+            </span>
+            {log.from_rating && log.to_rating && log.from_rating !== log.to_rating && (
+              <span className="text-xs text-muted-foreground">
+                {log.from_rating} → {log.to_rating}
+              </span>
+            )}
+            {log.to_rating && log.from_rating === log.to_rating && log.action === "rated" && (
+              <span className="text-xs text-muted-foreground">→ {log.to_rating}</span>
+            )}
+            <span className="text-xs text-muted-foreground">
+              by <span className="font-medium text-foreground">{log.user_name}</span>
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {format(new Date(log.timestamp), "MMM d, yyyy HH:mm")}
+            </span>
+          </div>
+          {log.notes && <p className="text-xs text-muted-foreground mt-0.5 italic">"{log.notes}"</p>}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+// ─── Compliance Requirement Row ───────────────────────────────────────────────
+
+function RequirementRow({ req }: { req: DataLifecycleRequirement }) {
+  const submit  = useSubmitRequirementForApproval(req.id);
+  const approve = useApproveRequirement(req.id);
+  const reject  = useRejectRequirement(req.id);
+
+  const [editOpen,       setEditOpen]       = useState(false);
+  const [showAudit,      setShowAudit]      = useState(false);
+  const [checkerNotes,   setCheckerNotes]   = useState("");
+  const [showRejectForm, setShowRejectForm] = useState(false);
+
+  const approvalStatus = req.approval_status ?? "draft";
+
+  // ── Approval status badge ──────────────────────────────────────────────────
+  const approvalBadge: Record<string, { cls: string; label: string }> = {
+    draft:            { cls: "bg-muted text-muted-foreground",          label: "Draft" },
+    pending_approval: { cls: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300", label: "Pending Approval" },
+    approved:         { cls: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",   label: "Approved" },
+    rejected:         { cls: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",           label: "Rejected" },
+  };
+  const badge = approvalBadge[approvalStatus] ?? approvalBadge.draft;
+
+  const isLocked = approvalStatus === "pending_approval" || approvalStatus === "approved";
+
+  return (
+    <>
+      <div className={cn(
+        "rounded-lg border p-3 transition-colors",
+        req.rating === "not_met" ? "border-red-200 bg-red-50/50 dark:bg-red-900/10" : "",
+        approvalStatus === "approved" ? "border-green-200" : "",
+        approvalStatus === "pending_approval" ? "border-yellow-200 bg-yellow-50/30 dark:bg-yellow-900/5" : "",
+      )}>
+        {/* ── Header row ─────────────────────────────────────────────────── */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={cn("inline-flex items-center rounded px-1.5 py-0.5 text-xs font-bold",
+                req.framework === "gdpr" ? "bg-blue-100 text-blue-800" : "bg-orange-100 text-orange-800")}>
+                {req.framework.toUpperCase()}
+              </span>
+              <span className="text-xs bg-muted rounded px-1.5 py-0.5 font-mono">{req.article_reference}</span>
+              <span className="text-sm font-medium">{req.requirement_label}</span>
+              {req.privacy_risk && (
+                <Link to="/risks" className="inline-flex items-center gap-1 text-xs text-red-600 hover:underline">
+                  <ShieldAlert className="h-3 w-3" /> Privacy Risk
+                </Link>
+              )}
+            </div>
+
+            {/* Rating + approval badges */}
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+              {ratingBadge(req.rating)}
+              <span className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium", badge.cls)}>
+                {isLocked && <Lock className="h-2.5 w-2.5" />}
+                {badge.label}
+              </span>
+              {req.maker_name && (
+                <span className="text-xs text-muted-foreground">
+                  Maker: <span className="font-medium">{req.maker_name}</span>
+                </span>
+              )}
+              {req.checker_name && (
+                <span className="text-xs text-muted-foreground">
+                  Checker: <span className="font-medium">{req.checker_name}</span>
+                </span>
+              )}
+            </div>
+
+            {/* Notes */}
+            {req.notes && (
+              <p className="text-xs text-muted-foreground mt-1 italic">{req.notes}</p>
+            )}
+
+            {/* Checker feedback on reject */}
+            {approvalStatus === "rejected" && req.checker_notes && (
+              <div className="mt-1.5 rounded border border-red-200 bg-red-50/60 px-2 py-1 text-xs text-red-700 dark:bg-red-900/20 dark:text-red-300">
+                <span className="font-medium">Checker note:</span> {req.checker_notes}
+              </div>
+            )}
+          </div>
+
+          {/* ── Action buttons (right side) ────────────────────────────── */}
+          <div className="flex items-center gap-1 shrink-0">
+            {/* Edit — only when editable */}
+            {!isLocked && (
+              <button
+                onClick={() => setEditOpen(true)}
+                title="Edit rating & notes"
+                className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+            )}
+
+            {/* Submit for approval — draft/rejected with a real rating */}
+            {(approvalStatus === "draft" || approvalStatus === "rejected") && req.rating !== "pending" && (
+              <button
+                onClick={() => submit.mutate()}
+                disabled={submit.isPending}
+                title="Submit for approval"
+                className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium bg-yellow-50 border border-yellow-300 text-yellow-800 hover:bg-yellow-100 dark:bg-yellow-900/20 dark:text-yellow-300 disabled:opacity-50"
+              >
+                <Send className="h-3 w-3" />
+                {submit.isPending ? "Submitting…" : "Submit"}
+              </button>
+            )}
+
+            {/* Approve / Reject — pending_approval only */}
+            {approvalStatus === "pending_approval" && (
+              <>
+                <button
+                  onClick={() => approve.mutate("")}
+                  disabled={approve.isPending}
+                  title="Approve"
+                  className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium bg-green-50 border border-green-300 text-green-800 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-300 disabled:opacity-50"
+                >
+                  <ThumbsUp className="h-3 w-3" />
+                  {approve.isPending ? "…" : "Approve"}
+                </button>
+                <button
+                  onClick={() => setShowRejectForm(v => !v)}
+                  title="Reject"
+                  className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium bg-red-50 border border-red-300 text-red-800 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-300"
+                >
+                  <ThumbsDown className="h-3 w-3" />
+                  Reject
+                </button>
+              </>
+            )}
+
+            {/* Audit trail toggle */}
+            <button
+              onClick={() => setShowAudit(v => !v)}
+              title="Audit trail"
+              className={cn("p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground", showAudit && "bg-muted text-foreground")}
+            >
+              <History className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* ── Reject form ────────────────────────────────────────────────── */}
+        {showRejectForm && (
+          <div className="mt-2 flex gap-2 items-center border-t pt-2">
+            <input
+              value={checkerNotes}
+              onChange={e => setCheckerNotes(e.target.value)}
+              placeholder="Reason for rejection (required)…"
+              className="flex-1 h-8 rounded border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+            <button
+              onClick={() => { reject.mutate(checkerNotes, { onSuccess: () => { setShowRejectForm(false); setCheckerNotes(""); } }); }}
+              disabled={!checkerNotes.trim() || reject.isPending}
+              className="inline-flex items-center gap-1 rounded px-2.5 py-1.5 text-xs font-medium bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+            >
+              {reject.isPending ? "…" : "Confirm Reject"}
+            </button>
+            <button onClick={() => setShowRejectForm(false)} className="text-xs text-muted-foreground hover:text-foreground">Cancel</button>
+          </div>
+        )}
+
+        {/* ── Audit trail ────────────────────────────────────────────────── */}
+        {showAudit && (
+          <div className="mt-3 border-t pt-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1">
+              <History className="h-3.5 w-3.5" /> Audit Trail
+            </p>
+            <AuditTrailPanel reqId={req.id} />
+          </div>
+        )}
+      </div>
+
+      {/* Edit modal — opens with the existing requirement pre-populated */}
+      {editOpen && (
+        <RequirementEditModal
+          req={req}
+          open={editOpen}
+          onClose={() => setEditOpen(false)}
+        />
+      )}
+    </>
   );
 }
 

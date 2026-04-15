@@ -4,7 +4,7 @@ Serializers for the assets app.
 
 from rest_framework import serializers
 
-from .models import Asset, AssetCategory, DataAsset, DataFlow, DataLifecycleStage, DataLifecycleRequirement, STAGE_REQUIREMENTS_TEMPLATE
+from .models import Asset, AssetCategory, DataAsset, DataFlow, DataLifecycleStage, DataLifecycleRequirement, RequirementAuditLog, STAGE_REQUIREMENTS_TEMPLATE
 
 
 class AssetCategorySerializer(serializers.ModelSerializer):
@@ -153,9 +153,32 @@ class DataFlowSerializer(serializers.ModelSerializer):
         ]
 
 
+class RequirementAuditLogSerializer(serializers.ModelSerializer):
+    user_name = serializers.SerializerMethodField()
+    action_display = serializers.CharField(source="get_action_display", read_only=True)
+
+    class Meta:
+        model = RequirementAuditLog
+        fields = [
+            "id", "action", "action_display",
+            "from_rating", "to_rating",
+            "notes", "user", "user_name", "timestamp",
+        ]
+        read_only_fields = fields
+
+    def get_user_name(self, obj):
+        if not obj.user:
+            return "System"
+        return obj.user.get_full_name() or obj.user.email
+
+
 class DataLifecycleRequirementSerializer(serializers.ModelSerializer):
-    framework_display = serializers.CharField(source="get_framework_display", read_only=True)
-    rating_display = serializers.CharField(source="get_rating_display", read_only=True)
+    framework_display       = serializers.CharField(source="get_framework_display", read_only=True)
+    rating_display          = serializers.CharField(source="get_rating_display", read_only=True)
+    approval_status_display = serializers.CharField(source="get_approval_status_display", read_only=True)
+    maker_name              = serializers.SerializerMethodField()
+    checker_name            = serializers.SerializerMethodField()
+    is_editable             = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = DataLifecycleRequirement
@@ -163,8 +186,27 @@ class DataLifecycleRequirementSerializer(serializers.ModelSerializer):
             "id", "framework", "framework_display",
             "requirement_key", "requirement_label", "article_reference",
             "rating", "rating_display", "notes", "privacy_risk",
+            # maker-checker
+            "approval_status", "approval_status_display",
+            "maker", "maker_name",
+            "checker", "checker_name",
+            "submitted_at", "approved_at", "checker_notes",
+            "is_editable",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = [
+            "id", "approval_status", "maker", "checker",
+            "submitted_at", "approved_at", "is_editable",
+        ]
+
+    def get_maker_name(self, obj):
+        if not obj.maker:
+            return None
+        return obj.maker.get_full_name() or obj.maker.email
+
+    def get_checker_name(self, obj):
+        if not obj.checker:
+            return None
+        return obj.checker.get_full_name() or obj.checker.email
 
 
 class DataLifecycleStageSerializer(serializers.ModelSerializer):

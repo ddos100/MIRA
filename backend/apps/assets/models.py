@@ -424,6 +424,13 @@ class DataLifecycleRequirement(models.Model):
     """
     Individual GDPR / DPDPA compliance checklist item for a lifecycle stage.
     Pre-populated from STAGE_REQUIREMENTS_TEMPLATE when the stage is created.
+
+    Maker-Checker workflow
+    ----------------------
+    approval_status: draft → pending_approval → approved | rejected
+      * Makers edit rating/notes while status is 'draft' or 'rejected'.
+      * Submitting for approval locks editing and sets status to 'pending_approval'.
+      * Checkers approve (→ 'approved') or reject (→ 'rejected', resumes editing).
     """
 
     class Rating(models.TextChoices):
@@ -436,6 +443,12 @@ class DataLifecycleRequirement(models.Model):
     class Framework(models.TextChoices):
         GDPR  = "gdpr",  _("GDPR")
         DPDPA = "dpdpa", _("DPDPA (India)")
+
+    class ApprovalStatus(models.TextChoices):
+        DRAFT            = "draft",            _("Draft")
+        PENDING_APPROVAL = "pending_approval", _("Pending Approval")
+        APPROVED         = "approved",         _("Approved")
+        REJECTED         = "rejected",         _("Rejected")
 
     stage_record      = models.ForeignKey(
         DataLifecycleStage,
@@ -462,6 +475,32 @@ class DataLifecycleRequirement(models.Model):
         verbose_name=_("Auto-Created Privacy Risk"),
     )
 
+    # ── Maker-Checker fields ──────────────────────────────────────────────────
+    approval_status = models.CharField(
+        max_length=20,
+        choices=ApprovalStatus.choices,
+        default=ApprovalStatus.DRAFT,
+        db_index=True,
+        verbose_name=_("Approval Status"),
+    )
+    maker = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="made_requirements",
+        verbose_name=_("Submitted By"),
+    )
+    checker = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="checked_requirements",
+        verbose_name=_("Reviewed By"),
+    )
+    submitted_at = models.DateTimeField(null=True, blank=True, verbose_name=_("Submitted At"))
+    approved_at  = models.DateTimeField(null=True, blank=True, verbose_name=_("Approved At"))
+    checker_notes = models.TextField(blank=True, verbose_name=_("Checker Notes"))
+
     class Meta:
         verbose_name = _("Lifecycle Compliance Requirement")
         verbose_name_plural = _("Lifecycle Compliance Requirements")
@@ -470,3 +509,51 @@ class DataLifecycleRequirement(models.Model):
 
     def __str__(self):
         return f"{self.stage_record} / {self.requirement_label} [{self.rating}]"
+
+    @property
+    def is_editable(self):
+        """Makers may only edit draft or rejected requirements."""
+        return self.approval_status in (
+            self.ApprovalStatus.DRAFT,
+            self.ApprovalStatus.REJECTED,
+        )
+
+
+class RequirementAuditLog(models.Model):
+    """
+    Immutable audit trail for DataLifecycleRequirement changes.
+    One row per significant action (rated, submitted, approved, rejected).
+    """
+
+    class Action(models.TextChoices):
+        RATED     = "rated",     _("Rated")
+        SUBMITTED = "submitted", _("Submitted for Approval")
+        APPROVED  = "approved",  _("Approved")
+        REJECTED  = "rejected",  _("Rejected")
+
+    requirement = models.ForeignKey(
+        DataLifecycleRequirement,
+        on_delete=models.CASCADE,
+        related_name="audit_logs",
+        verbose_name=_("Requirement"),
+    )
+    action      = models.CharField(max_length=20, choices=Action.choices)
+    from_rating = models.CharField(max_length=20, blank=True, verbose_name=_("Previous Rating"))
+    to_rating   = models.CharField(max_length=20, blank=True, verbose_name=_("New Rating"))
+    notes       = models.TextField(blank=True, verbose_name=_("Notes / Reason"))
+    user        = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="requirement_audit_logs",
+        verbose_name=_("Actor"),
+    )
+    timestamp   = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("Requirement Audit Log")
+        verbose_name_plural = _("Requirement Audit Logs")
+        ordering = ["-timestamp"]
+
+    def __str__(self):
+        return f"{self.requirement} – {self.action} @ {self.timestamp:%Y-%m-%d %H:%M}"

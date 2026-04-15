@@ -13,7 +13,7 @@ from apps.core.mixins import CsvExportMixin, CsvImportMixin
 
 from .models import (
     Asset, AssetCategory, DataAsset, DataFlow,
-    DataLifecycleStage, DataLifecycleRequirement,
+    DataLifecycleStage, DataLifecycleRequirement, RequirementAuditLog,
     STAGE_REQUIREMENTS_TEMPLATE,
 )
 from .serializers import (
@@ -23,6 +23,7 @@ from .serializers import (
     DataFlowSerializer,
     DataLifecycleStageSerializer,
     DataLifecycleRequirementSerializer,
+    RequirementAuditLogSerializer,
 )
 
 
@@ -340,12 +341,12 @@ class DataLifecycleRequirementViewSet(viewsets.ModelViewSet):
     On PATCH/PUT, if rating becomes 'not_met' a Privacy Risk is auto-created.
     """
     queryset = DataLifecycleRequirement.objects.select_related(
-        "stage_record__data_flow", "privacy_risk"
+        "stage_record__data_flow", "privacy_risk", "maker", "checker"
     ).all()
     serializer_class = DataLifecycleRequirementSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ["stage_record", "framework", "rating"]
+    filterset_fields = ["stage_record", "framework", "rating", "approval_status"]
     search_fields = ["requirement_label", "notes"]
     ordering = ["framework", "requirement_key"]
 
@@ -429,8 +430,115 @@ class DataLifecycleRequirementViewSet(viewsets.ModelViewSet):
                 dpia.residual_risk_level = level
                 dpia.save(update_fields=["residual_risk_level"])
 
+    def _log(self, requirement, action, user, from_rating="", to_rating="", notes=""):
+        RequirementAuditLog.objects.create(
+            requirement=requirement,
+            action=action,
+            from_rating=from_rating,
+            to_rating=to_rating,
+            notes=notes,
+            user=user,
+        )
+
+    def update(self, request, *args, **kwargs):
+        """Block edits on requirements that are pending approval or approved."""
+        instance = self.get_object()
+        if not instance.is_editable:
+            return Response(
+                {"detail": "This requirement is locked. Only draft or rejected requirements can be edited."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().update(request, *args, **kwargs)
+
     def perform_update(self, serializer):
+        old_rating = serializer.instance.rating
         requirement = serializer.save()
-        self._maybe_create_privacy_risk(requirement)
+        new_rating = requirement.rating
+
+        # Log the rating change if it changed
+        if old_rating != new_rating:
+            self._log(
+                requirement,
+                action=RequirementAuditLog.Action.RATED,
+                user=self.request.user,
+                from_rating=old_rating,
+                to_rating=new_rating,
+                notes=requirement.notes,
+            )
         # Recompute overall stage compliance
         requirement.stage_record.recompute_compliance_status()
+
+    @action(detail=True, methods=["post"], url_path="submit")
+    def submit(self, request, pk=None):
+        """Maker submits requirement for Checker approval."""
+        requirement = self.get_object()
+        if not requirement.is_editable:
+            return Response(
+                {"detail": "Only draft or rejected requirements can be submitted."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if requirement.rating == DataLifecycleRequirement.Rating.PENDING:
+            return Response(
+                {"detail": "Please set a rating before submitting for approval."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        from django.utils import timezone
+        requirement.approval_status = DataLifecycleRequirement.ApprovalStatus.PENDING_APPROVAL
+        requirement.maker = request.user
+        requirement.submitted_at = timezone.now()
+        requirement.checker_notes = ""
+        requirement.save(update_fields=["approval_status", "maker", "submitted_at", "checker_notes"])
+        self._log(requirement, RequirementAuditLog.Action.SUBMITTED, request.user,
+                  from_rating=requirement.rating, to_rating=requirement.rating)
+        return Response(DataLifecycleRequirementSerializer(requirement).data)
+
+    @action(detail=True, methods=["post"], url_path="approve")
+    def approve(self, request, pk=None):
+        """Checker approves the requirement."""
+        requirement = self.get_object()
+        if requirement.approval_status != DataLifecycleRequirement.ApprovalStatus.PENDING_APPROVAL:
+            return Response(
+                {"detail": "Only requirements pending approval can be approved."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        from django.utils import timezone
+        requirement.approval_status = DataLifecycleRequirement.ApprovalStatus.APPROVED
+        requirement.checker = request.user
+        requirement.approved_at = timezone.now()
+        requirement.checker_notes = request.data.get("checker_notes", "")
+        requirement.save(update_fields=["approval_status", "checker", "approved_at", "checker_notes"])
+
+        # Now that it is approved, fire the privacy risk logic
+        self._maybe_create_privacy_risk(requirement)
+        requirement.stage_record.recompute_compliance_status()
+
+        self._log(requirement, RequirementAuditLog.Action.APPROVED, request.user,
+                  from_rating=requirement.rating, to_rating=requirement.rating,
+                  notes=requirement.checker_notes)
+        return Response(DataLifecycleRequirementSerializer(requirement).data)
+
+    @action(detail=True, methods=["post"], url_path="reject")
+    def reject(self, request, pk=None):
+        """Checker rejects, returns to Maker for rework."""
+        requirement = self.get_object()
+        if requirement.approval_status != DataLifecycleRequirement.ApprovalStatus.PENDING_APPROVAL:
+            return Response(
+                {"detail": "Only requirements pending approval can be rejected."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        checker_notes = request.data.get("checker_notes", "")
+        requirement.approval_status = DataLifecycleRequirement.ApprovalStatus.REJECTED
+        requirement.checker = request.user
+        requirement.checker_notes = checker_notes
+        requirement.save(update_fields=["approval_status", "checker", "checker_notes"])
+        self._log(requirement, RequirementAuditLog.Action.REJECTED, request.user,
+                  from_rating=requirement.rating, to_rating=requirement.rating,
+                  notes=checker_notes)
+        return Response(DataLifecycleRequirementSerializer(requirement).data)
+
+    @action(detail=True, methods=["get"], url_path="audit-logs")
+    def audit_logs(self, request, pk=None):
+        """Return the audit trail for this requirement."""
+        requirement = self.get_object()
+        logs = requirement.audit_logs.select_related("user").all()
+        return Response(RequirementAuditLogSerializer(logs, many=True).data)
