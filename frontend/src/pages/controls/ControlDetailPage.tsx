@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle, XCircle, AlertCircle, Pencil } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, AlertCircle, Pencil, Paperclip } from "lucide-react";
 import { useControl, useControlTests, useControlIssues } from "@/api/controls";
 import { CommentsPanel } from "@/components/common/CommentsPanel";
 import { AttachmentsPanel } from "@/components/common/AttachmentsPanel";
@@ -86,6 +86,18 @@ export default function ControlDetailPage() {
                     <span className={`capitalize ${resultColors[t.result]}`}>{t.result}</span>
                     {t.description && (
                       <span className="text-muted-foreground truncate flex-1">{t.description}</span>
+                    )}
+                    {t.evidence_file && (
+                      <a
+                        href={t.evidence_file}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0 flex items-center gap-1 text-xs text-primary hover:underline"
+                        title="View evidence file"
+                      >
+                        <Paperclip className="h-3.5 w-3.5" />
+                        Evidence
+                      </a>
                     )}
                   </div>
                 ))}

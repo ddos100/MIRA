@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { useNavigate, Routes, Route } from "react-router-dom";
-import { Plus, FileText, CheckCircle } from "lucide-react";
+import { Plus, FileText, CheckCircle, History } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePolicies, useAcknowledgePolicy, policyKeys } from "@/api/policies";
 import { BulkUploadSection } from "@/components/common/BulkUploadSection";
 import { ModuleStatusRulesTab } from "@/components/common/ModuleStatusRulesTab";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+
+const PolicyDetailPage = lazy(() => import("./PolicyDetailPage"));
 
 const statusColors: Record<string, string> = {
   draft: "bg-gray-100 text-gray-600",
@@ -139,7 +142,15 @@ function PolicyListPage() {
                   </div>
                   <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{policy.summary || "No summary."}</p>
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>v{policy.version}</span>
+                    <div className="flex items-center gap-2">
+                      <span>v{policy.version}</span>
+                      {Number(policy.versions_count) > 0 && (
+                        <span className="flex items-center gap-0.5 text-muted-foreground">
+                          <History className="h-3 w-3" />
+                          {policy.versions_count}
+                        </span>
+                      )}
+                    </div>
                     {policy.review_date && <span>Review: {policy.review_date}</span>}
                     {policy.acknowledgement_required === "true" && (
                       <button
@@ -176,6 +187,11 @@ export default function PoliciesPage() {
   return (
     <Routes>
       <Route index element={<PolicyListPage />} />
+      <Route path=":id" element={
+        <Suspense fallback={<div className="flex justify-center py-16"><LoadingSpinner /></div>}>
+          <PolicyDetailPage />
+        </Suspense>
+      } />
     </Routes>
   );
 }

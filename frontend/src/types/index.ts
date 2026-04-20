@@ -257,7 +257,9 @@ export interface Policy {
   summary: string;
   content: string;
   category?: string;
+  category_name?: string;
   owner?: string;
+  owner_name?: string;
   status: string;
   version: string;
   effective_date?: string;
