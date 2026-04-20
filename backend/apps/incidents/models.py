@@ -78,6 +78,16 @@ class Incident(BaseModel):
         help_text=_("Art. 33 – auto-set to detected_at + 72 h when is_data_breach is True"),
     )
     gdpr_notification_sent_at = models.DateTimeField(null=True, blank=True)
+    notified_authorities_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("GDPR Art. 33 – supervisory authority notification timestamp"),
+    )
+    notified_subjects_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("GDPR Art. 34 – data subject notification timestamp"),
+    )
     assets_affected = models.ManyToManyField(
         "assets.Asset", blank=True, related_name="incidents"
     )
@@ -109,8 +119,22 @@ class Incident(BaseModel):
 
 
 class IncidentUpdate(BaseModel):
+    class EventType(models.TextChoices):
+        DETECTION = "detection", _("Detection")
+        TRIAGE = "triage", _("Triage")
+        CONTAINMENT = "containment", _("Containment")
+        ERADICATION = "eradication", _("Eradication")
+        RECOVERY = "recovery", _("Recovery")
+        COMMUNICATION = "communication", _("Communication")
+        NOTIFICATION = "notification", _("Regulatory Notification")
+        LESSONS = "lessons", _("Lessons Learned")
+        OTHER = "other", _("Other")
+
     incident = models.ForeignKey(
         Incident, on_delete=models.CASCADE, related_name="updates"
+    )
+    event_type = models.CharField(
+        max_length=20, choices=EventType.choices, default=EventType.OTHER
     )
     body = models.TextField()
 
@@ -118,4 +142,4 @@ class IncidentUpdate(BaseModel):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"Update on {self.incident.title}"
+        return f"[{self.event_type}] {self.incident.title}"

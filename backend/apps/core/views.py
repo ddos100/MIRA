@@ -252,10 +252,27 @@ class AuditLogListView(generics.ListAPIView):
 
     def get_queryset(self):
         qs = AuditLog.objects.select_related("user", "content_type")
-        ct_id = self.request.query_params.get("content_type")
-        obj_id = self.request.query_params.get("object_id")
+        params = self.request.query_params
+        ct_id = params.get("content_type")
+        obj_id = params.get("object_id")
         if ct_id and obj_id:
             qs = qs.filter(content_type_id=ct_id, object_id=obj_id)
+        elif ct_id:
+            qs = qs.filter(content_type_id=ct_id)
+
+        date_from = params.get("date_from")
+        date_to = params.get("date_to")
+        if date_from:
+            qs = qs.filter(timestamp__gte=date_from)
+        if date_to:
+            qs = qs.filter(timestamp__lte=date_to)
+
+        search = params.get("q")
+        if search:
+            qs = qs.filter(
+                db_models.Q(action__icontains=search)
+                | db_models.Q(user__email__icontains=search)
+            )
         return qs
 
 
@@ -481,6 +498,7 @@ class CorrectiveActionPlanViewSet(viewsets.ModelViewSet):
     ordering_fields = ["target_completion_date", "created_at", "severity"]
 
     def get_queryset(self):
+        self._sync_overdue_status()
         qs = CorrectiveActionPlan.objects.select_related(
             "owner", "verifier", "source_content_type",
             "risk", "control", "compliance_requirement", "incident",
@@ -495,6 +513,19 @@ class CorrectiveActionPlanViewSet(viewsets.ModelViewSet):
             except (ValueError, ContentType.DoesNotExist):
                 pass
         return qs
+
+    @staticmethod
+    def _sync_overdue_status():
+        """Flip active CAPs past their target date to OVERDUE (ISO 27001 §10.1)."""
+        today = timezone.now().date()
+        CorrectiveActionPlan.objects.filter(
+            target_completion_date__lt=today,
+            status__in=[
+                CorrectiveActionPlan.CAPStatus.OPEN,
+                CorrectiveActionPlan.CAPStatus.IN_PROGRESS,
+                CorrectiveActionPlan.CAPStatus.BLOCKED,
+            ],
+        ).update(status=CorrectiveActionPlan.CAPStatus.OVERDUE)
 
     def perform_create(self, serializer):
         ct_param = self.request.data.get("source_content_type")

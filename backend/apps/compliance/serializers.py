@@ -140,6 +140,8 @@ class ComplianceAssessmentSerializer(serializers.ModelSerializer):
 
 
 class EvidenceSerializer(serializers.ModelSerializer):
+    is_expired = serializers.BooleanField(read_only=True)
+
     class Meta:
         model = Evidence
         fields = "__all__"

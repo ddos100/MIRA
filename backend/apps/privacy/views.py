@@ -70,6 +70,32 @@ class ConsentRecordViewSet(viewsets.ModelViewSet):
     ]
     ordering_fields = ["granted_at", "withdrawn_at", "expires_at", "created_at"]
 
+    def list(self, request, *args, **kwargs):
+        self._auto_expire_consents()
+        return super().list(request, *args, **kwargs)
+
+    def retrieve(self, request, *args, **kwargs):
+        self._auto_expire_consents()
+        return super().retrieve(request, *args, **kwargs)
+
+    def _auto_expire_consents(self):
+        """Flip granted consents past expires_at to 'expired' and log event."""
+        now = timezone.now()
+        stale = ConsentRecord.objects.filter(
+            status=ConsentRecord.ConsentStatus.GRANTED,
+            expires_at__lt=now,
+        )
+        for consent in stale:
+            consent.status = ConsentRecord.ConsentStatus.EXPIRED
+            consent.save(update_fields=["status", "updated_at"])
+            ConsentEvent.objects.create(
+                consent=consent,
+                event_type=ConsentEvent.EventType.EXPIRED,
+                occurred_at=now,
+                actor="system",
+                notes="Auto-expired: expires_at elapsed.",
+            )
+
     def perform_create(self, serializer):
         consent = serializer.save(created_by=self.request.user)
         if consent.status == ConsentRecord.ConsentStatus.GRANTED and not consent.granted_at:
