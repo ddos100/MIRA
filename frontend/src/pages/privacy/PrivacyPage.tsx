@@ -2,12 +2,14 @@ import { NavLink, Routes, Route, Navigate } from "react-router-dom";
 import ProcessingActivitiesPage from "./ProcessingActivitiesPage";
 import DPIAListPage from "./DPIAListPage";
 import DSRListPage from "./DSRListPage";
+import ConsentRecordsPage from "./ConsentRecordsPage";
 import { cn } from "@/utils/cn";
 
 const navItems = [
   { to: "/privacy", label: "RoPA (Article 30)", end: true },
   { to: "/privacy/dpias", label: "DPIAs" },
   { to: "/privacy/dsr", label: "Data Subject Requests" },
+  { to: "/privacy/consents", label: "Consent (Art. 7)" },
 ];
 
 export default function PrivacyPage() {
@@ -38,6 +40,7 @@ export default function PrivacyPage() {
         <Route index element={<ProcessingActivitiesPage />} />
         <Route path="dpias" element={<DPIAListPage />} />
         <Route path="dsr" element={<DSRListPage />} />
+        <Route path="consents" element={<ConsentRecordsPage />} />
         <Route path="*" element={<Navigate to="/privacy" replace />} />
       </Routes>
     </div>

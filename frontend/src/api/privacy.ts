@@ -290,3 +290,115 @@ export function useUpdateDSR(id: string) {
     },
   });
 }
+
+// ─── Consent Records (GDPR Art. 7) ────────────────────────────────────────────
+
+export type ConsentChannel =
+  | "web_form"
+  | "email"
+  | "in_person"
+  | "paper"
+  | "api"
+  | "phone"
+  | "other";
+
+export type ConsentStatus = "granted" | "withdrawn" | "expired" | "pending";
+
+export interface ConsentEvent {
+  id: string;
+  consent: string;
+  event_type: "granted" | "withdrawn" | "renewed" | "expired" | "updated";
+  occurred_at: string;
+  actor: string;
+  notes: string;
+  ip_address: string | null;
+  created_at: string;
+}
+
+export interface ConsentRecord {
+  id: string;
+  data_subject_identifier: string;
+  data_subject_name: string;
+  purpose: string;
+  processing_activity: string | null;
+  processing_activity_name: string | null;
+  legal_basis_text: string;
+  consent_version: string;
+  channel: ConsentChannel;
+  status: ConsentStatus;
+  is_active: boolean;
+  granted_at: string | null;
+  withdrawn_at: string | null;
+  withdrawal_reason: string;
+  expires_at: string | null;
+  ip_address: string | null;
+  user_agent: string;
+  evidence_ref: string;
+  events: ConsentEvent[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConsentParams {
+  search?: string;
+  status?: ConsentStatus | "";
+  channel?: ConsentChannel | "";
+  processing_activity?: string;
+  page?: number;
+  page_size?: number;
+}
+
+export function useConsents(params: ConsentParams = {}) {
+  return useQuery({
+    queryKey: ["consents", params],
+    queryFn: async () => {
+      const { data } = await apiClient.get<PaginatedResponse<ConsentRecord>>(
+        "/privacy/consents/",
+        { params }
+      );
+      return data;
+    },
+  });
+}
+
+export function useConsent(id: string) {
+  return useQuery({
+    queryKey: ["consent", id],
+    queryFn: async () => {
+      const { data } = await apiClient.get<ConsentRecord>(`/privacy/consents/${id}/`);
+      return data;
+    },
+    enabled: !!id,
+  });
+}
+
+export function useCreateConsent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Partial<ConsentRecord>) =>
+      apiClient.post<ConsentRecord>("/privacy/consents/", payload).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["consents"] }),
+  });
+}
+
+export function useWithdrawConsent(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (reason: string) =>
+      apiClient
+        .post<ConsentRecord>(`/privacy/consents/${id}/withdraw/`, { reason })
+        .then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["consents"] });
+      qc.invalidateQueries({ queryKey: ["consent", id] });
+    },
+  });
+}
+
+export function useDeleteConsent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.delete(`/privacy/consents/${id}/`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["consents"] }),
+  });
+}

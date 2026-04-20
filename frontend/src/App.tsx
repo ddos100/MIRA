@@ -30,6 +30,7 @@ const StatusRulesPage = lazy(() => import("@/pages/settings/StatusRulesPage"));
 const UsersPage = lazy(() => import("@/pages/users/UsersPage"));
 const GoalsPage = lazy(() => import("@/pages/organization/GoalsPage"));
 const ThreatsPage = lazy(() => import("@/pages/threats/ThreatsPage"));
+const CorrectiveActionsPage = lazy(() => import("@/pages/governance/CorrectiveActionsPage"));
 
 export default function App() {
   return (
@@ -76,6 +77,7 @@ export default function App() {
           <Route path="/organizations/*" element={<OrganizationsPage />} />
           <Route path="/organization/goals" element={<GoalsPage />} />
           <Route path="/threats" element={<ThreatsPage />} />
+          <Route path="/corrective-actions" element={<CorrectiveActionsPage />} />
 
           {/* Users */}
           <Route path="/users/*" element={<UsersPage />} />

@@ -469,6 +469,133 @@ class Review(BaseModel):
         return "current"
 
 
+# ─── Corrective Action Plan (CAP) ─────────────────────────────────────────────
+
+
+class CorrectiveActionPlan(BaseModel):
+    """
+    Centralised remediation tracker that can attach to any source object
+    (compliance gap, control issue, incident, audit finding, risk, DPIA, etc.).
+    Aligns with ISO 27001:2022 §10.1 (nonconformity & corrective action) and
+    SOC 2 CC4 (monitoring activities → remediation).
+    """
+
+    class Severity(models.TextChoices):
+        CRITICAL = "critical", _("Critical")
+        HIGH = "high", _("High")
+        MEDIUM = "medium", _("Medium")
+        LOW = "low", _("Low")
+
+    class CAPStatus(models.TextChoices):
+        OPEN = "open", _("Open")
+        IN_PROGRESS = "in_progress", _("In Progress")
+        BLOCKED = "blocked", _("Blocked")
+        RESOLVED = "resolved", _("Resolved — Pending Verification")
+        VERIFIED = "verified", _("Verified Closed")
+        OVERDUE = "overdue", _("Overdue")
+        CANCELLED = "cancelled", _("Cancelled")
+
+    # Generic relation — anchor to any source object (Issue, Incident, Finding…)
+    source_content_type = models.ForeignKey(
+        ContentType,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="corrective_action_sources",
+    )
+    source_object_id = models.UUIDField(null=True, blank=True, db_index=True)
+    source_object = GenericForeignKey("source_content_type", "source_object_id")
+
+    title = models.CharField(max_length=255)
+    description = models.TextField()
+    root_cause = models.TextField(blank=True)
+    severity = models.CharField(
+        max_length=15, choices=Severity.choices, default=Severity.MEDIUM
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=CAPStatus.choices,
+        default=CAPStatus.OPEN,
+        db_index=True,
+    )
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="corrective_actions_owned",
+    )
+    verifier = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="corrective_actions_verified",
+    )
+
+    target_completion_date = models.DateField(null=True, blank=True)
+    actual_completion_date = models.DateField(null=True, blank=True)
+    verified_at = models.DateTimeField(null=True, blank=True)
+    verification_notes = models.TextField(blank=True)
+    progress_pct = models.PositiveSmallIntegerField(default=0)
+
+    # Optional direct links for quick filtering / reporting
+    risk = models.ForeignKey(
+        "risks.Risk",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="corrective_actions",
+    )
+    control = models.ForeignKey(
+        "controls.Control",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="corrective_actions",
+    )
+    compliance_requirement = models.ForeignKey(
+        "compliance.Requirement",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="corrective_actions",
+    )
+    incident = models.ForeignKey(
+        "incidents.Incident",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="corrective_actions",
+    )
+
+    class Meta:
+        verbose_name = _("Corrective Action Plan")
+        verbose_name_plural = _("Corrective Action Plans")
+        ordering = ["target_completion_date", "-created_at"]
+        indexes = [
+            models.Index(fields=["source_content_type", "source_object_id"]),
+            models.Index(fields=["status", "target_completion_date"]),
+        ]
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def is_overdue(self) -> bool:
+        from datetime import date
+        terminal = {
+            self.CAPStatus.VERIFIED,
+            self.CAPStatus.CANCELLED,
+        }
+        if self.status in terminal:
+            return False
+        if not self.target_completion_date:
+            return False
+        return date.today() > self.target_completion_date
+
+
 class WebhookDelivery(models.Model):
     """Record of a single outbound webhook delivery attempt."""
 

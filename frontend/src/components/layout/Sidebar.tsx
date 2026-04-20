@@ -90,6 +90,7 @@ const navSections: NavSection[] = [
           { label: "Exception Register", href: "/exceptions" },
         ],
       },
+      { label: "Corrective Actions", href: "/corrective-actions", icon: CheckSquare },
     ],
   },
   {
@@ -102,6 +103,8 @@ const navSections: NavSection[] = [
           { label: "All Risks", href: "/risks" },
           { label: "Treatment Plans", href: "/risks/treatment" },
           { label: "Heat Map", href: "/risks/heatmap" },
+          { label: "Risk Appetite", href: "/risks/appetite" },
+          { label: "Key Risk Indicators", href: "/risks/kris" },
         ],
       },
       { label: "Threats & Vulnerabilities", href: "/threats", icon: Bug },

@@ -1,6 +1,12 @@
 from rest_framework import serializers
 
-from .models import DPIA, DataSubjectRequest, ProcessingActivity
+from .models import (
+    DPIA,
+    ConsentEvent,
+    ConsentRecord,
+    DataSubjectRequest,
+    ProcessingActivity,
+)
 
 
 class ProcessingActivitySerializer(serializers.ModelSerializer):
@@ -113,3 +119,55 @@ class DataSubjectRequestSerializer(serializers.ModelSerializer):
         model = DataSubjectRequest
         fields = "__all__"
         read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class ConsentEventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConsentEvent
+        fields = [
+            "id",
+            "consent",
+            "event_type",
+            "occurred_at",
+            "actor",
+            "notes",
+            "ip_address",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class ConsentRecordSerializer(serializers.ModelSerializer):
+    is_active = serializers.BooleanField(read_only=True)
+    processing_activity_name = serializers.SerializerMethodField()
+    events = ConsentEventSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ConsentRecord
+        fields = [
+            "id",
+            "data_subject_identifier",
+            "data_subject_name",
+            "purpose",
+            "processing_activity",
+            "processing_activity_name",
+            "legal_basis_text",
+            "consent_version",
+            "channel",
+            "status",
+            "is_active",
+            "granted_at",
+            "withdrawn_at",
+            "withdrawal_reason",
+            "expires_at",
+            "ip_address",
+            "user_agent",
+            "evidence_ref",
+            "events",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "is_active", "created_at", "updated_at"]
+
+    def get_processing_activity_name(self, obj):
+        return obj.processing_activity.name if obj.processing_activity_id else None

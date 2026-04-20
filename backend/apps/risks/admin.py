@@ -2,7 +2,15 @@
 
 from django.contrib import admin
 
-from .models import Risk, RiskCategory, RiskReview, RiskTreatmentPlan
+from .models import (
+    KeyRiskIndicator,
+    KRIMeasurement,
+    Risk,
+    RiskAppetite,
+    RiskCategory,
+    RiskReview,
+    RiskTreatmentPlan,
+)
 
 
 @admin.register(RiskCategory)
@@ -62,3 +70,43 @@ class RiskReviewAdmin(admin.ModelAdmin):
     list_filter = ["review_date"]
     search_fields = ["risk__title", "notes"]
     date_hierarchy = "review_date"
+
+
+@admin.register(RiskAppetite)
+class RiskAppetiteAdmin(admin.ModelAdmin):
+    list_display = [
+        "name",
+        "category",
+        "business_unit",
+        "max_acceptable_rating",
+        "approval_status",
+        "effective_date",
+        "review_date",
+    ]
+    list_filter = ["approval_status", "max_acceptable_rating"]
+    search_fields = ["name", "statement"]
+    autocomplete_fields = ["category", "owner", "approved_by"]
+
+
+@admin.register(KeyRiskIndicator)
+class KeyRiskIndicatorAdmin(admin.ModelAdmin):
+    list_display = [
+        "name",
+        "current_value",
+        "threshold_amber",
+        "threshold_red",
+        "direction",
+        "measurement_frequency",
+        "owner",
+        "is_active",
+    ]
+    list_filter = ["is_active", "direction", "measurement_frequency"]
+    search_fields = ["name", "description"]
+    filter_horizontal = ["related_risks"]
+
+
+@admin.register(KRIMeasurement)
+class KRIMeasurementAdmin(admin.ModelAdmin):
+    list_display = ["kri", "value", "measured_at"]
+    list_filter = ["kri"]
+    date_hierarchy = "measured_at"

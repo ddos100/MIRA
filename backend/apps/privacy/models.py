@@ -174,3 +174,131 @@ class DataSubjectRequest(BaseModel):
 
     def __str__(self):
         return f"{self.get_request_type_display()} – {self.data_subject_name}"
+
+
+class ConsentRecord(BaseModel):
+    """
+    GDPR Article 7 / DPDPA Sec. 6 — granular consent capture with full audit trail
+    of grant, withdrawal, and renewal events. Supports purpose-based consent
+    aligned to ProcessingActivity records.
+    """
+
+    class Channel(models.TextChoices):
+        WEB_FORM = "web_form", _("Web Form")
+        EMAIL = "email", _("Email")
+        IN_PERSON = "in_person", _("In Person")
+        PAPER = "paper", _("Paper / Signed Form")
+        API = "api", _("API / Programmatic")
+        PHONE = "phone", _("Phone")
+        OTHER = "other", _("Other")
+
+    class ConsentStatus(models.TextChoices):
+        GRANTED = "granted", _("Granted")
+        WITHDRAWN = "withdrawn", _("Withdrawn")
+        EXPIRED = "expired", _("Expired")
+        PENDING = "pending", _("Pending")
+
+    # Subject identification (no FK to User — covers external data subjects)
+    data_subject_identifier = models.CharField(
+        max_length=255,
+        db_index=True,
+        help_text=_("Email, customer ID, or other stable subject identifier."),
+    )
+    data_subject_name = models.CharField(max_length=200, blank=True)
+
+    purpose = models.CharField(
+        max_length=255,
+        help_text=_("Specific, explicit purpose for which consent is given."),
+    )
+    processing_activity = models.ForeignKey(
+        ProcessingActivity,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="consents",
+    )
+
+    legal_basis_text = models.TextField(
+        blank=True,
+        help_text=_("The wording the data subject saw at consent time (Art. 7(2) clarity)."),
+    )
+    consent_version = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text=_("Version of the consent notice / privacy notice presented."),
+    )
+    channel = models.CharField(
+        max_length=20, choices=Channel.choices, default=Channel.WEB_FORM
+    )
+    status = models.CharField(
+        max_length=15,
+        choices=ConsentStatus.choices,
+        default=ConsentStatus.GRANTED,
+        db_index=True,
+    )
+
+    granted_at = models.DateTimeField(null=True, blank=True)
+    withdrawn_at = models.DateTimeField(null=True, blank=True)
+    withdrawal_reason = models.TextField(blank=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+
+    # Provenance for audit (where the click / signature happened)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=500, blank=True)
+    evidence_ref = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text=_("Reference to signed document, log entry, or screenshot."),
+    )
+
+    class Meta:
+        verbose_name = _("Consent Record")
+        verbose_name_plural = _("Consent Records")
+        ordering = ["-granted_at", "-created_at"]
+        indexes = [
+            models.Index(fields=["data_subject_identifier", "status"]),
+            models.Index(fields=["processing_activity", "status"]),
+        ]
+
+    def __str__(self):
+        return f"{self.data_subject_identifier} → {self.purpose} [{self.status}]"
+
+    @property
+    def is_active(self) -> bool:
+        if self.status != self.ConsentStatus.GRANTED:
+            return False
+        if self.expires_at and timezone.now() >= self.expires_at:
+            return False
+        return True
+
+
+class ConsentEvent(BaseModel):
+    """Append-only event log for a ConsentRecord (grant, withdraw, renew, expire)."""
+
+    class EventType(models.TextChoices):
+        GRANTED = "granted", _("Granted")
+        WITHDRAWN = "withdrawn", _("Withdrawn")
+        RENEWED = "renewed", _("Renewed")
+        EXPIRED = "expired", _("Expired")
+        UPDATED = "updated", _("Updated")
+
+    consent = models.ForeignKey(
+        ConsentRecord, on_delete=models.CASCADE, related_name="events"
+    )
+    event_type = models.CharField(max_length=15, choices=EventType.choices)
+    occurred_at = models.DateTimeField(default=timezone.now, db_index=True)
+    actor = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text=_("Who performed the action (subject email, admin user, system)."),
+    )
+    notes = models.TextField(blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = _("Consent Event")
+        ordering = ["-occurred_at"]
+        indexes = [models.Index(fields=["consent", "event_type"])]
+
+    def __str__(self):
+        return f"{self.consent_id} [{self.event_type}] @ {self.occurred_at}"
