@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "./client";
-import type { Policy } from "@/types";
+import type { Policy, PolicyVersion } from "@/types";
 
 const EP = "/policies/policies/";
 const ACK_EP = "/policies/policy-acknowledgements/";
@@ -83,5 +83,18 @@ export function useAcknowledgePolicy() {
       apiClient.post(ACK_EP, { policy: policyId }).then((r) => r.data),
     onSuccess: (_, policyId) =>
       qc.invalidateQueries({ queryKey: policyKeys.acks(policyId) }),
+  });
+}
+
+export function usePolicyVersions(policyId: string) {
+  return useQuery({
+    queryKey: ["policy-versions", policyId],
+    queryFn: () =>
+      apiClient
+        .get<{ results: PolicyVersion[] }>("/policies/versions/", {
+          params: { policy: policyId, page_size: 50, ordering: "-approved_at" },
+        })
+        .then((r) => r.data.results),
+    enabled: !!policyId,
   });
 }

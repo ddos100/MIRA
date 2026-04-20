@@ -6,6 +6,7 @@ from .views import (
     PolicyAcknowledgementViewSet,
     PolicyCategoryViewSet,
     PolicyReviewViewSet,
+    PolicyVersionViewSet,
     PolicyViewSet,
 )
 
@@ -16,5 +17,6 @@ router.register(
     r"acknowledgements", PolicyAcknowledgementViewSet, basename="policy-acknowledgement"
 )
 router.register(r"reviews", PolicyReviewViewSet, basename="policy-review")
+router.register(r"versions", PolicyVersionViewSet, basename="policy-version")
 
 urlpatterns = router.urls

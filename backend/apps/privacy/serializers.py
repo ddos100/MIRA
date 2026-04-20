@@ -70,6 +70,7 @@ class DPIASerializer(serializers.ModelSerializer):
             "mitigation_measures",
             "residual_risk_level",
             "dpo_consultation_required",
+            "dpo_consulted_date",
             "dpo_opinion",
             "approved_at",
             "review_date",
@@ -106,6 +107,8 @@ class DPIASerializer(serializers.ModelSerializer):
 
 
 class DataSubjectRequestSerializer(serializers.ModelSerializer):
+    is_overdue = serializers.BooleanField(read_only=True)
+
     class Meta:
         model = DataSubjectRequest
         fields = "__all__"

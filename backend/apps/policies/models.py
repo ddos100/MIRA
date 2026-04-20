@@ -65,6 +65,32 @@ class Policy(BaseModel):
         return f"{self.title} v{self.version}"
 
 
+class PolicyVersion(BaseModel):
+    """Immutable content snapshot captured each time a Policy is approved."""
+
+    policy = models.ForeignKey(
+        Policy, on_delete=models.CASCADE, related_name="versions"
+    )
+    version = models.CharField(max_length=20)
+    content = models.TextField()
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="approved_policy_versions",
+    )
+    approved_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-approved_at"]
+        verbose_name = _("Policy Version")
+        verbose_name_plural = _("Policy Versions")
+
+    def __str__(self):
+        return f"{self.policy.title} v{self.version}"
+
+
 class PolicyAcknowledgement(BaseModel):
     policy = models.ForeignKey(
         Policy, on_delete=models.CASCADE, related_name="acknowledgements"

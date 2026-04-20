@@ -23,7 +23,9 @@ class ProcessingActivityViewSet(viewsets.ModelViewSet):
 
 
 class DPIAViewSet(viewsets.ModelViewSet):
-    queryset = DPIA.objects.select_related("processing_activity", "assessor").prefetch_related("privacy_risks__category").all()
+    queryset = DPIA.objects.select_related("processing_activity", "assessor").prefetch_related(
+        "privacy_risks__category"
+    ).all()
     serializer_class = DPIASerializer
     permission_classes = [permissions.IsAuthenticated]
     filterset_fields = ["status", "residual_risk_level", "dpo_consultation_required"]

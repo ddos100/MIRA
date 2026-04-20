@@ -6,12 +6,13 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 
 from apps.core.mixins import CsvExportMixin, CsvImportMixin
 
-from .models import Policy, PolicyAcknowledgement, PolicyCategory, PolicyReview
+from .models import Policy, PolicyAcknowledgement, PolicyCategory, PolicyReview, PolicyVersion
 from .serializers import (
     PolicyAcknowledgementSerializer,
     PolicyCategorySerializer,
     PolicyReviewSerializer,
     PolicySerializer,
+    PolicyVersionSerializer,
 )
 
 
@@ -69,3 +70,13 @@ class PolicyReviewViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_fields = ["policy", "reviewer", "result"]
     ordering_fields = ["review_date", "created_at"]
+
+
+class PolicyVersionViewSet(viewsets.ReadOnlyModelViewSet):
+    """Read-only version history for Policies."""
+
+    queryset = PolicyVersion.objects.select_related("policy", "approved_by")
+    serializer_class = PolicyVersionSerializer
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filterset_fields = ["policy"]
+    ordering_fields = ["approved_at", "version"]

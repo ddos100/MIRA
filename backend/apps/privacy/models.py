@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.models import BaseModel
@@ -96,6 +97,12 @@ class DPIA(BaseModel):
         blank=True,
     )
     dpo_consultation_required = models.BooleanField(default=False)
+    dpo_consulted_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("DPO Consultation Date"),
+        help_text=_("Art. 36 – date the DPO was formally consulted"),
+    )
     dpo_opinion = models.TextField(blank=True)
     approved_at = models.DateField(null=True, blank=True)
     review_date = models.DateField(null=True, blank=True)
@@ -156,6 +163,14 @@ class DataSubjectRequest(BaseModel):
     class Meta:
         verbose_name = _("Data Subject Request")
         ordering = ["deadline"]
+
+    @property
+    def is_overdue(self) -> bool:
+        """True when the statutory deadline has passed and the request is still open."""
+        terminal = {self.DSRStatus.COMPLETED, self.DSRStatus.DENIED, self.DSRStatus.WITHDRAWN}
+        if self.status in terminal:
+            return False
+        return timezone.now().date() > self.deadline
 
     def __str__(self):
         return f"{self.get_request_type_display()} – {self.data_subject_name}"

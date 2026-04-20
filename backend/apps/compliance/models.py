@@ -184,6 +184,14 @@ class ComplianceAssessment(BaseModel):
         default=ComplianceStatus.NOT_ASSESSED,
     )
     notes = models.TextField(blank=True)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="owned_compliance_assessments",
+        help_text=_("Person responsible for meeting this requirement"),
+    )
     assessor = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,

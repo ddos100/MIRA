@@ -61,6 +61,7 @@ export interface DPIA {
   mitigation_measures: string;
   residual_risk_level: ResidualRiskLevel | null;
   dpo_consultation_required: boolean;
+  dpo_consulted_date: string | null;
   dpo_opinion: string;
   approved_at: string | null;
   review_date: string | null;
@@ -99,6 +100,7 @@ export interface DSR {
   deadline: string;
   completed_at: string | null;
   response_notes: string;
+  is_overdue: boolean;
   created_at: string;
   updated_at: string;
 }
