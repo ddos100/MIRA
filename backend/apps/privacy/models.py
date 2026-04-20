@@ -33,6 +33,11 @@ class ProcessingActivity(BaseModel):
     )
     cross_border_transfer = models.BooleanField(default=False)
     transfer_safeguards = models.TextField(blank=True)
+    security_measures = models.TextField(
+        blank=True,
+        verbose_name=_("Technical & Organisational Security Measures"),
+        help_text=_("Art. 30(1)(g) – describe the TOM applied to this processing activity"),
+    )
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,

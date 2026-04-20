@@ -1,5 +1,8 @@
+from datetime import timedelta
+
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.models import BaseModel
@@ -68,6 +71,12 @@ class Incident(BaseModel):
     closed_at = models.DateTimeField(null=True, blank=True)
     is_data_breach = models.BooleanField(default=False)
     gdpr_notification_required = models.BooleanField(default=False)
+    breach_notification_deadline = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_("72-hour SA Notification Deadline"),
+        help_text=_("Art. 33 – auto-set to detected_at + 72 h when is_data_breach is True"),
+    )
     gdpr_notification_sent_at = models.DateTimeField(null=True, blank=True)
     assets_affected = models.ManyToManyField(
         "assets.Asset", blank=True, related_name="incidents"
@@ -81,6 +90,19 @@ class Incident(BaseModel):
     class Meta:
         verbose_name = _("Incident")
         ordering = ["-created_at"]
+
+    def save(self, *args, **kwargs):
+        if self.is_data_breach and self.detected_at and not self.breach_notification_deadline:
+            self.breach_notification_deadline = self.detected_at + timedelta(hours=72)
+        super().save(*args, **kwargs)
+
+    @property
+    def is_breach_notification_overdue(self) -> bool:
+        if not self.gdpr_notification_required or self.gdpr_notification_sent_at:
+            return False
+        if not self.breach_notification_deadline:
+            return False
+        return timezone.now() > self.breach_notification_deadline
 
     def __str__(self):
         return f"[{self.severity}] {self.title}"

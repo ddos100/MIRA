@@ -30,6 +30,10 @@ export interface Vendor {
   services_provided: string;
   data_shared: boolean;
   processing_personal_data: boolean;
+  dpa_required: boolean;
+  dpa_signed_date: string | null;
+  dpa_expiry_date: string | null;
+  dpa_document_url: string;
   created_at: string;
   updated_at: string;
 }

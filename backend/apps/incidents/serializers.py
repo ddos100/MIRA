@@ -15,6 +15,7 @@ class IncidentCategorySerializer(serializers.ModelSerializer):
 class IncidentSerializer(serializers.ModelSerializer):
     owner_name = serializers.SerializerMethodField()
     category_name = serializers.SerializerMethodField()
+    is_breach_notification_overdue = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Incident
@@ -26,6 +27,7 @@ class IncidentSerializer(serializers.ModelSerializer):
             "contained_at",
             "resolved_at",
             "closed_at",
+            "breach_notification_deadline",
         ]
 
     def get_owner_name(self, obj):

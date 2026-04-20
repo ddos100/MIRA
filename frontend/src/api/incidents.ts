@@ -39,6 +39,8 @@ export interface Incident {
   closed_at: string | null;
   is_data_breach: boolean;
   gdpr_notification_required: boolean;
+  breach_notification_deadline: string | null;
+  is_breach_notification_overdue: boolean;
   gdpr_notification_sent_at: string | null;
   assets_affected: string[];
   risks_raised: string[];

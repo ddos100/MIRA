@@ -27,6 +27,7 @@ export interface ProcessingActivity {
   third_party_recipients_detail?: { id: string; name: string }[];
   cross_border_transfer: boolean;
   transfer_safeguards: string;
+  security_measures: string;
   owner: string | null;
   owner_detail?: { id: string; full_name: string; email: string };
   is_active: boolean;

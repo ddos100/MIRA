@@ -25,6 +25,7 @@ class ProcessingActivitySerializer(serializers.ModelSerializer):
             "third_party_recipients_detail",
             "cross_border_transfer",
             "transfer_safeguards",
+            "security_measures",
             "owner",
             "owner_detail",
             "is_active",
