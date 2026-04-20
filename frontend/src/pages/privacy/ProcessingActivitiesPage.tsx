@@ -60,6 +60,7 @@ const activitySchema = z.object({
   retention_period:        z.string(),
   cross_border_transfer:   z.boolean(),
   transfer_safeguards:     z.string(),
+  security_measures:       z.string(),
   owner:                   z.string().nullable(),
   is_active:               z.boolean(),
 });
@@ -89,13 +90,14 @@ function ProcessingActivityFormModal({ open, onClose, activity }: { open: boolea
       retention_period:         activity.retention_period ?? "",
       cross_border_transfer:    activity.cross_border_transfer,
       transfer_safeguards:      activity.transfer_safeguards ?? "",
+      security_measures:        activity.security_measures ?? "",
       owner:                    activity.owner ?? null,
       is_active:                activity.is_active,
     } : {
       name: "", description: "", controller: "", processor: "", purpose: "",
       legal_basis: "contract", data_subjects: "", personal_data_categories: "",
       special_category_data: false, retention_period: "", cross_border_transfer: false,
-      transfer_safeguards: "", owner: null, is_active: true,
+      transfer_safeguards: "", security_measures: "", owner: null, is_active: true,
     },
   });
 
@@ -138,6 +140,7 @@ function ProcessingActivityFormModal({ open, onClose, activity }: { open: boolea
         <Textarea label="Data Subjects" rows={2} placeholder="e.g. Employees, Customers" {...register("data_subjects")} />
         <Textarea label="Personal Data Categories" rows={2} placeholder="e.g. Name, Email, Location" {...register("personal_data_categories")} />
         <Textarea label="Transfer Safeguards" rows={2} placeholder="SCCs, Adequacy Decision, BCR…" {...register("transfer_safeguards")} />
+        <Textarea label="Security Measures (Art. 30(1)(g))" rows={2} placeholder="Encryption, access controls, pseudonymisation…" {...register("security_measures")} />
 
         <div>
           <label className="text-sm font-medium text-foreground">Owner</label>
@@ -461,6 +464,12 @@ export default function ProcessingActivitiesPage() {
                                   <div className="col-span-2">
                                     <dt className="text-xs text-muted-foreground">Transfer Safeguards</dt>
                                     <dd>{a.transfer_safeguards}</dd>
+                                  </div>
+                                )}
+                                {a.security_measures && (
+                                  <div className="col-span-2">
+                                    <dt className="text-xs text-muted-foreground">Security Measures (Art. 30(1)(g))</dt>
+                                    <dd>{a.security_measures}</dd>
                                   </div>
                                 )}
                                 {(a.third_party_recipients_detail ?? []).length > 0 && (

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Plus, Pencil, Inbox } from "lucide-react";
-import { format, isPast, differenceInDays } from "date-fns";
+import { format, differenceInDays } from "date-fns";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -60,16 +60,10 @@ const statusVariants: Record<DSRStatus, string> = {
   withdrawn: "inactive",
 };
 
-function isOverdue(dsr: DSR): boolean {
-  if (dsr.status === "completed" || dsr.status === "withdrawn") return false;
-  return dsr.deadline ? isPast(new Date(dsr.deadline)) : false;
-}
-
 function deadlineDisplay(dsr: DSR): { label: string; overdue: boolean } {
   if (!dsr.deadline) return { label: "—", overdue: false };
   const deadline = new Date(dsr.deadline);
-  const overdue = isOverdue(dsr);
-  if (overdue) return { label: "OVERDUE", overdue: true };
+  if (dsr.is_overdue) return { label: "OVERDUE", overdue: true };
   const days = differenceInDays(deadline, new Date());
   return {
     label: `${format(deadline, "MMM d, yyyy")} (${days}d)`,
@@ -198,7 +192,7 @@ export default function DSRListPage() {
   const currentPage = params.page ?? 1;
 
   // Stats
-  const overdueCount = allDsrs.filter(isOverdue).length;
+  const overdueCount = allDsrs.filter((d) => d.is_overdue).length;
   const pendingCount = allDsrs.filter((d) => d.status === "received" || d.status === "verified" || d.status === "in_progress").length;
   const completedCount = allDsrs.filter((d) => d.status === "completed").length;
 

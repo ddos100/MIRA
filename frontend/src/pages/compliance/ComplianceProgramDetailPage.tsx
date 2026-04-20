@@ -346,6 +346,9 @@ function AssessmentTable({ programId }: AssessmentTableProps) {
                   Assessor
                 </th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                  Owner
+                </th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
                   Date
                 </th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -357,7 +360,7 @@ function AssessmentTable({ programId }: AssessmentTableProps) {
               {assessments.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     className="px-4 py-10 text-center text-muted-foreground"
                   >
                     No assessments found
@@ -390,6 +393,9 @@ function AssessmentTable({ programId }: AssessmentTableProps) {
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {assessment.assessor_name ?? "—"}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {assessment.owner_name ?? "—"}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {assessment.assessment_date

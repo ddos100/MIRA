@@ -132,6 +132,7 @@ const dpiaSchema = z.object({
   mitigation_measures:        z.string(),
   residual_risk_level:        z.enum(["low", "medium", "high", "very_high"]).nullable(),
   dpo_consultation_required:  z.boolean(),
+  dpo_consulted_date:         z.string().nullable(),
   dpo_opinion:                z.string(),
   approved_at:                z.string().nullable(),
   review_date:                z.string().nullable(),
@@ -165,6 +166,7 @@ function DPIAFormModal({ open, onClose, dpia }: { open: boolean; onClose: () => 
       mitigation_measures:        dpia.mitigation_measures ?? "",
       residual_risk_level:        dpia.residual_risk_level ?? null,
       dpo_consultation_required:  dpia.dpo_consultation_required ?? false,
+      dpo_consulted_date:         dpia.dpo_consulted_date ?? null,
       dpo_opinion:                dpia.dpo_opinion ?? "",
       approved_at:                dpia.approved_at ?? null,
       review_date:                dpia.review_date ?? null,
@@ -174,7 +176,7 @@ function DPIAFormModal({ open, onClose, dpia }: { open: boolean; onClose: () => 
       necessity_assessment: "", proportionality_assessment: "",
       risk_description: "", mitigation_measures: "",
       residual_risk_level: null, dpo_consultation_required: false,
-      dpo_opinion: "", approved_at: null, review_date: null,
+      dpo_consulted_date: null, dpo_opinion: "", approved_at: null, review_date: null,
     },
   });
 
@@ -254,6 +256,7 @@ function DPIAFormModal({ open, onClose, dpia }: { open: boolean; onClose: () => 
             <input type="checkbox" {...register("dpo_consultation_required")} className="rounded border-input" />
             DPO Consultation Required
           </label>
+          <Input label="DPO Consulted Date (Art. 36)" type="date" {...register("dpo_consulted_date")} />
           <Textarea label="DPO Opinion" rows={3} {...register("dpo_opinion")} />
           <Input label="Approved At" type="date" {...register("approved_at")} />
         </fieldset>
@@ -443,6 +446,10 @@ export default function DPIAListPage() {
                                       <dt className="text-xs text-muted-foreground">DPO Consultation</dt>
                                       <dd className="flex flex-col gap-1">
                                         <span className="inline-flex items-center gap-1 text-xs text-orange-700"><AlertTriangle className="h-3 w-3" /> Required</span>
+                                        {d.dpo_consulted_date
+                                          ? <span className="text-xs text-green-700">Consulted: {format(parseISO(d.dpo_consulted_date), "MMM d, yyyy")}</span>
+                                          : <span className="text-xs text-orange-600">Not yet consulted</span>
+                                        }
                                         {d.dpo_opinion && <span className="text-muted-foreground">{d.dpo_opinion}</span>}
                                       </dd>
                                     </div>

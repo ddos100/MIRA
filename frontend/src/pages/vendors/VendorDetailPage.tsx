@@ -263,6 +263,45 @@ export default function VendorDetailPage() {
         </Card>
       </div>
 
+      {/* DPA Card — shown when vendor processes personal data */}
+      {(vendor.processing_personal_data || vendor.dpa_required) && (
+        <Card className={vendor.dpa_required && !vendor.dpa_signed_date ? "border-yellow-300 bg-yellow-50/50 dark:bg-yellow-950/20" : ""}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-4 w-4 text-muted-foreground" />
+              Data Processing Agreement (Art. 28 GDPR)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">DPA Required</span>
+              <Badge variant={vendor.dpa_required ? "high" : "inactive"}>{vendor.dpa_required ? "Yes" : "No"}</Badge>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">DPA Signed</span>
+              <span>{vendor.dpa_signed_date ? format(new Date(vendor.dpa_signed_date), "MMM d, yyyy") : "—"}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">DPA Expiry</span>
+              <span>{vendor.dpa_expiry_date ? format(new Date(vendor.dpa_expiry_date), "MMM d, yyyy") : "—"}</span>
+            </div>
+            {vendor.dpa_document_url && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">DPA Document</span>
+                <a href={vendor.dpa_document_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate max-w-[200px]">
+                  View document
+                </a>
+              </div>
+            )}
+            {vendor.dpa_required && !vendor.dpa_signed_date && (
+              <p className="text-xs text-yellow-700 dark:text-yellow-300 bg-yellow-100 dark:bg-yellow-900/30 rounded px-2 py-1.5">
+                DPA is required but has not been signed yet.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Description */}
       {(vendor.description || vendor.services_provided) && (
         <Card>
