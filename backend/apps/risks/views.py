@@ -9,6 +9,7 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 
 from apps.core.mixins import CsvExportMixin, CsvImportMixin
+from apps.core.models import Notification
 
 from .models import (
     KeyRiskIndicator,
@@ -152,6 +153,26 @@ class KeyRiskIndicatorViewSet(viewsets.ModelViewSet):
         kri.current_value = value
         kri.last_measured_at = now
         kri.save(update_fields=["current_value", "last_measured_at", "updated_at"])
+
+        # Threshold breach alerts (ISO 31000)
+        kri_status = kri.status
+        if kri_status in ("red", "amber") and kri.owner_id:
+            notif_type = (
+                Notification.NotificationType.DANGER
+                if kri_status == "red"
+                else Notification.NotificationType.WARNING
+            )
+            level_label = "RED" if kri_status == "red" else "AMBER"
+            Notification.objects.create(
+                recipient_id=kri.owner_id,
+                notification_type=notif_type,
+                title=f"KRI threshold breached: {kri.name}",
+                body=(
+                    f"KRI '{kri.name}' is now at {level_label} level. "
+                    f"Current value: {value} {kri.metric_unit}."
+                ),
+            )
+
         return Response(
             KRIMeasurementSerializer(measurement).data,
             status=status.HTTP_201_CREATED,

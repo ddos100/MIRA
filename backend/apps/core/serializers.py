@@ -85,6 +85,8 @@ class AuditLogSerializer(serializers.ModelSerializer):
             "object_repr",
             "changes",
             "ip_address",
+            "prev_hash",
+            "entry_hash",
         ]
         read_only_fields = fields
 

@@ -108,6 +108,9 @@ class User(AbstractUser):
     is_mfa_enabled = models.BooleanField(default=False)
     mfa_enforced = models.BooleanField(default=False)
 
+    # Password rotation tracking (ISO 27001 A.8.5)
+    password_changed_at = models.DateTimeField(null=True, blank=True)
+
     # Soft delete
     is_deleted = models.BooleanField(default=False, db_index=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
@@ -136,6 +139,20 @@ class User(AbstractUser):
     @property
     def display_name(self) -> str:
         return self.get_full_name()
+
+    def set_password(self, raw_password):
+        super().set_password(raw_password)
+        if raw_password is not None:
+            from django.utils import timezone
+            self.password_changed_at = timezone.now()
+
+    @property
+    def password_age_days(self) -> int | None:
+        """Days since last password change; None if never recorded."""
+        if not self.password_changed_at:
+            return None
+        from django.utils import timezone
+        return (timezone.now() - self.password_changed_at).days
 
 
 class APIKey(models.Model):

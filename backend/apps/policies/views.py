@@ -2,12 +2,13 @@
 
 from django.contrib.auth import get_user_model
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import viewsets
+from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 
 from apps.core.mixins import CsvExportMixin, CsvImportMixin
+from apps.core.models import Notification
 
 from .models import Policy, PolicyAcknowledgement, PolicyCategory, PolicyReview, PolicyVersion
 from .serializers import (
@@ -81,6 +82,49 @@ class PolicyViewSet(CsvExportMixin, CsvImportMixin, viewsets.ModelViewSet):
         ).values_list("policy_id", flat=True)
         pending = required.exclude(pk__in=ack_policy_ids)
         return Response(PolicySerializer(pending, many=True).data)
+
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="send-acknowledgement-reminders",
+        permission_classes=[permissions.IsAdminUser],
+    )
+    def send_acknowledgement_reminders(self, request):
+        """
+        ISO 27001 A.5.1 — create in-app notifications for every active user
+        who has not yet acknowledged a required approved policy.
+
+        Staff-only. Returns count of notifications created.
+        """
+        required_policies = Policy.objects.filter(
+            status="approved", acknowledgement_required=True
+        )
+        active_users = User.objects.filter(is_active=True, is_deleted=False)
+        created = 0
+        for user in active_users:
+            acked_ids = set(
+                PolicyAcknowledgement.objects.filter(user=user)
+                .values_list("policy_id", flat=True)
+            )
+            for policy in required_policies.exclude(pk__in=acked_ids):
+                exists = Notification.objects.filter(
+                    recipient=user,
+                    title__startswith="Policy acknowledgement required:",
+                    body__contains=str(policy.id),
+                    is_read=False,
+                ).exists()
+                if not exists:
+                    Notification.objects.create(
+                        recipient=user,
+                        notification_type=Notification.NotificationType.WARNING,
+                        title=f"Policy acknowledgement required: {policy.title}",
+                        body=(
+                            f"Please read and acknowledge the policy '{policy.title}' "
+                            f"(v{policy.version}). This is required by your organisation."
+                        ),
+                    )
+                    created += 1
+        return Response({"notifications_created": created})
 
 
 class PolicyAcknowledgementViewSet(viewsets.ModelViewSet):

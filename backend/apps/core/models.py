@@ -2,9 +2,12 @@
 Core abstract models shared across the entire MIRA platform.
 """
 
+import hashlib
+import json
 import uuid
 
 from django.conf import settings
+from django.utils import timezone
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
@@ -110,7 +113,8 @@ class AuditLog(models.Model):
         LOGOUT = "logout", _("Logout")
 
     id = models.BigAutoField(primary_key=True)
-    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
+    # Use default= (not auto_now_add) so the value is known before save for hashing
+    timestamp = models.DateTimeField(default=timezone.now, editable=False, db_index=True)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -128,6 +132,10 @@ class AuditLog(models.Model):
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     user_agent = models.CharField(max_length=500, blank=True)
 
+    # Hash-chain fields — ISO 27001 A.8.15 tamper-evidence
+    prev_hash = models.CharField(max_length=64, blank=True, default="", editable=False)
+    entry_hash = models.CharField(max_length=64, blank=True, default="", editable=False)
+
     class Meta:
         verbose_name = _("Audit Log")
         verbose_name_plural = _("Audit Logs")
@@ -136,6 +144,21 @@ class AuditLog(models.Model):
             models.Index(fields=["content_type", "object_id"]),
             models.Index(fields=["user", "timestamp"]),
         ]
+
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            last = AuditLog.objects.order_by("-id").first()
+            self.prev_hash = last.entry_hash if last else ""
+            content = "|".join([
+                self.prev_hash,
+                str(self.timestamp),
+                str(self.user_id or ""),
+                self.action,
+                str(self.object_id),
+                json.dumps(self.changes, sort_keys=True),
+            ])
+            self.entry_hash = hashlib.sha256(content.encode()).hexdigest()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.action} {self.object_repr} by {self.user} at {self.timestamp}"
