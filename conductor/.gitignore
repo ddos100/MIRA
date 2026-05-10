@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+.env
+!.env.example
+
+# Alembic
+alembic/versions/*.pyc
+
+# Node
+node_modules/
+dist/
+.next/
+.nuxt/
+*.local
+
+# Uploads & media
+backend/uploads/
+backend/media/
+
+# ChromaDB local data
+chroma_data/
+
+# Ollama models (large)
+ollama/models/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Docker
+docker-compose.override.yml
