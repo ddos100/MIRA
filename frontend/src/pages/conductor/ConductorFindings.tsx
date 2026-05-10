@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle, ChevronUp, ExternalLink, Filter, Search } from "lucide-react";
+import { AlertTriangle, CheckCircle, ExternalLink, Search } from "lucide-react";
 import { conductorApi } from "@/api/conductor";
 
 const SEVERITY_CONFIG: Record<string, { label: string; classes: string }> = {
