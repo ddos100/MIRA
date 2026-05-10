@@ -185,7 +185,7 @@ export default function ConductorAgents() {
   // Runs list
   const { data: runsData, isLoading: runsLoading } = useQuery({
     queryKey: ["conductor-runs"],
-    queryFn: () => conductorApi.getRuns({ page_size: 50 }),
+    queryFn: () => conductorApi.getRuns({ page_size: 50 }).then((r) => r.data),
     refetchInterval: 5_000,
   });
   const runs: ConductorRun[] = runsData?.results ?? [];
@@ -193,7 +193,7 @@ export default function ConductorAgents() {
   // Selected run detail
   const { data: selectedRunDetail } = useQuery({
     queryKey: ["conductor-run", selectedRunId],
-    queryFn: () => conductorApi.getRun(selectedRunId!),
+    queryFn: () => conductorApi.getRun(selectedRunId!).then((r) => r.data),
     enabled: !!selectedRunId,
     refetchInterval: (query) => {
       const run = query.state.data as ConductorRun | undefined;
@@ -218,15 +218,15 @@ export default function ConductorAgents() {
   }, [selectedRunId]);
 
   const launchMutation = useMutation({
-    mutationFn: conductorApi.createRun,
-    onSuccess: (run) => {
+    mutationFn: (data: object) => conductorApi.createRun(data).then((r) => r.data),
+    onSuccess: (run: ConductorRun) => {
       qc.invalidateQueries({ queryKey: ["conductor-runs"] });
       setSelectedRunId(run.id);
     },
   });
 
   const cancelMutation = useMutation({
-    mutationFn: conductorApi.cancelRun,
+    mutationFn: (id: string) => conductorApi.cancelRun(id).then((r) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["conductor-runs"] });
       if (selectedRunId) qc.invalidateQueries({ queryKey: ["conductor-run", selectedRunId] });

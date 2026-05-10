@@ -376,7 +376,7 @@ export default function ConductorConnectors() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["conductor-connectors"],
-    queryFn: conductorApi.getConnectors,
+    queryFn: () => conductorApi.getConnectors().then((r) => r.data),
   });
   const connectors: ConductorConnector[] = data?.results ?? [];
   const selectedConnector = connectors.find((c) => c.id === selectedId) ?? null;
@@ -399,8 +399,8 @@ export default function ConductorConnectors() {
   };
 
   const createMutation = useMutation({
-    mutationFn: (data: ConnectorCreateData) => conductorApi.createConnector(data),
-    onSuccess: (created) => {
+    mutationFn: (data: ConnectorCreateData) => conductorApi.createConnector(data).then((r) => r.data),
+    onSuccess: (created: ConductorConnector) => {
       qc.invalidateQueries({ queryKey: ["conductor-connectors"] });
       setSelectedId(created.id);
     },
@@ -408,12 +408,12 @@ export default function ConductorConnectors() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<ConnectorCreateData> }) =>
-      conductorApi.updateConnector(id, data),
+      conductorApi.updateConnector(id, data).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["conductor-connectors"] }),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: conductorApi.deleteConnector,
+    mutationFn: (id: string) => conductorApi.deleteConnector(id).then((r) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["conductor-connectors"] });
       setSelectedId(null);
@@ -421,8 +421,8 @@ export default function ConductorConnectors() {
   });
 
   const testMutation = useMutation({
-    mutationFn: conductorApi.testConnector,
-    onSuccess: (result) => setTestResult(result),
+    mutationFn: (id: string) => conductorApi.testConnector(id).then((r) => r.data),
+    onSuccess: (result: { success: boolean; message: string }) => setTestResult(result),
     onError: () => setTestResult({ success: false, message: "Connection test failed." }),
   });
 

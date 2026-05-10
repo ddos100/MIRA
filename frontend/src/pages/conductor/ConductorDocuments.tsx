@@ -151,7 +151,7 @@ export default function ConductorDocuments() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["conductor-documents"],
-    queryFn: conductorApi.getDocuments,
+    queryFn: () => conductorApi.getDocuments().then((r) => r.data),
     refetchInterval: (query) => {
       const docs: ConductorDocument[] = (query.state.data as { results: ConductorDocument[] } | undefined)?.results ?? [];
       const anyProcessing = docs.some((d) => d.parse_status === "processing" || d.parse_status === "pending");

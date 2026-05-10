@@ -113,13 +113,13 @@ export default function ConductorOverview() {
 
   const { data: runsData, isLoading: runsLoading } = useQuery({
     queryKey: ["conductor-runs"],
-    queryFn: () => conductorApi.getRuns({ page_size: 20 }),
+    queryFn: () => conductorApi.getRuns({ page_size: 20 }).then((r) => r.data),
     refetchInterval: 5_000,
   });
 
   const { data: findingsData } = useQuery({
     queryKey: ["conductor-findings-overview"],
-    queryFn: () => conductorApi.getFindings({ status: "open", page_size: 1 }),
+    queryFn: () => conductorApi.getFindings({ status: "open", page_size: 1 }).then((r) => r.data),
     refetchInterval: 30_000,
   });
 
