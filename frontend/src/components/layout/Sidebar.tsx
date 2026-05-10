@@ -1,6 +1,7 @@
 import {
   AlertTriangle,
   BookOpen,
+  Bot,
   Brain,
   Bug,
   Building2,
@@ -22,8 +23,10 @@ import {
   Zap,
 } from "lucide-react";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "react-router-dom";
 import { clsx } from "clsx";
+import { conductorApi } from "@/api/conductor";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -283,6 +286,50 @@ function NavItemComponent({ item }: { item: NavItem }) {
   );
 }
 
+// ─── AI Conductor Nav Section (conditional) ───────────────────────────────────
+
+function ConductorNavSection() {
+  const { data } = useQuery({
+    queryKey: ["conductor-status"],
+    queryFn: () => conductorApi.getStatus().then((r: any) => r.data),
+    refetchInterval: 60000,
+    retry: false,
+  });
+
+  if (!data?.enabled) return null;
+
+  const conductorSection: NavSection = {
+    title: "AI Automation",
+    items: [
+      {
+        label: "AI Conductor",
+        icon: Bot,
+        children: [
+          { label: "Overview", href: "/conductor" },
+          { label: "Documents", href: "/conductor/documents" },
+          { label: "Agents", href: "/conductor/agents" },
+          { label: "Connectors", href: "/conductor/connectors" },
+          { label: "Findings", href: "/conductor/findings" },
+          { label: "AI Settings", href: "/conductor/settings" },
+        ],
+      },
+    ],
+  };
+
+  return (
+    <div>
+      <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-widest text-blue-400/70">
+        {conductorSection.title}
+      </p>
+      <div className="space-y-0.5">
+        {conductorSection.items.map((item) => (
+          <NavItemComponent key={item.label} item={item} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Sidebar ─────────────────────────────────────────────────────────────────
 
 export function Sidebar() {
@@ -325,6 +372,8 @@ export function Sidebar() {
             </div>
           </div>
         ))}
+        {/* AI Conductor — only shown when CONDUCTOR_ENABLED=true */}
+        <ConductorNavSection />
       </nav>
 
       {/* Footer */}

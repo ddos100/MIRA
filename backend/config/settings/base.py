@@ -75,6 +75,7 @@ LOCAL_APPS = [
     "apps.reports",
     "apps.goals",
     "apps.threats",
+    "apps.conductor",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -351,3 +352,20 @@ X_FRAME_OPTIONS = "DENY"
 # ─── Import and merge Celery beat schedule ───────────────────────────────────
 
 from apps.core.celery_config import CELERY_BEAT_SCHEDULE  # noqa
+
+# ─── AI Conductor ─────────────────────────────────────────────────────────────
+# Set CONDUCTOR_ENABLED=true to activate AI automation features.
+# Requires Ollama and ChromaDB services running (use --profile conductor in docker compose).
+
+CONDUCTOR_ENABLED = env.bool("CONDUCTOR_ENABLED", default=False)
+OLLAMA_BASE_URL = env.str("OLLAMA_BASE_URL", default="http://ollama:11434")
+OLLAMA_MODEL = env.str("OLLAMA_MODEL", default="llama3:8b")
+OLLAMA_EMBED_MODEL = env.str("OLLAMA_EMBED_MODEL", default="nomic-embed-text")
+CHROMADB_HOST = env.str("CHROMADB_HOST", default="chromadb")
+CHROMADB_PORT = env.int("CHROMADB_PORT", default=8001)
+CONDUCTOR_MAX_FILE_SIZE_MB = env.int("CONDUCTOR_MAX_FILE_SIZE_MB", default=50)
+
+# Increase file upload limit when Conductor is enabled
+if CONDUCTOR_ENABLED:
+    FILE_UPLOAD_MAX_MEMORY_SIZE = CONDUCTOR_MAX_FILE_SIZE_MB * 1024 * 1024
+    DATA_UPLOAD_MAX_MEMORY_SIZE = CONDUCTOR_MAX_FILE_SIZE_MB * 1024 * 1024
