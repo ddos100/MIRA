@@ -1,0 +1,33 @@
+{
+  "framework": {
+    "name": "NIST Cybersecurity Framework 2.0",
+    "short_code": "NIST_CSF_2",
+    "version": "2.0",
+    "description": "NIST CSF 2.0 — six core functions: Govern, Identify, Protect, Detect, Respond, Recover."
+  },
+  "controls": [
+    {"ref_code": "GV.OC-01", "title": "Organizational mission", "description": "The organizational mission is understood and informs cybersecurity risk management.", "control_type": "directive", "frequency": "annually"},
+    {"ref_code": "GV.RM-01", "title": "Risk management strategy", "description": "Risk management objectives are established and agreed to by organizational stakeholders.", "control_type": "directive", "frequency": "annually"},
+    {"ref_code": "GV.SC-01", "title": "Cybersecurity supply chain risk management", "description": "A cybersecurity supply chain risk management program is established.", "control_type": "directive", "frequency": "annually"},
+    {"ref_code": "ID.AM-01", "title": "Asset inventory — hardware", "description": "Inventories of hardware managed by the organization are maintained.", "control_type": "detective", "frequency": "monthly"},
+    {"ref_code": "ID.AM-02", "title": "Asset inventory — software", "description": "Inventories of software, services, and systems managed by the organization are maintained.", "control_type": "detective", "frequency": "monthly"},
+    {"ref_code": "ID.AM-05", "title": "Asset prioritization", "description": "Assets are prioritized based on classification, criticality, resources, and impact.", "control_type": "directive", "frequency": "quarterly"},
+    {"ref_code": "ID.RA-01", "title": "Vulnerability identification", "description": "Vulnerabilities in assets are identified, validated, and recorded.", "control_type": "detective", "frequency": "monthly"},
+    {"ref_code": "ID.RA-05", "title": "Threat and vulnerability information", "description": "Threats, vulnerabilities, likelihoods, and impacts are used to understand inherent risk.", "control_type": "detective", "frequency": "monthly"},
+    {"ref_code": "PR.AA-01", "title": "Identities and credentials managed", "description": "Identities and credentials for authorized users, services, and hardware are managed.", "control_type": "preventive", "frequency": "monthly"},
+    {"ref_code": "PR.AA-03", "title": "Users and devices authenticated", "description": "Users, services, and hardware are authenticated.", "control_type": "preventive", "frequency": "continuous"},
+    {"ref_code": "PR.AA-05", "title": "Access permissions managed", "description": "Access permissions, entitlements, and authorizations are defined and managed.", "control_type": "preventive", "frequency": "quarterly"},
+    {"ref_code": "PR.DS-01", "title": "Data-at-rest protection", "description": "The confidentiality, integrity, and availability of data-at-rest are protected.", "control_type": "preventive", "frequency": "quarterly"},
+    {"ref_code": "PR.DS-02", "title": "Data-in-transit protection", "description": "The confidentiality, integrity, and availability of data-in-transit are protected.", "control_type": "preventive", "frequency": "quarterly"},
+    {"ref_code": "PR.IR-01", "title": "Network integrity", "description": "Networks and environments are protected from unauthorized logical access and usage.", "control_type": "preventive", "frequency": "monthly"},
+    {"ref_code": "PR.PS-01", "title": "Configuration management", "description": "Configuration management practices are established and applied.", "control_type": "preventive", "frequency": "monthly"},
+    {"ref_code": "DE.AE-02", "title": "Anomalies analyzed", "description": "Potentially adverse events are analyzed to better characterize them.", "control_type": "detective", "frequency": "continuous"},
+    {"ref_code": "DE.AE-06", "title": "Information sharing", "description": "Information on adverse events is provided to authorized staff and tools.", "control_type": "detective", "frequency": "continuous"},
+    {"ref_code": "DE.CM-01", "title": "Networks monitored", "description": "Networks and network services are monitored to find potentially adverse events.", "control_type": "detective", "frequency": "continuous"},
+    {"ref_code": "DE.CM-03", "title": "Personnel activity monitored", "description": "Personnel activity and technology usage are monitored to find potentially adverse events.", "control_type": "detective", "frequency": "continuous"},
+    {"ref_code": "RS.MA-01", "title": "Incident response plan", "description": "The incident response plan is executed in coordination with relevant third parties.", "control_type": "corrective", "frequency": "annually"},
+    {"ref_code": "RS.CO-02", "title": "Internal reporting", "description": "Internal and external stakeholders are notified of incidents.", "control_type": "corrective", "frequency": "continuous"},
+    {"ref_code": "RC.RP-01", "title": "Recovery plan", "description": "The recovery plan is executed once initiated by the appropriate authority.", "control_type": "corrective", "frequency": "annually"},
+    {"ref_code": "RC.CO-03", "title": "Recovery communications", "description": "Recovery activities and progress in restoring capabilities are communicated.", "control_type": "corrective", "frequency": "continuous"}
+  ]
+}

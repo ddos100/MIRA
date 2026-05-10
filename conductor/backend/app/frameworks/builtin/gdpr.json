@@ -1,0 +1,25 @@
+{
+  "framework": {
+    "name": "GDPR — General Data Protection Regulation",
+    "short_code": "GDPR",
+    "version": "2018",
+    "description": "EU General Data Protection Regulation — key obligations for data controllers and processors."
+  },
+  "controls": [
+    {"ref_code": "Art.5", "title": "Principles of processing", "description": "Personal data must be processed lawfully, fairly and transparently; collected for specified purposes; adequate, relevant and limited to what is necessary; accurate and kept up to date; kept no longer than necessary; processed securely.", "control_type": "directive", "frequency": "annually"},
+    {"ref_code": "Art.6", "title": "Lawful basis for processing", "description": "Processing shall be lawful only if and to the extent that at least one legal basis applies (consent, contract, legal obligation, vital interests, public task, legitimate interests).", "control_type": "directive", "frequency": "annually"},
+    {"ref_code": "Art.12", "title": "Transparent information to data subjects", "description": "The controller shall provide information relating to processing to the data subject in a concise, transparent, intelligible and easily accessible form.", "control_type": "directive", "frequency": "annually"},
+    {"ref_code": "Art.13", "title": "Information to be provided at data collection", "description": "Where personal data are collected from the data subject, the controller shall provide the data subject with information at time of collection.", "control_type": "directive", "frequency": "annually"},
+    {"ref_code": "Art.17", "title": "Right to erasure (Right to be forgotten)", "description": "The data subject shall have the right to obtain erasure of personal data concerning them without undue delay.", "control_type": "corrective", "frequency": "continuous"},
+    {"ref_code": "Art.20", "title": "Right to data portability", "description": "The data subject shall have the right to receive personal data concerning them in a structured, commonly used and machine-readable format.", "control_type": "corrective", "frequency": "continuous"},
+    {"ref_code": "Art.25", "title": "Data protection by design and default", "description": "The controller shall implement data protection principles in an effective manner and integrate necessary safeguards into processing.", "control_type": "preventive", "frequency": "continuous"},
+    {"ref_code": "Art.28", "title": "Processor agreements", "description": "Processing by a processor shall be governed by a contract binding the processor with regard to the controller.", "control_type": "directive", "frequency": "annually"},
+    {"ref_code": "Art.30", "title": "Records of processing activities (RoPA)", "description": "Each controller shall maintain a record of processing activities under its responsibility.", "control_type": "detective", "frequency": "continuously"},
+    {"ref_code": "Art.32", "title": "Security of processing", "description": "The controller and processor shall implement appropriate technical and organisational measures to ensure a level of security appropriate to the risk.", "control_type": "preventive", "frequency": "annually"},
+    {"ref_code": "Art.33", "title": "Breach notification to supervisory authority", "description": "In case of a personal data breach, the controller shall notify the supervisory authority within 72 hours.", "control_type": "corrective", "frequency": "continuous"},
+    {"ref_code": "Art.34", "title": "Breach notification to data subjects", "description": "When a personal data breach is likely to result in a high risk to individuals, the controller shall communicate the breach to the data subject.", "control_type": "corrective", "frequency": "continuous"},
+    {"ref_code": "Art.35", "title": "Data Protection Impact Assessment (DPIA)", "description": "Where processing is likely to result in a high risk, the controller shall carry out an assessment of the impact on the protection of personal data.", "control_type": "detective", "frequency": "annually"},
+    {"ref_code": "Art.37", "title": "Data Protection Officer (DPO)", "description": "Where required, the controller shall designate a data protection officer.", "control_type": "directive", "frequency": "annually"},
+    {"ref_code": "Art.44", "title": "International data transfers", "description": "Any transfer of personal data to a third country shall only take place subject to appropriate safeguards.", "control_type": "preventive", "frequency": "quarterly"}
+  ]
+}

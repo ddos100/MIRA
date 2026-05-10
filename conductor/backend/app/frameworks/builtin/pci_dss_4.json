@@ -1,0 +1,32 @@
+{
+  "framework": {
+    "name": "PCI DSS 4.0",
+    "short_code": "PCI_DSS_4",
+    "version": "4.0",
+    "description": "Payment Card Industry Data Security Standard v4.0 — 12 requirements for protecting cardholder data."
+  },
+  "controls": [
+    {"ref_code": "1.1", "title": "Network security controls established", "description": "Processes and mechanisms for installing and maintaining network security controls are defined and understood.", "control_type": "preventive", "frequency": "annually"},
+    {"ref_code": "1.2", "title": "Network access restricted", "description": "Network security controls are configured and maintained to restrict inbound and outbound traffic.", "control_type": "preventive", "frequency": "quarterly"},
+    {"ref_code": "1.3", "title": "Network access to/from cardholder data restricted", "description": "Network access to and from the cardholder data environment is restricted.", "control_type": "preventive", "frequency": "quarterly"},
+    {"ref_code": "2.2", "title": "System components configured securely", "description": "System components are configured and managed securely.", "control_type": "preventive", "frequency": "monthly"},
+    {"ref_code": "3.2", "title": "Storage of account data is kept to a minimum", "description": "Account data is minimized and retention kept to minimum required.", "control_type": "preventive", "frequency": "quarterly"},
+    {"ref_code": "3.5", "title": "Primary account number secured", "description": "PAN is secured with strong cryptography.", "control_type": "preventive", "frequency": "continuous"},
+    {"ref_code": "4.2", "title": "PAN protected during transmission", "description": "PAN is protected with strong cryptography during transmission over open public networks.", "control_type": "preventive", "frequency": "continuous"},
+    {"ref_code": "5.2", "title": "Anti-malware mechanisms deployed", "description": "Anti-malware mechanisms are deployed on all system components.", "control_type": "preventive", "frequency": "monthly"},
+    {"ref_code": "6.2", "title": "Bespoke and custom software developed securely", "description": "Bespoke and custom software are developed securely.", "control_type": "preventive", "frequency": "continuous"},
+    {"ref_code": "6.3", "title": "Security vulnerabilities are identified and addressed", "description": "Security vulnerabilities are identified and protected against.", "control_type": "detective", "frequency": "monthly"},
+    {"ref_code": "7.2", "title": "Access to system components and data is restricted", "description": "Access to system components and data is appropriately defined and assigned.", "control_type": "preventive", "frequency": "quarterly"},
+    {"ref_code": "8.2", "title": "User identification and authentication managed", "description": "User identification and related accounts are managed throughout an account's lifecycle.", "control_type": "preventive", "frequency": "monthly"},
+    {"ref_code": "8.3", "title": "User authentication", "description": "User authentication is established and managed.", "control_type": "preventive", "frequency": "monthly"},
+    {"ref_code": "8.4", "title": "MFA implemented", "description": "Multi-factor authentication is implemented for all access into the CDE.", "control_type": "preventive", "frequency": "continuous"},
+    {"ref_code": "9.4", "title": "Media with cardholder data secured", "description": "All media with cardholder data is secured.", "control_type": "preventive", "frequency": "quarterly"},
+    {"ref_code": "10.2", "title": "Audit logs implemented", "description": "Audit logs are implemented to support the detection of anomalies and suspicious activity.", "control_type": "detective", "frequency": "continuous"},
+    {"ref_code": "10.4", "title": "Audit logs reviewed", "description": "Audit logs are reviewed to identify anomalies or suspicious activity.", "control_type": "detective", "frequency": "daily"},
+    {"ref_code": "10.7", "title": "Failures of security controls detected and reported", "description": "Failures of critical security controls are detected, reported, and responded to promptly.", "control_type": "detective", "frequency": "continuous"},
+    {"ref_code": "11.3", "title": "External and internal vulnerabilities identified and addressed", "description": "External and internal vulnerabilities are regularly identified, prioritized, and addressed.", "control_type": "detective", "frequency": "quarterly"},
+    {"ref_code": "11.4", "title": "External and internal penetration testing", "description": "External and internal penetration testing is regularly performed.", "control_type": "detective", "frequency": "annually"},
+    {"ref_code": "12.3", "title": "Risks to cardholder data identified and managed", "description": "Risks to the cardholder data environment are formally identified, evaluated, and managed.", "control_type": "directive", "frequency": "annually"},
+    {"ref_code": "12.10", "title": "Suspected and confirmed security incidents responded to", "description": "Suspected and confirmed security incidents that could impact the CDE are responded to immediately.", "control_type": "corrective", "frequency": "continuous"}
+  ]
+}
