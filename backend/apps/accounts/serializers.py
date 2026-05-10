@@ -45,12 +45,15 @@ class UserSerializer(serializers.ModelSerializer):
             "is_mfa_enabled",
             "is_active",
             "last_login",
+            "password_changed_at",
             "created_at",
             "updated_at",
             "business_units",
             "groups",
         ]
-        read_only_fields = ["id", "last_login", "created_at", "updated_at"]
+        read_only_fields = [
+            "id", "last_login", "password_changed_at", "created_at", "updated_at",
+        ]
 
     def update(self, instance, validated_data):
         business_units = validated_data.pop("business_units", None)

@@ -1,6 +1,12 @@
 from django.contrib import admin
 
-from .models import DPIA, DataSubjectRequest, ProcessingActivity
+from .models import (
+    DPIA,
+    ConsentEvent,
+    ConsentRecord,
+    DataSubjectRequest,
+    ProcessingActivity,
+)
 
 
 @admin.register(ProcessingActivity)
@@ -41,6 +47,35 @@ class DPIAAdmin(admin.ModelAdmin):
     search_fields = ["title", "description", "risk_description"]
     ordering = ["-created_at"]
     raw_id_fields = ["processing_activity", "assessor"]
+
+
+@admin.register(ConsentRecord)
+class ConsentRecordAdmin(admin.ModelAdmin):
+    list_display = [
+        "data_subject_identifier",
+        "purpose",
+        "status",
+        "channel",
+        "granted_at",
+        "withdrawn_at",
+        "expires_at",
+    ]
+    list_filter = ["status", "channel"]
+    search_fields = [
+        "data_subject_identifier",
+        "data_subject_name",
+        "purpose",
+        "consent_version",
+    ]
+    raw_id_fields = ["processing_activity"]
+
+
+@admin.register(ConsentEvent)
+class ConsentEventAdmin(admin.ModelAdmin):
+    list_display = ["consent", "event_type", "actor", "occurred_at", "ip_address"]
+    list_filter = ["event_type"]
+    search_fields = ["consent__data_subject_identifier", "actor"]
+    raw_id_fields = ["consent"]
 
 
 @admin.register(DataSubjectRequest)

@@ -109,6 +109,13 @@ class ControlTest(BaseModel):
     )
     description = models.TextField(blank=True)
     evidence_description = models.TextField(blank=True)
+    evidence_file = models.FileField(
+        upload_to="control_evidence/%Y/%m/",
+        null=True,
+        blank=True,
+        verbose_name=_("Evidence File"),
+        help_text=_("Upload a supporting evidence document for this test"),
+    )
     next_test_date = models.DateField(null=True, blank=True)
 
     class Meta:

@@ -6,6 +6,7 @@ from .views import (
     AuditLogListView,
     AutomatedActionViewSet,
     CommentViewSet,
+    CorrectiveActionPlanViewSet,
     CustomFieldValueViewSet,
     CustomFieldViewSet,
     NotificationListView,
@@ -31,6 +32,9 @@ router.register(
 router.register(r"status-rules", StatusRuleViewSet, basename="status-rule")
 router.register(r"automated-actions", AutomatedActionViewSet, basename="automated-action")
 router.register(r"reviews", ReviewViewSet, basename="review")
+router.register(
+    r"corrective-actions", CorrectiveActionPlanViewSet, basename="corrective-action"
+)
 
 urlpatterns = router.urls + [
     path("health/", health_check, name="health-check"),

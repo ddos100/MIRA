@@ -4,6 +4,8 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
+    KeyRiskIndicatorViewSet,
+    RiskAppetiteViewSet,
     RiskCategoryViewSet,
     RiskReviewViewSet,
     RiskTreatmentPlanViewSet,
@@ -17,6 +19,8 @@ router.register(
     r"treatment-plans", RiskTreatmentPlanViewSet, basename="risktreatmentplan"
 )
 router.register(r"reviews", RiskReviewViewSet, basename="riskreview")
+router.register(r"appetites", RiskAppetiteViewSet, basename="riskappetite")
+router.register(r"kris", KeyRiskIndicatorViewSet, basename="kri")
 router.register(r"", RiskViewSet, basename="risk")
 
 urlpatterns = [

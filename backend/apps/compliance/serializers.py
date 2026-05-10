@@ -114,6 +114,7 @@ class ComplianceProgramSerializer(serializers.ModelSerializer):
 class ComplianceAssessmentSerializer(serializers.ModelSerializer):
     requirement_ref = serializers.SerializerMethodField()
     requirement_title = serializers.SerializerMethodField()
+    owner_name = serializers.SerializerMethodField()
     assessor_name = serializers.SerializerMethodField()
 
     class Meta:
@@ -127,6 +128,11 @@ class ComplianceAssessmentSerializer(serializers.ModelSerializer):
     def get_requirement_title(self, obj):
         return obj.requirement.title if obj.requirement_id else None
 
+    def get_owner_name(self, obj):
+        if obj.owner_id:
+            return obj.owner.get_full_name() or obj.owner.email
+        return None
+
     def get_assessor_name(self, obj):
         if obj.assessor_id:
             return obj.assessor.get_full_name() or obj.assessor.email
@@ -134,6 +140,8 @@ class ComplianceAssessmentSerializer(serializers.ModelSerializer):
 
 
 class EvidenceSerializer(serializers.ModelSerializer):
+    is_expired = serializers.BooleanField(read_only=True)
+
     class Meta:
         model = Evidence
         fields = "__all__"

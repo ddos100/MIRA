@@ -46,6 +46,28 @@ class ThirdParty(BaseModel):
     data_shared = models.BooleanField(default=False)
     processing_personal_data = models.BooleanField(default=False)
 
+    # GDPR Art. 28 / ISO 27001 A.5.20 – Data Processing Agreement
+    dpa_required = models.BooleanField(
+        default=False,
+        verbose_name=_("DPA Required"),
+        help_text=_("Is a Data Processing Agreement required with this party?"),
+    )
+    dpa_signed_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("DPA Signed Date"),
+    )
+    dpa_expiry_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("DPA Expiry Date"),
+    )
+    dpa_document_url = models.URLField(
+        blank=True,
+        verbose_name=_("DPA Document URL"),
+        help_text=_("Link to the signed DPA document"),
+    )
+
     class Meta:
         verbose_name = _("Third Party")
         verbose_name_plural = _("Third Parties")

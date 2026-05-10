@@ -62,6 +62,17 @@ export interface DataFlow {
   transfer_mechanism: string;
   is_cross_border: boolean;
   notes: string;
+  // GDPR fields
+  legal_basis: string;
+  data_subject_categories: string;
+  personal_data_categories: string;
+  special_category_data: boolean;
+  retention_period_days: number | null;
+  transfer_safeguards: string;
+  lifecycle_stage: string;
+  lifecycle_stage_display?: string;
+  processing_activity: string | null;
+  processing_activity_name?: string;
   created_at: string;
   updated_at: string;
 }
@@ -78,6 +89,8 @@ export interface AssetParams {
   category?: string;
   status?: AssetStatus | "";
   criticality?: number | "";
+  owner?: string;
+  business_unit?: string;
   page?: number;
   page_size?: number;
 }
@@ -100,6 +113,16 @@ export const assetKeys = {
   dataFlows: () => [...assetKeys.all, "data-flows"] as const,
   dataFlowList: (params?: Record<string, unknown>) =>
     [...assetKeys.dataFlows(), "list", params] as const,
+  dataFlowDetail: (id: string) => [...assetKeys.dataFlows(), "detail", id] as const,
+
+  lifecycleStages: () => [...assetKeys.all, "lifecycle-stages"] as const,
+  lifecycleStageList: (params?: Record<string, unknown>) =>
+    [...assetKeys.lifecycleStages(), "list", params] as const,
+  lifecycleStageDetail: (id: string) => [...assetKeys.lifecycleStages(), id] as const,
+
+  lifecycleRequirements: () => [...assetKeys.all, "lifecycle-requirements"] as const,
+  lifecycleRequirementList: (params?: Record<string, unknown>) =>
+    [...assetKeys.lifecycleRequirements(), "list", params] as const,
 };
 
 // ─── Asset Hooks ──────────────────────────────────────────────────────────────
@@ -201,5 +224,183 @@ export function useDataFlows(params?: Record<string, unknown>) {
       );
       return data;
     },
+  });
+}
+
+export function useDataFlow(id: string) {
+  return useQuery({
+    queryKey: assetKeys.dataFlowDetail(id),
+    queryFn: async () => {
+      const { data } = await apiClient.get<DataFlow>(`/assets/data-flows/${id}/`);
+      return data;
+    },
+    enabled: !!id,
+  });
+}
+
+// ─── Lifecycle Stage Types ────────────────────────────────────────────────────
+
+export type ComplianceRating = "pending" | "met" | "partial" | "not_met" | "na";
+export type ComplianceFramework = "gdpr" | "dpdpa";
+export type ApprovalStatus = "draft" | "pending_approval" | "approved" | "rejected";
+
+export interface RequirementAuditLog {
+  id: string;
+  action: "rated" | "submitted" | "approved" | "rejected";
+  action_display: string;
+  from_rating: string;
+  to_rating: string;
+  notes: string;
+  user: string | null;
+  user_name: string;
+  timestamp: string;
+}
+
+export interface DataLifecycleRequirement {
+  id: string;
+  framework: ComplianceFramework;
+  framework_display: string;
+  requirement_key: string;
+  requirement_label: string;
+  article_reference: string;
+  rating: ComplianceRating;
+  rating_display: string;
+  notes: string;
+  privacy_risk: string | null;
+  // Maker-Checker
+  approval_status: ApprovalStatus;
+  approval_status_display: string;
+  maker: string | null;
+  maker_name: string | null;
+  checker: string | null;
+  checker_name: string | null;
+  submitted_at: string | null;
+  approved_at: string | null;
+  checker_notes: string;
+  is_editable: boolean;
+}
+
+export interface DataLifecycleStage {
+  id: string;
+  data_flow: string;
+  stage: string;
+  stage_display: string;
+  processing_activity: string | null;
+  processing_activity_name: string;
+  purpose: string;
+  legal_basis_gdpr: string;
+  legal_basis_dpdpa: string;
+  data_subject_categories: string;
+  personal_data_categories: string;
+  special_category_data: boolean;
+  retention_period_days: number | null;
+  retention_justification: string;
+  security_measures: string;
+  third_party_name: string;
+  third_party_agreement: boolean;
+  transfer_safeguards: string;
+  is_cross_border: boolean;
+  deletion_method: string;
+  notes: string;
+  compliance_status: ComplianceRating;
+  compliance_status_display: string;
+  compliance_notes: string;
+  owner: string | null;
+  owner_name: string;
+  requirements: DataLifecycleRequirement[];
+  created_at: string;
+  updated_at: string;
+}
+
+// ─── Lifecycle Stage Hooks ────────────────────────────────────────────────────
+
+export function useDataFlowLifecycleStages(flowId: string) {
+  return useQuery({
+    queryKey: assetKeys.lifecycleStageList({ data_flow: flowId }),
+    queryFn: async () => {
+      const { data } = await apiClient.get<PaginatedResponse<DataLifecycleStage>>(
+        "/assets/lifecycle-stages/",
+        { params: { data_flow: flowId, page_size: 10 } }
+      );
+      return data.results ?? [];
+    },
+    enabled: !!flowId,
+  });
+}
+
+export function useCreateLifecycleStage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<DataLifecycleStage>) =>
+      apiClient.post<DataLifecycleStage>("/assets/lifecycle-stages/", data).then(r => r.data),
+    onSuccess: (_d, vars) =>
+      qc.invalidateQueries({ queryKey: assetKeys.lifecycleStageList({ data_flow: vars.data_flow }) }),
+  });
+}
+
+export function useUpdateLifecycleStage(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<DataLifecycleStage>) =>
+      apiClient.patch<DataLifecycleStage>(`/assets/lifecycle-stages/${id}/`, data).then(r => r.data),
+    onSuccess: (d) =>
+      qc.invalidateQueries({ queryKey: assetKeys.lifecycleStageList({ data_flow: d.data_flow }) }),
+  });
+}
+
+export function useDeleteLifecycleStage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.delete(`/assets/lifecycle-stages/${id}/`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: assetKeys.lifecycleStages() }),
+  });
+}
+
+export function useUpdateLifecycleRequirement(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<DataLifecycleRequirement>) =>
+      apiClient.patch<DataLifecycleRequirement>(`/assets/lifecycle-requirements/${id}/`, data).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: assetKeys.lifecycleStages() }),
+  });
+}
+
+export function useSubmitRequirementForApproval(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      apiClient.post<DataLifecycleRequirement>(`/assets/lifecycle-requirements/${id}/submit/`).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: assetKeys.lifecycleStages() }),
+  });
+}
+
+export function useApproveRequirement(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (checkerNotes?: string) =>
+      apiClient.post<DataLifecycleRequirement>(`/assets/lifecycle-requirements/${id}/approve/`, { checker_notes: checkerNotes ?? "" }).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: assetKeys.lifecycleStages() }),
+  });
+}
+
+export function useRejectRequirement(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (checkerNotes: string) =>
+      apiClient.post<DataLifecycleRequirement>(`/assets/lifecycle-requirements/${id}/reject/`, { checker_notes: checkerNotes }).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: assetKeys.lifecycleStages() }),
+  });
+}
+
+export function useRequirementAuditLogs(id: string) {
+  return useQuery({
+    queryKey: ["requirementAuditLogs", id],
+    queryFn: async () => {
+      const { data } = await apiClient.get<RequirementAuditLog[]>(
+        `/assets/lifecycle-requirements/${id}/audit-logs/`
+      );
+      return data;
+    },
+    enabled: !!id,
   });
 }

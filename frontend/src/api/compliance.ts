@@ -69,6 +69,8 @@ export interface ComplianceAssessment {
   requirement_title?: string;
   status: AssessmentStatus;
   notes: string;
+  owner: string | null;
+  owner_name?: string;
   assessor: string | null;
   assessor_name?: string;
   assessment_date: string | null;

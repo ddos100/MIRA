@@ -110,3 +110,120 @@ export function useDeleteAttachment(contentType: string, objectId: string) {
       qc.invalidateQueries({ queryKey: attachmentKey(contentType, objectId) }),
   });
 }
+
+// ─── Corrective Action Plans (CAPs) ───────────────────────────────────────────
+
+export type CAPSeverity = "critical" | "high" | "medium" | "low";
+export type CAPStatus =
+  | "open"
+  | "in_progress"
+  | "blocked"
+  | "resolved"
+  | "verified"
+  | "overdue"
+  | "cancelled";
+
+export interface CorrectiveActionPlan {
+  id: string;
+  title: string;
+  description: string;
+  root_cause: string;
+  severity: CAPSeverity;
+  status: CAPStatus;
+  owner: string | null;
+  owner_name: string | null;
+  verifier: string | null;
+  verifier_name: string | null;
+  target_completion_date: string | null;
+  actual_completion_date: string | null;
+  verified_at: string | null;
+  verification_notes: string;
+  progress_pct: number;
+  source_content_type: number | null;
+  source_content_type_label: string | null;
+  source_object_id: string | null;
+  risk: string | null;
+  control: string | null;
+  compliance_requirement: string | null;
+  incident: string | null;
+  is_overdue: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CAPParams {
+  search?: string;
+  status?: CAPStatus | "";
+  severity?: CAPSeverity | "";
+  owner?: string;
+  source_content_type?: string;
+  source_object_id?: string;
+  page?: number;
+  page_size?: number;
+}
+
+const capKey = (params: object) => ["corrective-actions", params] as const;
+
+export function useCorrectiveActions(params: CAPParams = {}) {
+  return useQuery({
+    queryKey: capKey(params),
+    queryFn: () =>
+      apiClient
+        .get("/core/corrective-actions/", { params })
+        .then((r) => r.data),
+  });
+}
+
+export function useCorrectiveAction(id: string) {
+  return useQuery({
+    queryKey: ["corrective-action", id],
+    queryFn: () =>
+      apiClient
+        .get(`/core/corrective-actions/${id}/`)
+        .then((r) => r.data as CorrectiveActionPlan),
+    enabled: !!id,
+  });
+}
+
+export function useCreateCorrectiveAction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<CorrectiveActionPlan> & { source_content_type?: string }) =>
+      apiClient.post("/core/corrective-actions/", data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["corrective-actions"] }),
+  });
+}
+
+export function useUpdateCorrectiveAction(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<CorrectiveActionPlan>) =>
+      apiClient.patch(`/core/corrective-actions/${id}/`, data).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["corrective-actions"] });
+      qc.invalidateQueries({ queryKey: ["corrective-action", id] });
+    },
+  });
+}
+
+export function useDeleteCorrectiveAction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.delete(`/core/corrective-actions/${id}/`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["corrective-actions"] }),
+  });
+}
+
+export function useVerifyCorrectiveAction(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (verification_notes: string) =>
+      apiClient
+        .post(`/core/corrective-actions/${id}/verify/`, { verification_notes })
+        .then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["corrective-actions"] });
+      qc.invalidateQueries({ queryKey: ["corrective-action", id] });
+    },
+  });
+}

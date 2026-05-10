@@ -1,6 +1,14 @@
 from django.contrib import admin
 
-from .models import Attachment, AuditLog, Comment, CustomField, Notification, Tag
+from .models import (
+    Attachment,
+    AuditLog,
+    Comment,
+    CorrectiveActionPlan,
+    CustomField,
+    Notification,
+    Tag,
+)
 
 
 @admin.register(Tag)
@@ -54,3 +62,19 @@ class NotificationAdmin(admin.ModelAdmin):
 class CustomFieldAdmin(admin.ModelAdmin):
     list_display = ["label", "content_type", "field_type", "is_required", "order"]
     list_filter = ["content_type", "field_type"]
+
+
+@admin.register(CorrectiveActionPlan)
+class CorrectiveActionPlanAdmin(admin.ModelAdmin):
+    list_display = [
+        "title",
+        "severity",
+        "status",
+        "owner",
+        "verifier",
+        "target_completion_date",
+        "progress_pct",
+    ]
+    list_filter = ["status", "severity"]
+    search_fields = ["title", "description", "root_cause"]
+    autocomplete_fields = ["owner", "verifier"]

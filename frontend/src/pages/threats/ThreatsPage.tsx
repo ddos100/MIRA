@@ -8,9 +8,10 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle, Bug, Edit2, Link2, Plus, Shield, ShieldAlert,
-  ShieldCheck, Trash2, Unlink,
+  ShieldCheck, Trash2, Unlink, Upload,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { Button } from "@/components/ui/Button";
@@ -22,6 +23,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { Select } from "@/components/ui/Select";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { BulkUploadSection } from "@/components/common/BulkUploadSection";
 import {
   useThreats, useCreateThreat, useUpdateThreat, useDeleteThreat,
   useVulnerabilities, useCreateVulnerability, useUpdateVulnerability, useDeleteVulnerability,
@@ -620,9 +622,10 @@ function VulnCard({ vulnerability: v, onEdit, onDelete }: VulnCardProps) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-type MainTab = "threats" | "vulnerabilities";
+type MainTab = "threats" | "vulnerabilities" | "bulk_upload";
 
 export default function ThreatsPage() {
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<MainTab>("threats");
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
@@ -661,9 +664,10 @@ export default function ThreatsPage() {
   const cyberThreats = threats.filter((t) => t.threat_type === "cyber" || t.threat_type === "information_security");
   const otherThreats = threats.filter((t) => t.threat_type !== "cyber" && t.threat_type !== "information_security");
 
-  const tabs: { id: MainTab; label: string; icon: React.ReactNode; count: number }[] = [
+  const tabs: { id: MainTab; label: string; icon: React.ReactNode; count?: number }[] = [
     { id: "threats", label: "Threats", icon: <ShieldAlert className="h-4 w-4" />, count: threats.length },
     { id: "vulnerabilities", label: "Vulnerabilities", icon: <Bug className="h-4 w-4" />, count: vulnerabilities.length },
+    { id: "bulk_upload", label: "Bulk Upload", icon: <Upload className="h-4 w-4" /> },
   ];
 
   function handleEditThreat(t: Threat) {
@@ -692,12 +696,14 @@ export default function ThreatsPage() {
         title="Threats & Vulnerabilities"
         description="Pre-populated threat intelligence aligned to ISO 27001:2022 Annex A and MITRE ATT&CK framework."
         action={
-          <Button
-            onClick={() => activeTab === "threats" ? setThreatModalOpen(true) : setVulnModalOpen(true)}
-          >
-            <Plus className="h-4 w-4" />
-            {activeTab === "threats" ? "Add Threat" : "Add Vulnerability"}
-          </Button>
+          activeTab !== "bulk_upload" ? (
+            <Button
+              onClick={() => activeTab === "threats" ? setThreatModalOpen(true) : setVulnModalOpen(true)}
+            >
+              <Plus className="h-4 w-4" />
+              {activeTab === "threats" ? "Add Threat" : "Add Vulnerability"}
+            </Button>
+          ) : undefined
         }
       />
 
@@ -749,19 +755,57 @@ export default function ThreatsPage() {
             >
               {tab.icon}
               {tab.label}
-              <span className={cn(
-                "text-xs px-1.5 py-0.5 rounded-full font-normal",
-                activeTab === tab.id ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
-              )}>
-                {tab.count}
-              </span>
+              {tab.count !== undefined && (
+                <span className={cn(
+                  "text-xs px-1.5 py-0.5 rounded-full font-normal",
+                  activeTab === tab.id ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                )}>
+                  {tab.count}
+                </span>
+              )}
             </button>
           ))}
         </div>
       </div>
 
+      {/* Bulk Upload Tab */}
+      {activeTab === "bulk_upload" && (
+        <div className="space-y-8">
+          <BulkUploadSection
+            endpoint="/threats/import-csv/"
+            entityName="Threats"
+            columns={[
+              { name: "name", description: "Threat name", required: "Yes" },
+              { name: "description", description: "Detailed description", required: "No" },
+              { name: "threat_type", description: "cyber | information_security | physical | insider | environmental | supply_chain | compliance | operational", required: "Yes" },
+              { name: "likelihood", description: "1–5 likelihood score", required: "No (default 3)" },
+              { name: "severity", description: "1–5 severity score", required: "No (default 3)" },
+              { name: "source", description: "external | internal | both", required: "No (default external)" },
+              { name: "iso27001_clause", description: "ISO 27001 clause reference e.g. A.5.7", required: "No" },
+              { name: "mitre_attack_id", description: "MITRE ATT&CK ID e.g. T1486", required: "No" },
+            ]}
+            onSuccess={() => queryClient.invalidateQueries({ queryKey: ["threats"] })}
+          />
+          <BulkUploadSection
+            endpoint="/threats/vulnerabilities/import-csv/"
+            entityName="Vulnerabilities"
+            columns={[
+              { name: "name", description: "Vulnerability name", required: "Yes" },
+              { name: "description", description: "Detailed description", required: "No" },
+              { name: "vulnerability_type", description: "software | hardware | network | process | human | physical | configuration | data", required: "Yes" },
+              { name: "severity", description: "1–5 severity score", required: "No (default 3)" },
+              { name: "cvss_score", description: "CVSS v3 base score (0.0–10.0)", required: "No" },
+              { name: "cve_id", description: "CVE identifier e.g. CVE-2024-1234", required: "No" },
+              { name: "remediation", description: "Recommended remediation steps", required: "No" },
+              { name: "iso27001_clause", description: "ISO 27001 clause reference", required: "No" },
+            ]}
+            onSuccess={() => queryClient.invalidateQueries({ queryKey: ["vulnerabilities"] })}
+          />
+        </div>
+      )}
+
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
+      {activeTab !== "bulk_upload" && (<div className="flex flex-wrap gap-3">
         <SearchInput
           value={search}
           onChange={setSearch}
@@ -797,7 +841,7 @@ export default function ThreatsPage() {
             Clear filters
           </Button>
         )}
-      </div>
+      </div>)}
 
       {/* Content */}
       {activeTab === "threats" && (

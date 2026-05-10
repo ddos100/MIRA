@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, X } from "lucide-react";
 import { cn } from "@/utils/cn";
@@ -35,66 +35,92 @@ export function MultiSelect({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
 
-  // Recalculate position whenever dropdown opens
-  useEffect(() => {
-    if (open && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
+  const computePosition = useCallback(() => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+
+    const rect = trigger.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    const DROPDOWN_MAX_H = 240;
+    const GAP = 4;
+
+    const spaceBelow = viewportHeight - rect.bottom - GAP;
+    const spaceAbove = rect.top - GAP;
+    const openUp = spaceBelow < DROPDOWN_MAX_H && spaceAbove > spaceBelow;
+    const availableH = Math.min(DROPDOWN_MAX_H, openUp ? spaceAbove : spaceBelow);
+
+    if (openUp) {
       setDropdownStyle({
         position: "fixed",
-        top: rect.bottom + 4,
         left: rect.left,
         width: rect.width,
-        zIndex: 9999,
+        bottom: viewportHeight - rect.top + GAP,
+        maxHeight: availableH,
+        zIndex: 99999,
       });
+    } else {
+      setDropdownStyle({
+        position: "fixed",
+        left: rect.left,
+        width: rect.width,
+        top: rect.bottom + GAP,
+        maxHeight: availableH,
+        zIndex: 99999,
+      });
+    }
+  }, []);
+
+  // Position on open; clear search on close
+  useEffect(() => {
+    if (open) {
+      computePosition();
     } else {
       setSearch("");
     }
-  }, [open]);
+  }, [open, computePosition]);
 
-  // Close on click outside (both trigger and portal dropdown)
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      const target = e.target as Node;
-      const insideTrigger = triggerRef.current?.contains(target);
-      const insideDropdown = dropdownRef.current?.contains(target);
-      if (!insideTrigger && !insideDropdown) {
-        setOpen(false);
-      }
-    }
-    if (open) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [open]);
-
-  // Close on scroll/resize to avoid stale position
+  // Close on outside click
   useEffect(() => {
     if (!open) return;
-    function close() {
-      setOpen(false);
-    }
-    window.addEventListener("scroll", close, true);
-    window.addEventListener("resize", close);
-    return () => {
-      window.removeEventListener("scroll", close, true);
-      window.removeEventListener("resize", close);
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (!triggerRef.current?.contains(t) && !dropdownRef.current?.contains(t)) {
+        setOpen(false);
+      }
     };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
 
-  const selectedLabels = options
-    .filter((o) => value.includes(o.value))
-    .map((o) => o.label);
+  // Reposition on ancestor scroll; close only when trigger leaves viewport.
+  // Scroll events INSIDE the dropdown are ignored so the list stays scrollable.
+  useEffect(() => {
+    if (!open) return;
+    const onScroll = (e: Event) => {
+      if (dropdownRef.current?.contains(e.target as Node)) return;
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      if (rect.bottom < 0 || rect.top > window.innerHeight) {
+        setOpen(false);
+      } else {
+        computePosition();
+      }
+    };
+    const onResize = () => setOpen(false);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [open, computePosition]);
 
   const filtered = options.filter((o) =>
     o.label.toLowerCase().includes(search.toLowerCase())
   );
 
   function toggle(val: string) {
-    if (value.includes(val)) {
-      onChange(value.filter((v) => v !== val));
-    } else {
-      onChange([...value, val]);
-    }
+    onChange(value.includes(val) ? value.filter((v) => v !== val) : [...value, val]);
   }
 
   function remove(val: string, e: React.MouseEvent) {
@@ -102,50 +128,59 @@ export function MultiSelect({
     onChange(value.filter((v) => v !== val));
   }
 
+  const selectedOptions = options.filter((o) => value.includes(o.value));
+
   const dropdown = open
     ? createPortal(
         <div
           ref={dropdownRef}
           style={dropdownStyle}
-          className="max-h-60 overflow-auto rounded-md border border-border bg-popover shadow-lg"
+          // `bg-background` is explicitly opaque — avoids any CSS-variable
+          // transparency issues with `bg-popover`.
+          // `flex flex-col` + `min-h-0` on the scrollable child is the standard
+          // CSS trick that allows a flex item to shrink below its content height
+          // and therefore actually scroll within the constrained max-height.
+          className="flex flex-col rounded-md border border-border bg-background text-foreground shadow-2xl"
         >
-          <div className="sticky top-0 bg-popover p-1 border-b border-border">
+          {/* Fixed search row */}
+          <div className="shrink-0 border-b border-border bg-background px-1 py-1">
             <input
               autoFocus
               className="w-full bg-transparent px-2 py-1 text-sm outline-none placeholder:text-muted-foreground"
               placeholder="Search..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
             />
           </div>
-          {filtered.length === 0 ? (
-            <div className="py-4 text-center text-sm text-muted-foreground">
-              No options found
-            </div>
-          ) : (
-            filtered.map((opt) => (
-              <div
-                key={opt.value}
-                className={cn(
-                  "flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground",
-                  value.includes(opt.value) && "bg-accent/50"
-                )}
-                onMouseDown={(e) => {
-                  e.preventDefault(); // prevent blur on trigger
-                  toggle(opt.value);
-                }}
-              >
-                <Check
-                  className={cn(
-                    "h-4 w-4 shrink-0",
-                    value.includes(opt.value) ? "opacity-100" : "opacity-0"
-                  )}
-                />
-                {opt.label}
-              </div>
-            ))
-          )}
+
+          {/* Scrollable options: min-h-0 lets this flex child shrink and scroll */}
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            {filtered.length === 0 ? (
+              <p className="py-4 text-center text-sm text-muted-foreground">No options</p>
+            ) : (
+              filtered.map((opt) => {
+                const selected = value.includes(opt.value);
+                return (
+                  <div
+                    key={opt.value}
+                    className={cn(
+                      "flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-sm",
+                      "hover:bg-accent hover:text-accent-foreground",
+                      selected && "bg-accent/40"
+                    )}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      toggle(opt.value);
+                    }}
+                  >
+                    <Check className={cn("h-4 w-4 shrink-0", selected ? "opacity-100" : "opacity-0")} />
+                    <span className="truncate">{opt.label}</span>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>,
         document.body
       )
@@ -156,29 +191,33 @@ export function MultiSelect({
       {label && (
         <label className="text-sm font-medium text-foreground">{label}</label>
       )}
+
+      {/* Trigger */}
       <div
         ref={triggerRef}
+        role="combobox"
+        aria-expanded={open}
+        aria-haspopup="listbox"
         className={cn(
-          "relative min-h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm cursor-pointer",
-          "focus-visible:outline-none",
+          "relative min-h-9 w-full cursor-pointer rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm",
           error && "border-destructive",
-          disabled && "opacity-50 cursor-not-allowed"
+          disabled && "pointer-events-none opacity-50"
         )}
-        onClick={() => !disabled && setOpen((o) => !o)}
+        onClick={() => setOpen((o) => !o)}
       >
-        <div className="flex flex-wrap gap-1 pr-6 min-h-7 items-center py-0.5">
-          {selectedLabels.length === 0 ? (
+        <div className="flex flex-wrap gap-1 py-0.5 pr-6 min-h-7 items-center">
+          {selectedOptions.length === 0 ? (
             <span className="text-muted-foreground">{placeholder}</span>
           ) : (
-            selectedLabels.map((lbl, i) => (
+            selectedOptions.map((opt) => (
               <span
-                key={value[i]}
-                className="inline-flex items-center gap-1 bg-secondary text-secondary-foreground rounded px-1.5 py-0.5 text-xs"
+                key={opt.value}
+                className="inline-flex items-center gap-1 rounded bg-secondary px-1.5 py-0.5 text-xs text-secondary-foreground"
               >
-                {lbl}
+                {opt.label}
                 <X
-                  className="h-3 w-3 cursor-pointer hover:text-destructive"
-                  onClick={(e) => remove(value[i], e)}
+                  className="h-3 w-3 hover:text-destructive"
+                  onClick={(e) => remove(opt.value, e)}
                 />
               </span>
             ))
@@ -186,14 +225,13 @@ export function MultiSelect({
         </div>
         <ChevronDown
           className={cn(
-            "absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-transform",
+            "pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-transform",
             open && "rotate-180"
           )}
         />
       </div>
 
       {dropdown}
-
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );

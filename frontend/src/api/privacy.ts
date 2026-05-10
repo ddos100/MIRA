@@ -24,8 +24,10 @@ export interface ProcessingActivity {
   special_category_data: boolean;
   retention_period: string;
   third_party_recipients: string[];
+  third_party_recipients_detail?: { id: string; name: string }[];
   cross_border_transfer: boolean;
   transfer_safeguards: string;
+  security_measures: string;
   owner: string | null;
   owner_detail?: { id: string; full_name: string; email: string };
   is_active: boolean;
@@ -35,6 +37,14 @@ export interface ProcessingActivity {
 
 export type DPIAStatus = "draft" | "in_review" | "approved" | "rejected";
 export type ResidualRiskLevel = "low" | "medium" | "high" | "very_high";
+
+export interface PrivacyRiskSummary {
+  id: string;
+  title: string;
+  status: string;
+  residual_score: number;
+  category_name: string | null;
+}
 
 export interface DPIA {
   id: string;
@@ -51,9 +61,12 @@ export interface DPIA {
   mitigation_measures: string;
   residual_risk_level: ResidualRiskLevel | null;
   dpo_consultation_required: boolean;
+  dpo_consulted_date: string | null;
   dpo_opinion: string;
   approved_at: string | null;
   review_date: string | null;
+  privacy_risks: string[];
+  privacy_risks_detail?: PrivacyRiskSummary[];
   created_at: string;
   updated_at: string;
 }
@@ -87,6 +100,7 @@ export interface DSR {
   deadline: string;
   completed_at: string | null;
   response_notes: string;
+  is_overdue: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -274,5 +288,117 @@ export function useUpdateDSR(id: string) {
       qc.invalidateQueries({ queryKey: ["dsrs"] });
       qc.invalidateQueries({ queryKey: ["dsr", id] });
     },
+  });
+}
+
+// ─── Consent Records (GDPR Art. 7) ────────────────────────────────────────────
+
+export type ConsentChannel =
+  | "web_form"
+  | "email"
+  | "in_person"
+  | "paper"
+  | "api"
+  | "phone"
+  | "other";
+
+export type ConsentStatus = "granted" | "withdrawn" | "expired" | "pending";
+
+export interface ConsentEvent {
+  id: string;
+  consent: string;
+  event_type: "granted" | "withdrawn" | "renewed" | "expired" | "updated";
+  occurred_at: string;
+  actor: string;
+  notes: string;
+  ip_address: string | null;
+  created_at: string;
+}
+
+export interface ConsentRecord {
+  id: string;
+  data_subject_identifier: string;
+  data_subject_name: string;
+  purpose: string;
+  processing_activity: string | null;
+  processing_activity_name: string | null;
+  legal_basis_text: string;
+  consent_version: string;
+  channel: ConsentChannel;
+  status: ConsentStatus;
+  is_active: boolean;
+  granted_at: string | null;
+  withdrawn_at: string | null;
+  withdrawal_reason: string;
+  expires_at: string | null;
+  ip_address: string | null;
+  user_agent: string;
+  evidence_ref: string;
+  events: ConsentEvent[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConsentParams {
+  search?: string;
+  status?: ConsentStatus | "";
+  channel?: ConsentChannel | "";
+  processing_activity?: string;
+  page?: number;
+  page_size?: number;
+}
+
+export function useConsents(params: ConsentParams = {}) {
+  return useQuery({
+    queryKey: ["consents", params],
+    queryFn: async () => {
+      const { data } = await apiClient.get<PaginatedResponse<ConsentRecord>>(
+        "/privacy/consents/",
+        { params }
+      );
+      return data;
+    },
+  });
+}
+
+export function useConsent(id: string) {
+  return useQuery({
+    queryKey: ["consent", id],
+    queryFn: async () => {
+      const { data } = await apiClient.get<ConsentRecord>(`/privacy/consents/${id}/`);
+      return data;
+    },
+    enabled: !!id,
+  });
+}
+
+export function useCreateConsent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Partial<ConsentRecord>) =>
+      apiClient.post<ConsentRecord>("/privacy/consents/", payload).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["consents"] }),
+  });
+}
+
+export function useWithdrawConsent(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (reason: string) =>
+      apiClient
+        .post<ConsentRecord>(`/privacy/consents/${id}/withdraw/`, { reason })
+        .then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["consents"] });
+      qc.invalidateQueries({ queryKey: ["consent", id] });
+    },
+  });
+}
+
+export function useDeleteConsent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.delete(`/privacy/consents/${id}/`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["consents"] }),
   });
 }

@@ -31,6 +31,7 @@ const CT_EP = "/core/content-types/";
 export const automatedActionKeys = {
   all: ["automated-actions"] as const,
   byRule: (ruleId: string) => [...automatedActionKeys.all, "rule", ruleId] as const,
+  list: () => [...automatedActionKeys.all, "list"] as const,
 };
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────
@@ -45,6 +46,19 @@ export function useAutomatedActions(statusRuleId?: string) {
       return data.results ?? [];
     },
     enabled: !!statusRuleId,
+  });
+}
+
+/** Fetch all automated actions across all modules (no status_rule filter). */
+export function useAllAutomatedActions() {
+  return useQuery({
+    queryKey: automatedActionKeys.list(),
+    queryFn: async () => {
+      const { data } = await apiClient.get<{ results: AutomatedAction[] }>(EP, {
+        params: { page_size: 500 },
+      });
+      return data.results ?? [];
+    },
   });
 }
 

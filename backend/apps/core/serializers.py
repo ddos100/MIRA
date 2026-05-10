@@ -5,6 +5,7 @@ from .models import (
     AuditLog,
     AutomatedAction,
     Comment,
+    CorrectiveActionPlan,
     CustomField,
     CustomFieldValue,
     Notification,
@@ -84,6 +85,8 @@ class AuditLogSerializer(serializers.ModelSerializer):
             "object_repr",
             "changes",
             "ip_address",
+            "prev_hash",
+            "entry_hash",
         ]
         read_only_fields = fields
 
@@ -230,6 +233,59 @@ class ReviewSerializer(serializers.ModelSerializer):
 
     def get_period_status(self, obj):
         return obj.period_status
+
+
+class CorrectiveActionPlanSerializer(serializers.ModelSerializer):
+    owner_name = serializers.CharField(
+        source="owner.get_full_name", read_only=True, default=None
+    )
+    verifier_name = serializers.CharField(
+        source="verifier.get_full_name", read_only=True, default=None
+    )
+    source_content_type_label = serializers.SerializerMethodField()
+    is_overdue = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = CorrectiveActionPlan
+        fields = [
+            "id",
+            "title",
+            "description",
+            "root_cause",
+            "severity",
+            "status",
+            "owner",
+            "owner_name",
+            "verifier",
+            "verifier_name",
+            "target_completion_date",
+            "actual_completion_date",
+            "verified_at",
+            "verification_notes",
+            "progress_pct",
+            "source_content_type",
+            "source_content_type_label",
+            "source_object_id",
+            "risk",
+            "control",
+            "compliance_requirement",
+            "incident",
+            "is_overdue",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "verified_at",
+            "is_overdue",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_source_content_type_label(self, obj):
+        if obj.source_content_type_id:
+            return f"{obj.source_content_type.app_label}.{obj.source_content_type.model}"
+        return None
 
 
 class WebhookDeliverySerializer(serializers.ModelSerializer):

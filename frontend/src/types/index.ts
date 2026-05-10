@@ -118,6 +118,10 @@ export interface Risk {
   asset_names?: string[];
   policies?: string[];
   compliance_requirements?: string[];
+  threats?: string[];
+  threat_names?: string[];
+  vulnerabilities?: string[];
+  vulnerability_names?: string[];
   // Reverse M2M
   controls?: string[];       // via Control.risks
   projects?: string[];       // via Project.risks
@@ -253,13 +257,26 @@ export interface Policy {
   summary: string;
   content: string;
   category?: string;
+  category_name?: string;
   owner?: string;
+  owner_name?: string;
   status: string;
   version: string;
   effective_date?: string;
   review_date?: string;
   acknowledgement_required: boolean;
+  versions_count?: number;
   created_at: string;
+}
+
+export interface PolicyVersion {
+  id: string;
+  policy: string;
+  version: string;
+  content: string;
+  approved_by: string | null;
+  approved_by_name?: string;
+  approved_at: string;
 }
 
 // ─── Control Types ─────────────────────────────────────────────────────────────

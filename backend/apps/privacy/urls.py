@@ -1,6 +1,11 @@
 from rest_framework.routers import DefaultRouter
 
-from .views import DataSubjectRequestViewSet, DPIAViewSet, ProcessingActivityViewSet
+from .views import (
+    ConsentRecordViewSet,
+    DataSubjectRequestViewSet,
+    DPIAViewSet,
+    ProcessingActivityViewSet,
+)
 
 router = DefaultRouter()
 router.register(
@@ -10,5 +15,6 @@ router.register(r"dpias", DPIAViewSet, basename="dpia")
 router.register(
     r"data-subject-requests", DataSubjectRequestViewSet, basename="data-subject-request"
 )
+router.register(r"consents", ConsentRecordViewSet, basename="consent")
 
 urlpatterns = router.urls

@@ -3,6 +3,8 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.core.mixins import CsvExportMixin, CsvImportMixin
+
 from .models import Threat, ThreatVulnerabilityLink, Vulnerability
 from .serializers import (
     ThreatSerializer,
@@ -11,7 +13,7 @@ from .serializers import (
 )
 
 
-class ThreatViewSet(viewsets.ModelViewSet):
+class ThreatViewSet(CsvImportMixin, CsvExportMixin, viewsets.ModelViewSet):
     """
     CRUD for Threats. System defaults are read-only templates.
     Filter by ?threat_type=cyber&asset_type=server.
@@ -23,6 +25,9 @@ class ThreatViewSet(viewsets.ModelViewSet):
     filterset_fields = ["threat_type", "source", "is_system_default"]
     search_fields = ["name", "description", "iso27001_clause", "mitre_attack_id"]
     ordering_fields = ["name", "severity", "likelihood", "threat_type", "created_at"]
+    csv_import_fields = ["name", "description", "threat_type", "likelihood", "severity", "source", "iso27001_clause", "mitre_attack_id"]
+    csv_export_fields = ["id", "name", "description", "threat_type", "likelihood", "severity", "source", "iso27001_clause", "mitre_attack_id", "is_system_default"]
+    csv_filename = "threats"
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -45,7 +50,7 @@ class ThreatViewSet(viewsets.ModelViewSet):
         return Response(VulnerabilitySerializer(vulns, many=True).data)
 
 
-class VulnerabilityViewSet(viewsets.ModelViewSet):
+class VulnerabilityViewSet(CsvImportMixin, CsvExportMixin, viewsets.ModelViewSet):
     """
     CRUD for Vulnerabilities.
     Filter by ?vulnerability_type=software&asset_type=server.
@@ -57,6 +62,9 @@ class VulnerabilityViewSet(viewsets.ModelViewSet):
     filterset_fields = ["vulnerability_type", "is_system_default"]
     search_fields = ["name", "description", "cve_id", "iso27001_clause"]
     ordering_fields = ["name", "severity", "cvss_score", "vulnerability_type", "created_at"]
+    csv_import_fields = ["name", "description", "vulnerability_type", "severity", "cvss_score", "cve_id", "remediation", "iso27001_clause"]
+    csv_export_fields = ["id", "name", "description", "vulnerability_type", "severity", "cvss_score", "cve_id", "remediation", "iso27001_clause", "is_system_default"]
+    csv_filename = "vulnerabilities"
 
     def get_queryset(self):
         qs = super().get_queryset()

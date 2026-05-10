@@ -184,6 +184,14 @@ class ComplianceAssessment(BaseModel):
         default=ComplianceStatus.NOT_ASSESSED,
     )
     notes = models.TextField(blank=True)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="owned_compliance_assessments",
+        help_text=_("Person responsible for meeting this requirement"),
+    )
     assessor = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -219,6 +227,11 @@ class Evidence(BaseModel):
         related_name="collected_evidence",
     )
     collected_date = models.DateField(null=True, blank=True)
+    valid_until = models.DateField(
+        null=True,
+        blank=True,
+        help_text=_("Evidence freshness — auditor-usable until this date."),
+    )
 
     class Meta:
         verbose_name = _("Evidence")
@@ -227,3 +240,10 @@ class Evidence(BaseModel):
 
     def __str__(self):
         return self.title
+
+    @property
+    def is_expired(self) -> bool:
+        if not self.valid_until:
+            return False
+        from django.utils import timezone
+        return timezone.now().date() > self.valid_until

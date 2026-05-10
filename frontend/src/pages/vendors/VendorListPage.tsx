@@ -69,6 +69,10 @@ const vendorSchema = z.object({
   services_provided: z.string(),
   data_shared: z.boolean(),
   processing_personal_data: z.boolean(),
+  dpa_required: z.boolean(),
+  dpa_signed_date: z.string().nullable(),
+  dpa_expiry_date: z.string().nullable(),
+  dpa_document_url: z.string().url("Must be a valid URL").or(z.literal("")).optional(),
 });
 
 type VendorFormValues = z.infer<typeof vendorSchema>;
@@ -108,6 +112,10 @@ export function VendorFormModal({ open, onClose, vendor }: VendorFormModalProps)
           services_provided: vendor.services_provided ?? "",
           data_shared: vendor.data_shared ?? false,
           processing_personal_data: vendor.processing_personal_data ?? false,
+          dpa_required: vendor.dpa_required ?? false,
+          dpa_signed_date: vendor.dpa_signed_date ?? null,
+          dpa_expiry_date: vendor.dpa_expiry_date ?? null,
+          dpa_document_url: vendor.dpa_document_url ?? "",
         }
       : {
           name: "",
@@ -124,6 +132,10 @@ export function VendorFormModal({ open, onClose, vendor }: VendorFormModalProps)
           services_provided: "",
           data_shared: false,
           processing_personal_data: false,
+          dpa_required: false,
+          dpa_signed_date: null,
+          dpa_expiry_date: null,
+          dpa_document_url: "",
         },
   });
 
@@ -192,7 +204,20 @@ export function VendorFormModal({ open, onClose, vendor }: VendorFormModalProps)
             <input type="checkbox" {...register("processing_personal_data")} className="rounded border-input" />
             Processing Personal Data
           </label>
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" {...register("dpa_required")} className="rounded border-input" />
+            DPA Required (Art. 28)
+          </label>
         </div>
+
+        <fieldset className="border rounded-lg p-4 space-y-3">
+          <legend className="text-xs font-semibold uppercase tracking-wide text-muted-foreground px-1">Data Processing Agreement</legend>
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="DPA Signed Date" type="date" {...register("dpa_signed_date")} />
+            <Input label="DPA Expiry Date" type="date" {...register("dpa_expiry_date")} />
+          </div>
+          <Input label="DPA Document URL" {...register("dpa_document_url")} error={errors.dpa_document_url?.message} placeholder="https://…" />
+        </fieldset>
 
         {mutation.isError && (
           <p className="text-sm text-destructive">Failed to save vendor. Please try again.</p>
