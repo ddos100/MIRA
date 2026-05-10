@@ -32,6 +32,14 @@ const GoalsPage = lazy(() => import("@/pages/organization/GoalsPage"));
 const ThreatsPage = lazy(() => import("@/pages/threats/ThreatsPage"));
 const CorrectiveActionsPage = lazy(() => import("@/pages/governance/CorrectiveActionsPage"));
 
+// AI Conductor pages (lazy — only loaded when accessed)
+const ConductorOverview = lazy(() => import("@/pages/conductor/ConductorOverview"));
+const ConductorDocuments = lazy(() => import("@/pages/conductor/ConductorDocuments"));
+const ConductorAgents = lazy(() => import("@/pages/conductor/ConductorAgents"));
+const ConductorConnectors = lazy(() => import("@/pages/conductor/ConductorConnectors"));
+const ConductorFindings = lazy(() => import("@/pages/conductor/ConductorFindings"));
+const ConductorSettings = lazy(() => import("@/pages/conductor/ConductorSettings"));
+
 export default function App() {
   return (
     <Suspense fallback={<LoadingSpinner fullScreen />}>
@@ -88,6 +96,14 @@ export default function App() {
           {/* Settings */}
           <Route path="/settings/*" element={<SettingsPage />} />
           <Route path="/settings/status-rules" element={<StatusRulesPage />} />
+
+          {/* AI Conductor — routes are always registered; pages check enabled status internally */}
+          <Route path="/conductor" element={<ConductorOverview />} />
+          <Route path="/conductor/documents" element={<ConductorDocuments />} />
+          <Route path="/conductor/agents" element={<ConductorAgents />} />
+          <Route path="/conductor/connectors" element={<ConductorConnectors />} />
+          <Route path="/conductor/findings" element={<ConductorFindings />} />
+          <Route path="/conductor/settings" element={<ConductorSettings />} />
         </Route>
 
         {/* Catch-all */}

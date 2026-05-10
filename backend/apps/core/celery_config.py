@@ -46,4 +46,9 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.core.tasks.run_status_engine",
         "schedule": crontab(minute="*/15"),  # every 15 minutes
     },
+    # AI Conductor — only runs tasks when CONDUCTOR_ENABLED=True (checked inside task)
+    "conductor-sync-connectors": {
+        "task": "conductor.sync_all_active_connectors",
+        "schedule": crontab(minute=0),  # hourly
+    },
 }

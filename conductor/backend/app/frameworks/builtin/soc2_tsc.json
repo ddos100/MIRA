@@ -1,0 +1,28 @@
+{
+  "framework": {
+    "name": "SOC 2 Trust Services Criteria",
+    "short_code": "SOC2_TSC",
+    "version": "2017 (updated 2022)",
+    "description": "AICPA SOC 2 Trust Services Criteria covering Security, Availability, Processing Integrity, Confidentiality, Privacy."
+  },
+  "controls": [
+    {"ref_code": "CC1.1", "title": "COSO Principle 1 — Integrity and ethical values", "description": "The entity demonstrates a commitment to integrity and ethical values.", "control_type": "directive", "frequency": "annually"},
+    {"ref_code": "CC2.1", "title": "COSO Principle 13 — Internal communication", "description": "The entity internally communicates information necessary to support the functioning of internal control.", "control_type": "directive", "frequency": "quarterly"},
+    {"ref_code": "CC3.1", "title": "COSO Principle 6 — Objectives", "description": "The entity specifies objectives with sufficient clarity to enable identification of risks.", "control_type": "directive", "frequency": "annually"},
+    {"ref_code": "CC5.1", "title": "COSO Principle 10 — Control activities", "description": "The entity selects and develops control activities that contribute to the mitigation of risks.", "control_type": "preventive", "frequency": "quarterly"},
+    {"ref_code": "CC6.1", "title": "Logical and physical access controls", "description": "The entity implements logical access security software, infrastructure, and architectures over protected information assets.", "control_type": "preventive", "frequency": "monthly"},
+    {"ref_code": "CC6.2", "title": "Authentication and authorization", "description": "Prior to issuing system credentials, the entity registers and authorizes new internal and external users.", "control_type": "preventive", "frequency": "monthly"},
+    {"ref_code": "CC6.3", "title": "Role-based access", "description": "The entity authorizes, modifies, or removes access to data, software, functions, and other protected assets based on roles.", "control_type": "preventive", "frequency": "quarterly"},
+    {"ref_code": "CC6.6", "title": "Boundary protection", "description": "The entity implements controls to prevent or detect and act upon the introduction of unauthorized or malicious software.", "control_type": "preventive", "frequency": "monthly"},
+    {"ref_code": "CC6.7", "title": "Data transmission security", "description": "The entity restricts the transmission, movement, and removal of information to authorized internal and external users.", "control_type": "preventive", "frequency": "quarterly"},
+    {"ref_code": "CC6.8", "title": "Malware protection", "description": "The entity implements controls to prevent or detect and act upon the introduction of unauthorized or malicious software.", "control_type": "preventive", "frequency": "monthly"},
+    {"ref_code": "CC7.1", "title": "Vulnerability detection", "description": "The entity uses detection and monitoring procedures to identify changes to configurations.", "control_type": "detective", "frequency": "monthly"},
+    {"ref_code": "CC7.2", "title": "Security event monitoring", "description": "The entity monitors system components and the operation of those controls for anomalies.", "control_type": "detective", "frequency": "continuous"},
+    {"ref_code": "CC7.3", "title": "Security event evaluation", "description": "The entity evaluates security events to determine whether they could or have resulted in a failure.", "control_type": "detective", "frequency": "continuous"},
+    {"ref_code": "CC7.4", "title": "Incident response", "description": "The entity responds to identified security incidents by executing a defined incident response program.", "control_type": "corrective", "frequency": "continuous"},
+    {"ref_code": "CC8.1", "title": "Change management", "description": "The entity authorizes, designs, develops or acquires, configures, documents, tests, approves, and implements changes.", "control_type": "preventive", "frequency": "continuous"},
+    {"ref_code": "CC9.1", "title": "Risk mitigation", "description": "The entity identifies, selects, and develops risk mitigation activities for risks identified.", "control_type": "directive", "frequency": "annually"},
+    {"ref_code": "A1.1", "title": "Availability — capacity management", "description": "The entity maintains, monitors, and evaluates current processing capacity and use of system components.", "control_type": "preventive", "frequency": "monthly"},
+    {"ref_code": "A1.2", "title": "Availability — backup and recovery", "description": "The entity authorizes, designs, develops, implements, and tests recovery procedures.", "control_type": "corrective", "frequency": "quarterly"}
+  ]
+}
